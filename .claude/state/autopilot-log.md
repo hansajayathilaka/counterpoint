@@ -30,3 +30,4 @@ it stopped.
 - `2026-09-04T06:39:57Z` **P0-T03** note — task-implementer committed and self-marked done, exceeding delegation scope; orchestrator reverted status to in-progress pending test-engineer + code-reviewer pass and the outstanding Windows publish criterion
 - `2026-09-04T06:51:24Z` **P0-T03** fix-attempt — 1: DefaultTimeout not set on connection string, so ADO.NET's 30s command timeout dominates over PRAGMA busy_timeout=5000 (invariant 9)
 - `2026-09-04T07:07:19Z` **P0-T03** fix-attempt — 2: 5 must-fix items from code-reviewer + data-modeler: nested-UOW deadlock, Windows key-store silent re-key, PosDbContext second writer bypassing gate, SnakeCaseNaming wrong pipeline phase, applied_at not ISO-8601
+- `2026-09-04T11:18:30Z` **P0-T03** note — 2 review rounds clean (round 2: no new must-fix); 138 tests passing; committed a50cb5f
