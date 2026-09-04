@@ -1,0 +1,24 @@
+{
+  "name": "hardware-pos-marketplace",
+  "owner": {
+    "name": "Hardware Shop POS project"
+  },
+  "metadata": {
+    "description": "Plugins for the Hardware Shop POS project.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "caveman",
+      "source": "./plugins/caveman",
+      "description": "Explain things in small words. /caveman for yourself, /explain-to-owner for the client.",
+      "category": "documentation"
+    },
+    {
+      "name": "pos-guardrails",
+      "source": "./plugins/pos-guardrails",
+      "description": "Blocks edits to committed migrations and warns on the structural invariants this system depends on.",
+      "category": "quality"
+    }
+  ]
+}

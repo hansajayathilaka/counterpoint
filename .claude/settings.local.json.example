@@ -1,0 +1,11 @@
+{
+  "$comment": "Copy to .claude/settings.local.json for personal overrides. Git-ignored.",
+  "permissions": {
+    "allow": [
+      "Bash(dotnet watch:*)"
+    ]
+  },
+  "env": {
+    "POS_PRINTER_NAME": "EPSON TM-T82"
+  }
+}

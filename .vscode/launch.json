@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "POS (Avalonia desktop)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/HardwarePos.Ui/bin/Debug/net10.0/HardwarePos.Ui.dll",
+      "cwd": "${workspaceFolder}/src/HardwarePos.Ui",
+      "console": "internalConsole",
+      "env": {
+        "POS_DEV_MODE": "1",
+        "POS_DATA_DIR": "${workspaceFolder}/artifacts/data"
+      }
+    }
+  ]
+}

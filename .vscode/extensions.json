@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.csharp",
+    "AvaloniaTeam.vscode-avalonia",
+    "qwtel.sqlite-viewer",
+    "EditorConfig.EditorConfig",
+    "bierner.markdown-mermaid",
+    "GitHub.vscode-github-actions",
+    "Anthropic.claude-code"
+  ]
+}

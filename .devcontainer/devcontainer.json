@@ -1,0 +1,78 @@
+{
+  "name": "Hardware Shop POS (.NET 10)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0",
+      "additionalVersions": "none"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "containerEnv": {
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "DOTNET_NOLOGO": "1",
+    "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1",
+    "POS_DATA_DIR": "/workspaces/hardware-pos/artifacts/data",
+    "POS_DEV_MODE": "1"
+  },
+
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/home/vscode/.dotnet/tools"
+  },
+
+  "onCreateCommand": "bash .devcontainer/post-create.sh",
+  "postAttachCommand": "dotnet --info || true",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "AvaloniaTeam.vscode-avalonia",
+        "kreativ-software.csharpextensions",
+        "qwtel.sqlite-viewer",
+        "mtxr.sqltools",
+        "EditorConfig.EditorConfig",
+        "streetsidesoftware.code-spell-checker",
+        "bierner.markdown-mermaid",
+        "yzhang.markdown-all-in-one",
+        "DavidAnson.vscode-markdownlint",
+        "GitHub.vscode-github-actions",
+        "eamodio.gitlens",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml",
+        "Anthropic.claude-code"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "dotnet.defaultSolution": "HardwarePos.sln",
+        "omnisharp.enableEditorConfigSupport": true,
+        "files.eol": "\n",
+        "files.exclude": {
+          "**/bin": true,
+          "**/obj": true
+        },
+        "sqltools.connections": [
+          {
+            "name": "POS dev database",
+            "driver": "SQLite",
+            "database": "${workspaceFolder}/artifacts/data/pos.db"
+          }
+        ]
+      }
+    }
+  },
+
+  "forwardPorts": [5000, 5001],
+  "portsAttributes": {
+    "5000": { "label": "Backup portal (dev)" }
+  },
+
+  "remoteUser": "vscode"
+}

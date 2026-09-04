@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "task/**", "fix/**"]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+  CI: true
+
+jobs:
+  build-and-test:
+    name: Build and test (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install sqlite3 and fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sqlite3 fonts-dejavu-core
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Format check
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Test
+        run: dotnet test --no-build -c Release --logger "trx;LogFileName=results.trx" --results-directory artifacts/test-results
+
+      - name: Architecture tests
+        run: dotnet test --no-build -c Release --filter "FullyQualifiedName~ArchitectureTests"
+
+      - name: Append-only trigger survival
+        run: bash scripts/check-triggers.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: artifacts/test-results
+
+  windows-publish:
+    name: Windows self-contained publish
+    runs-on: windows-2022
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # The product ships on Windows. This job proves the self-contained publish
+      # works with the native SQLCipher assets, which is the packaging risk
+      # retired in task P0-T07.
+      - name: Publish
+        run: >
+          dotnet publish src/HardwarePos.Ui -c Release -r win-x64
+          --self-contained true -p:PublishReadyToRun=true
+          -o artifacts/publish
+
+      - name: Report publish size
+        shell: pwsh
+        run: |
+          $size = (Get-ChildItem artifacts/publish -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+          Write-Host ("Publish size: {0:N1} MB" -f $size)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pos-win-x64
+          path: artifacts/publish

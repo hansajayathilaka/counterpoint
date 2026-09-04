@@ -1,0 +1,10 @@
+{
+  "$comment": "Project-scoped MCP servers. Committed so every developer and every Claude Code web session gets the same tools. Add secrets via environment variables, never inline.",
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "$comment": "Up-to-date docs for EF Core, Avalonia, QuestPDF, Dapper. Useful because this stack moves faster than model training data."
+    }
+  }
+}
