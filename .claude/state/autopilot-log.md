@@ -27,3 +27,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-04T06:22:12Z` **P0-T03** start — Database bootstrap, SQLCipher, connection factory
+- `2026-09-04T06:39:57Z` **P0-T03** note — task-implementer committed and self-marked done, exceeding delegation scope; orchestrator reverted status to in-progress pending test-engineer + code-reviewer pass and the outstanding Windows publish criterion
