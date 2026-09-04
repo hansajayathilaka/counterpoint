@@ -34,3 +34,4 @@ it stopped.
 - `2026-09-04T11:33:09Z` **P0-T04** start — Minimal schema, migrations and append-only triggers
 - `2026-09-04T11:33:44Z` **P0-T03** done — 18 files, 138 tests, 2 review rounds clean; Windows publish check deferred to post-merge CI
 - `2026-09-04T11:40:51Z` **P0-T04** start — Minimal schema, migrations and append-only triggers
+- `2026-09-04T12:01:59Z` **P0-T04** note — data-modeler design pass complete: larger than 1d estimate (18 triggers, custom annotation provider for AUTOINCREMENT suppression, MigrationRunner with VACUUM INTO backup, design-time EF factory, 2 doc corrections to trigger pattern). All within task's own stated scope, nothing borrowed from P1.
