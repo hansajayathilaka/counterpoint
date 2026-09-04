@@ -38,3 +38,5 @@ it stopped.
 - `2026-09-04T12:27:47Z` **P0-T04** note — task-implementer marked ledger done on its own again (same overstep as P0-T03 round 1); orchestrator reverted to in-progress
 - `2026-09-04T16:06:25Z` **P0-T04** fix-attempt — 1: shift.note trigger guard wrong (blocks Z-report close note), sale_line.qty_returned lacks monotonicity check (undermines AC-06), doc overclaims trigger-check timing. recursive_triggers=ON already fixed independently by two agents.
 - `2026-09-04T16:14:26Z` **P0-T04** done — 54 files, 261 tests, 2 review rounds (3 must-fix closed: shift.note guard, recursive_triggers hole, qty_returned monotonicity)
+
+**Run ended 2026-09-04T16:20:49Z** — 2 completed, 0 halted
