@@ -49,6 +49,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IPosDbContextFactory>(provider =>
             provider.GetRequiredService<SqliteUnitOfWork>());
 
+        // Registered, not invoked. Calling ApplyPendingMigrationsAsync at start-up belongs to
+        // P0-T06, which builds the composition root - Counterpoint.Ui has no DI container yet.
+        // Until then the runner is driven by the integration tests.
+        services.AddSingleton<MigrationRunner>();
+
         return services;
     }
 }

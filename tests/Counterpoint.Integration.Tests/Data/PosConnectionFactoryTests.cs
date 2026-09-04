@@ -299,6 +299,13 @@ public sealed class PosConnectionFactoryTests
         (await ScalarAsync(connection, "PRAGMA synchronous;")).Should().Be("2");
 
         (await ScalarAsync(connection, "PRAGMA foreign_keys;")).Should().Be("1");
+
+        // CLAUDE.md invariant 5. Off - the SQLite default - a BEFORE DELETE trigger does not fire
+        // for the row REPLACE conflict resolution removes, so INSERT OR REPLACE rewrites a bill,
+        // a payment or a ledger row without raising. See
+        // AppendOnlyTriggerTests.DM_05_ReplaceCannotOverwriteAnAppendOnlyRow.
+        (await ScalarAsync(connection, "PRAGMA recursive_triggers;")).Should().Be("1");
+
         (await ScalarAsync(connection, "PRAGMA busy_timeout;")).Should().Be("5000");
 
         // The pragma is not the effective wait on its own: Microsoft.Data.Sqlite runs its own

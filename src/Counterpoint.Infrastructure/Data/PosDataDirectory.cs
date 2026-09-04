@@ -29,6 +29,8 @@ public sealed class PosDataDirectory
     public const string DatabaseFileName = "counterpoint.db";
 
     private const string DatabaseFolderName = "db";
+    private const string BackupFolderName = "backups";
+    private const string PreMigrationFolderName = "pre-migration";
     private const string OneDriveTenantPrefix = "OneDrive - ";
 
     /// <summary>
@@ -63,6 +65,19 @@ public sealed class PosDataDirectory
     public string DatabaseFilePath => Path.Combine(DatabaseDirectory, DatabaseFileName);
 
     /// <summary>
+    /// Folder holding the copy taken immediately before a schema migration (NFR-M3). Created by
+    /// <see cref="EnsureCreated"/>.
+    /// </summary>
+    /// <remarks>
+    /// Not the same thing as the backup snapshots of FR-11 (P0-T07): those are compressed,
+    /// separately encrypted, checksummed and recorded in <c>backup_record</c>. A pre-migration
+    /// copy is a plain <c>VACUUM INTO</c> of the encrypted file, kept only so a failed upgrade
+    /// has something to go back to.
+    /// </remarks>
+    public string PreMigrationBackupDirectory =>
+        Path.Combine(Root, BackupFolderName, PreMigrationFolderName);
+
+    /// <summary>
     /// Resolves the data directory, falling back to the platform default when
     /// <paramref name="overridePath"/> is null or blank.
     /// </summary>
@@ -91,10 +106,11 @@ public sealed class PosDataDirectory
         return new PosDataDirectory(absolute);
     }
 
-    /// <summary>Creates the data directory and the database sub-folder if they do not exist.</summary>
+    /// <summary>Creates the data directory and its sub-folders if they do not exist.</summary>
     public PosDataDirectory EnsureCreated()
     {
         Directory.CreateDirectory(DatabaseDirectory);
+        Directory.CreateDirectory(PreMigrationBackupDirectory);
         return this;
     }
 

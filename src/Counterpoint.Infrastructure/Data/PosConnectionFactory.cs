@@ -38,6 +38,16 @@ public sealed class PosConnectionFactory : IPosConnectionFactory, IDisposable, I
         "PRAGMA synchronous = FULL;",
 
         "PRAGMA foreign_keys = ON;",
+
+        // CLAUDE.md invariant 5. SQLite fires a BEFORE DELETE trigger for the row that REPLACE
+        // conflict resolution removes *only* when recursive triggers are on, and they are off by
+        // default. With them off, `INSERT OR REPLACE INTO sale ...` on an existing bill_no walks
+        // straight past trg_sale_no_delete and rewrites the row - new total, new row_hash, no
+        // error - and the same for payment, sale_line, stock_movement, audit_log and shift. The
+        // append-only tables are not append-only without this line. None of the triggers write, so
+        // there is no recursion for it to enable.
+        "PRAGMA recursive_triggers = ON;",
+
         FormattableString.Invariant($"PRAGMA busy_timeout = {BusyTimeoutSeconds * 1000};"),
         "PRAGMA temp_store = MEMORY;",
         "PRAGMA cache_size = -20000;",
