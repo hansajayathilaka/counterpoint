@@ -12,6 +12,10 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# Must match whatever configuration the caller already built (scripts/verify.sh builds Debug;
+# CI's build-and-test job builds Release) - --no-build fails outright against the other one.
+CONFIGURATION="${CONFIGURATION:-Debug}"
+
 dotnet test tests/Counterpoint.Integration.Tests/Counterpoint.Integration.Tests.csproj \
-  --no-build -c Debug \
+  --no-build -c "$CONFIGURATION" \
   --filter "FullyQualifiedName~AppendOnlyTriggerTests"

@@ -63,6 +63,8 @@ jobs:
 
       - name: Append-only trigger survival
         run: bash scripts/check-triggers.sh
+        env:
+          CONFIGURATION: Release
 
       - uses: actions/upload-artifact@v4
         if: always()
