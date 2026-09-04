@@ -3,7 +3,7 @@
 
 | Field | Value |
 |---|---|
-| Document title | SRS — Hardware Shop POS (Single Terminal) |
+| Document title | SRS — Counterpoint (Single Terminal) |
 | Version | 1.0 (Draft for review) |
 | Date | 3 September 2026 |
 | Status | For client sign-off |

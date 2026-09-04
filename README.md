@@ -1,6 +1,6 @@
-# Hardware Shop POS
+# Counterpoint
 
-Offline-first Point of Sale and inventory system for a single-cashier hardware shop.
+Offline-first Point of Sale and inventory system for a single-cashier shop.
 
 **Stack:** .NET 10 LTS · C# · Avalonia UI · SQLite + SQLCipher · EF Core + Dapper
 **Target:** Windows desktop, low-powered terminal (dual-core, 4 GB)
@@ -89,8 +89,8 @@ Installed from the local marketplace:
 
 ```
 /plugin marketplace add .
-/plugin install caveman@hardware-pos-marketplace
-/plugin install pos-guardrails@hardware-pos-marketplace
+/plugin install caveman@counterpoint-marketplace
+/plugin install pos-guardrails@counterpoint-marketplace
 ```
 
 The caveman **output style** is separate from the plugin and lives in

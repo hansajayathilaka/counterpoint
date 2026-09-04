@@ -1,7 +1,7 @@
 {
   "editor.formatOnSave": true,
   "files.eol": "\n",
-  "dotnet.defaultSolution": "HardwarePos.sln",
+  "dotnet.defaultSolution": "Counterpoint.sln",
   "search.exclude": {
     "**/bin": true,
     "**/obj": true,

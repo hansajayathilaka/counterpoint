@@ -119,7 +119,7 @@ hands them back.
 ## Acceptance criteria coverage
 
 Update as tests land. `automated` means a passing test exists in
-`tests/HardwarePos.Acceptance.Tests`. `manual` means hardware or a human is required.
+`tests/Counterpoint.Acceptance.Tests`. `manual` means hardware or a human is required.
 
 | AC | Owning task | Status |
 |---|---|---|

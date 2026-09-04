@@ -2,6 +2,14 @@
   "name": "pos-guardrails",
   "version": "1.0.0",
   "description": "Structural guardrails for the POS: blocks edits to committed migrations, warns on floating-point money, direct stock_balance writes, AUTOINCREMENT document numbers and weakened durability PRAGMAs.",
-  "author": { "name": "Hardware Shop POS project" },
-  "keywords": ["hooks", "invariants", "safety", "dotnet", "sqlite"]
+  "author": {
+    "name": "Counterpoint project"
+  },
+  "keywords": [
+    "hooks",
+    "invariants",
+    "safety",
+    "dotnet",
+    "sqlite"
+  ]
 }

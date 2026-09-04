@@ -20,6 +20,9 @@ appsettings.Local.json
 # Claude Code local overrides
 .claude/settings.local.json
 
+# Node tooling (commitlint, semantic-release)
+node_modules/
+
 # OS
 .DS_Store
 Thumbs.db

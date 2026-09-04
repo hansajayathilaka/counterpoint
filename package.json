@@ -1,0 +1,20 @@
+{
+    "name": "counterpoint-tooling",
+    "private": true,
+    "version": "0.0.0-managed-by-semantic-release",
+    "description": "Commit linting and release tooling for Counterpoint. The product itself is .NET; see CLAUDE.md.",
+    "scripts": {
+        "prepare": "husky",
+        "commitlint": "commitlint --edit"
+    },
+    "devDependencies": {
+        "@commitlint/cli": "^19.5.0",
+        "@commitlint/config-conventional": "^19.5.0",
+        "@semantic-release/changelog": "^6.0.3",
+        "@semantic-release/exec": "^6.0.3",
+        "@semantic-release/git": "^10.0.1",
+        "@semantic-release/github": "^11.0.1",
+        "husky": "^9.1.6",
+        "semantic-release": "^24.1.0"
+    }
+}

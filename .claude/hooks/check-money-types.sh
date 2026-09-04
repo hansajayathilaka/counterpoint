@@ -14,7 +14,7 @@ case "$FILE" in *.cs) ;; *) exit 0 ;; esac
 PROBLEMS=""
 
 case "$FILE" in
-  */HardwarePos.Domain/*|*/HardwarePos.Application/*|*/HardwarePos.Infrastructure/*)
+  */Counterpoint.Domain/*|*/Counterpoint.Application/*|*/Counterpoint.Infrastructure/*)
     if grep -nE '\b(double|float)\b' "$FILE" | grep -vE '^\s*[0-9]+:\s*//' | grep -q .; then
       PROBLEMS="${PROBLEMS}- 'double' or 'float' appears in $FILE. Money and quantity use the Money/Quantity value objects over decimal (CLAUDE.md invariant 1).\n"
     fi

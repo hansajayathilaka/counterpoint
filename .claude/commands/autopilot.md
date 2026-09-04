@@ -135,7 +135,7 @@ If it fails: go to B7 (fix loop).
 Delegate in parallel where they apply:
 - **code-reviewer** — always
 - **data-modeler** — if migrations, entities or queries changed
-- **device-integrator** — if anything under `src/HardwarePos.Devices` changed
+- **device-integrator** — if anything under `src/Counterpoint.Devices` changed
 
 Consolidate the findings. Then:
 - **Must fix** → B7.

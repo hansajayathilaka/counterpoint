@@ -39,6 +39,6 @@ Then, before reporting back, hand the diff to the **code-reviewer** agent. Fix a
 - Run `bash scripts/verify.sh`.
 - Walk each "Done when" checkbox and state what proves it.
 - Update `.claude/state/PROGRESS.md` to `done` with the date.
-- Propose a commit message in the house format: `P1-T07: UOM conversion in base units (FR-2.4, FR-2.5)`.
+- Propose a commit message in Conventional Commits form, scoped with the task id: `feat(P1-T07): UOM conversion in base units (FR-2.4, FR-2.5)`. Pick the type (`feat`, `fix`, `refactor`, `test`, `docs`, ...) honestly — it drives the automated release version.
 
 Stop there. Do not roll straight into the following task.

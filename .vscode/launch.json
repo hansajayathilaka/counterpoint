@@ -6,8 +6,8 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build",
-      "program": "${workspaceFolder}/src/HardwarePos.Ui/bin/Debug/net10.0/HardwarePos.Ui.dll",
-      "cwd": "${workspaceFolder}/src/HardwarePos.Ui",
+      "program": "${workspaceFolder}/src/Counterpoint.Ui/bin/Debug/net10.0/Counterpoint.Ui.dll",
+      "cwd": "${workspaceFolder}/src/Counterpoint.Ui",
       "console": "internalConsole",
       "env": {
         "POS_DEV_MODE": "1",

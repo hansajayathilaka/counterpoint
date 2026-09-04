@@ -3,10 +3,10 @@
 
 | Field | Value |
 |---|---|
-| Document | SAD — Hardware Shop POS |
+| Document | SAD — Counterpoint |
 | Version | 1.0 (Draft) |
 | Date | 3 September 2026 |
-| Companion to | SRS v1.0 (Hardware_Shop_POS_Requirements.md) |
+| Companion to | SRS v1.0 (Counterpoint_Requirements.md) |
 | Status | For technical review before Phase 1 |
 
 Every decision below cites the SRS requirement that forces it. Where the SRS is silent or self-contradictory, the gap is listed in §17.
@@ -234,19 +234,19 @@ Stack: whatever the team already ships fastest — a Next.js or NestJS service o
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ HardwarePos.Ui (Avalonia, MVVM)                                      │
+│ Counterpoint.Ui (Avalonia, MVVM)                                     │
 │  SalesView · ReturnsView · BackOffice · Reports · Settings           │
 │  — no business logic, no SQL, no direct device calls —               │
 └──────────────────────────┬───────────────────────────────────────────┘
                            │ (ViewModels call use cases)
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│ HardwarePos.Application — use cases & authorisation (NFR-S2)         │
+│ Counterpoint.Application — use cases & authorisation (NFR-S2)        │
 │  SaleService · ReturnService · StockService · GrnService             │
 │  ShiftService · ReportService · BackupService · CatalogueService     │
 │  Ports: IReceiptPrinter · IScale · IBackupTarget · IClock · IAuditor │
 └──────────────────────────┬───────────────────────────────────────────┘
 ┌──────────────────────────▼───────────────────────────────────────────┐
-│ HardwarePos.Domain — entities, value objects, business rules         │
+│ Counterpoint.Domain — entities, value objects, business rules        │
 │  Money · Quantity · Uom conversion · pricing · return policy         │
 │  No I/O. No framework types. 100% unit-testable. Where BR-* lives.   │
 └──────────────────────────┬───────────────────────────────────────────┘
@@ -261,20 +261,20 @@ Stack: whatever the team already ships fastest — a Next.js or NestJS service o
 ## Solution layout
 
 ```
-HardwarePos.sln
+Counterpoint.sln
 ├─ src/
-│  ├─ HardwarePos.Domain/            no dependencies at all
-│  ├─ HardwarePos.Application/       depends on Domain only
-│  ├─ HardwarePos.Infrastructure/    EF Core, Dapper, SQLite, migrations
-│  ├─ HardwarePos.Devices/           ESC/POS, drawer, serial scale, labels
-│  ├─ HardwarePos.Reporting/         PDF, XLSX, CSV renderers
-│  ├─ HardwarePos.Backup/            snapshot → compress → encrypt → upload
-│  └─ HardwarePos.Ui/                Avalonia views + viewmodels
+│  ├─ Counterpoint.Domain/            no dependencies at all
+│  ├─ Counterpoint.Application/       depends on Domain only
+│  ├─ Counterpoint.Infrastructure/    EF Core, Dapper, SQLite, migrations
+│  ├─ Counterpoint.Devices/           ESC/POS, drawer, serial scale, labels
+│  ├─ Counterpoint.Reporting/         PDF, XLSX, CSV renderers
+│  ├─ Counterpoint.Backup/            snapshot → compress → encrypt → upload
+│  └─ Counterpoint.Ui/                Avalonia views + viewmodels
 ├─ tests/
-│  ├─ HardwarePos.Domain.Tests/      fast, no I/O, the bulk of the suite
-│  ├─ HardwarePos.Integration.Tests/ real SQLite file per test
-│  ├─ HardwarePos.Device.Tests/      golden-byte tests against captured ESC/POS
-│  └─ HardwarePos.Acceptance.Tests/  one test per AC-01…AC-20
+│  ├─ Counterpoint.Domain.Tests/      fast, no I/O, the bulk of the suite
+│  ├─ Counterpoint.Integration.Tests/ real SQLite file per test
+│  ├─ Counterpoint.Device.Tests/      golden-byte tests against captured ESC/POS
+│  └─ Counterpoint.Acceptance.Tests/  one test per AC-01…AC-20
 ├─ tools/SeedGenerator/              20k SKUs + 100k lines for AC-18
 └─ portal/                           separate deployable, separate repo
 ```
@@ -453,7 +453,7 @@ Owner override actions (unlinked refunds FR-5, discounts above limit Q-12, non-r
 # 11. Packaging, install and update
 
 - **Publish:** `dotnet publish -r win-x64 --self-contained -p:PublishReadyToRun=true`. No .NET runtime prerequisite, no admin-installed dependency — NFR-M2.
-- **Installer:** Inno Setup. One `.exe`, per-machine install to `%ProgramFiles%`, data directory under `%ProgramData%\HardwarePos\` (never `%ProgramFiles%`, or Windows file virtualisation will produce baffling bugs), desktop and startup shortcuts, first-run setup wizard (shop profile, tax, printer, backup passphrase, admin account).
+- **Installer:** Inno Setup. One `.exe`, per-machine install to `%ProgramFiles%`, data directory under `%ProgramData%\Counterpoint\` (never `%ProgramFiles%`, or Windows file virtualisation will produce baffling bugs), desktop and startup shortcuts, first-run setup wizard (shop profile, tax, printer, backup passphrase, admin account).
 - **Trimming:** do not enable IL trimming. It saves ~30 MB and reliably breaks EF Core and reflection-based serialisation. Not worth it.
 - **Updates (NFR-M3):** installer over the top; on launch, compare `schema_version` → if a migration is pending, take a full pre-migration backup → run EF Core migrations in a transaction → verify → proceed. If the migration fails, restore the pre-migration backup automatically and refuse to start with a plain-language message. Optionally add Velopack later for delta updates; it is not needed for a single terminal.
 - **Migrations:** EF Core migrations checked into source, forward-only, each with a matching integration test that runs it against a seeded database.

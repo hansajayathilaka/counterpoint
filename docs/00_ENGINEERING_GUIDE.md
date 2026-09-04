@@ -8,7 +8,7 @@
 
 An offline-first Point of Sale and inventory system for a **single-cashier hardware shop**. One machine, one till, one active session. The local SQLite database is the single source of truth. The internet is used for exactly one thing: shipping encrypted backup copies off-site.
 
-Read `docs/Hardware_Shop_POS_Requirements.md` (SRS) for what it must do and `docs/POS_Architecture_Design.md` (SAD) for why it is built this way.
+Read `docs/Counterpoint_Requirements.md` (SRS) for what it must do and `docs/POS_Architecture_Design.md` (SAD) for why it is built this way.
 
 ### Things this system is not, and must never become
 
@@ -46,20 +46,20 @@ Do not add a dependency without a note in `docs/adr/` saying why. Every dependen
 ## 3. Solution layout
 
 ```
-HardwarePos.sln
+Counterpoint.sln
 ├─ src/
-│  ├─ HardwarePos.Domain/          entities, value objects, business rules. ZERO dependencies.
-│  ├─ HardwarePos.Application/     use cases, ports (interfaces), authorisation
-│  ├─ HardwarePos.Infrastructure/  EF Core, Dapper, SQLite, migrations, repositories
-│  ├─ HardwarePos.Devices/         ESC/POS, drawer, label printer, serial scale, scanner filter
-│  ├─ HardwarePos.Reporting/       PDF / XLSX / CSV renderers
-│  ├─ HardwarePos.Backup/          snapshot, compress, encrypt, targets
-│  └─ HardwarePos.Ui/              Avalonia views + viewmodels + composition root
+│  ├─ Counterpoint.Domain/          entities, value objects, business rules. ZERO dependencies.
+│  ├─ Counterpoint.Application/     use cases, ports (interfaces), authorisation
+│  ├─ Counterpoint.Infrastructure/  EF Core, Dapper, SQLite, migrations, repositories
+│  ├─ Counterpoint.Devices/         ESC/POS, drawer, label printer, serial scale, scanner filter
+│  ├─ Counterpoint.Reporting/       PDF / XLSX / CSV renderers
+│  ├─ Counterpoint.Backup/          snapshot, compress, encrypt, targets
+│  └─ Counterpoint.Ui/              Avalonia views + viewmodels + composition root
 ├─ tests/
-│  ├─ HardwarePos.Domain.Tests/
-│  ├─ HardwarePos.Integration.Tests/
-│  ├─ HardwarePos.Device.Tests/
-│  └─ HardwarePos.Acceptance.Tests/    one test class per AC-01…AC-20
+│  ├─ Counterpoint.Domain.Tests/
+│  ├─ Counterpoint.Integration.Tests/
+│  ├─ Counterpoint.Device.Tests/
+│  └─ Counterpoint.Acceptance.Tests/    one test class per AC-01…AC-20
 ├─ tools/
 │  ├─ SeedGenerator/               20k SKUs + 100k lines for AC-18
 │  └─ EscPosCapture/               dumps rendered receipt bytes for inspection
@@ -82,7 +82,7 @@ HardwarePos.sln
 
 `Ui` must never reference `Infrastructure`, `Devices`, `Reporting` or `Backup` directly — it gets them through interfaces registered in the composition root. This is what makes NFR-S2 and AC-17 ("authorisation verified at the business-logic layer, not just the UI") structurally true.
 
-Write this as a test in `HardwarePos.Domain.Tests/ArchitectureTests.cs` in Phase 0. It fails the build if violated.
+Write this as a test in `Counterpoint.Domain.Tests/ArchitectureTests.cs` in Phase 0. It fails the build if violated.
 
 ---
 
@@ -162,7 +162,7 @@ One long-lived **write** connection, serialised behind a `SemaphoreSlim`. A smal
 
 ### 4.9 Data directory
 
-`%ProgramData%\HardwarePos\` — never `%ProgramFiles%` (file virtualisation), never a network path, never inside a OneDrive/Google Drive sync root (SQLite corruption). The installer and the app both validate this and refuse to start otherwise.
+`%ProgramData%\Counterpoint\` — never `%ProgramFiles%` (file virtualisation), never a network path, never inside a OneDrive/Google Drive sync root (SQLite corruption). The installer and the app both validate this and refuse to start otherwise.
 
 ---
 
@@ -206,7 +206,7 @@ One long-lived **write** connection, serialised behind a `SemaphoreSlim`. A smal
 
 ## 7. Logging and diagnostics
 
-- Serilog to `%ProgramData%\HardwarePos\logs\pos-.log`, daily rolling, 14 days.
+- Serilog to `%ProgramData%\Counterpoint\logs\pos-.log`, daily rolling, 14 days.
 - Log at `Information`: app start/stop, shift open/close, backup taken/uploaded, restore, migrations, device connect/disconnect, owner overrides.
 - Log at `Warning`: print failure, upload failure, projection mismatch, negative stock sale, slow query (>250 ms).
 - **Never log**: passwords, PINs, the backup passphrase, the DB key, OAuth tokens, full payment references.
@@ -232,6 +232,7 @@ Performance work that matters, in order: compiled EF model, ReadyToRun publish, 
 ## 9. Git and PR discipline
 
 - One task = one branch = one PR. Branch `task/P1-T07-uom-conversion`.
-- Commit messages reference the task and SRS id: `P1-T07: UOM conversion in base units (FR-2.4, FR-2.5)`.
+- Commit messages follow **Conventional Commits**, scoped with the task id: `feat(P1-T07): UOM conversion in base units (FR-2.4, FR-2.5)`. A `commit-msg` hook (commitlint) and a CI job both reject non-conforming messages — this is enforced, not a convention people can forget.
 - A PR that touches the schema must include the migration, the migration test and a `docs/01_DATA_MODEL.md` update in the same PR.
 - Never merge with a failing acceptance test, even one from a later phase that has started passing early.
+- Merging to `main` triggers the release pipeline: it derives the next semver version from the commits since the last release (`fix` → patch, `feat` → minor, `BREAKING CHANGE:` footer → major), tags it, updates `Directory.Build.props` and `CHANGELOG.md`, and publishes a GitHub Release. There is no manual version bump.

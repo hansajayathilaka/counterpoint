@@ -1,4 +1,4 @@
-# Hardware Shop POS
+# Counterpoint
 
 Offline-first Point of Sale and inventory system for a **single-cashier hardware shop**.
 One machine, one till, one active session. The local SQLite database is the single source of truth.
@@ -13,7 +13,7 @@ One machine, one till, one active session. The local SQLite database is the sing
 | Any schema, entity or migration work | `docs/01_DATA_MODEL.md` |
 | Starting a task | The task's own section in `docs/0{2..7}_PHASE_*.md` |
 | Architecture or dependency questions | `docs/POS_Architecture_Design.md` |
-| Requirement ids (FR-*, NFR-*, AC-*) | `docs/Hardware_Shop_POS_Requirements.md` |
+| Requirement ids (FR-*, NFR-*, AC-*) | `docs/Counterpoint_Requirements.md` |
 | Full conventions and definition of done | `docs/00_ENGINEERING_GUIDE.md` |
 | Task order and status | `docs/08_TASK_INDEX.md` and `.claude/state/PROGRESS.md` |
 
@@ -53,7 +53,7 @@ Backup          -> Application, Domain
 Ui              -> Application, Domain   (never Infrastructure/Devices/Reporting/Backup)
 ```
 
-Enforced by `tests/HardwarePos.Domain.Tests/ArchitectureTests.cs`. Do not work around it.
+Enforced by `tests/Counterpoint.Domain.Tests/ArchitectureTests.cs`. Do not work around it.
 
 ## Working agreement
 
@@ -61,7 +61,7 @@ Enforced by `tests/HardwarePos.Domain.Tests/ArchitectureTests.cs`. Do not work a
 - Use `/next-task` to start the next planned task. Use `/task-status` to see where things stand.
 - Every task ends with `dotnet test` green and the app still starting. The build is never left red between tasks.
 - A PR that touches the schema includes the migration, the migration test and the `docs/01_DATA_MODEL.md` update.
-- Commit messages carry the task id and SRS id: `P1-T07: UOM conversion in base units (FR-2.4, FR-2.5)`.
+- Commit messages **must** follow [Conventional Commits](https://www.conventionalcommits.org/), enforced by a `commit-msg` hook (commitlint) and again in CI on every PR — neither can be skipped by convention alone. The scope carries the task id: `feat(P1-T07): UOM conversion in base units (FR-2.4, FR-2.5)`. Use `fix`, `feat`, `docs`, `refactor`, `perf`, `test`, `build`, `ci` or `chore`; add a `BREAKING CHANGE:` footer only for an intentional major bump. Merges to `main` are released automatically — the next version is computed from these commits (semantic-release), tagged, and published as a GitHub Release. Never hand-edit `<Version>` in `Directory.Build.props`.
 - Update `.claude/state/PROGRESS.md` when a task's status changes. It is the ledger the commands read.
 
 ## Development platform note

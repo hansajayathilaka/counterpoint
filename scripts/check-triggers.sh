@@ -16,8 +16,8 @@ TABLES="sale sale_line payment sale_return sale_return_line stock_movement shift
 
 echo "Applying migration chain to $DB"
 POS_DB_PATH="$DB" POS_DEV_MODE=1 dotnet ef database update \
-  --project src/HardwarePos.Infrastructure \
-  --startup-project src/HardwarePos.Ui >/dev/null 2>&1 || {
+  --project src/Counterpoint.Infrastructure \
+  --startup-project src/Counterpoint.Ui >/dev/null 2>&1 || {
     echo "FAIL: migrations did not apply"; exit 1; }
 
 MISSING=0

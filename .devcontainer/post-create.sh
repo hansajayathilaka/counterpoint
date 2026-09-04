@@ -3,7 +3,7 @@
 # Keep it idempotent and keep it quiet on success.
 set -euo pipefail
 
-echo "==> Hardware Shop POS dev environment setup"
+echo "==> Counterpoint dev environment setup"
 
 cd "$(dirname "$0")/.."
 
@@ -26,7 +26,7 @@ if command -v dotnet >/dev/null 2>&1; then
   echo "==> dotnet $(dotnet --version)"
   dotnet tool install --global dotnet-ef --version 10.* 2>/dev/null || dotnet tool update --global dotnet-ef 2>/dev/null || true
 
-  if [ -f HardwarePos.sln ]; then
+  if [ -f Counterpoint.sln ]; then
     echo "==> Restoring packages"
     dotnet restore || echo "!! restore failed - check Directory.Packages.props versions"
   else

@@ -2,6 +2,13 @@
   "name": "caveman",
   "version": "1.0.0",
   "description": "Explain things in small words. Useful for talking to the shop owner about what the software does, and for checking your own understanding of a subsystem.",
-  "author": { "name": "Hardware Shop POS project" },
-  "keywords": ["explain", "plain-language", "documentation", "fun"]
+  "author": {
+    "name": "Counterpoint project"
+  },
+  "keywords": [
+    "explain",
+    "plain-language",
+    "documentation",
+    "fun"
+  ]
 }

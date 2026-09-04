@@ -1,10 +1,10 @@
 {
-  "name": "hardware-pos-marketplace",
+  "name": "counterpoint-marketplace",
   "owner": {
-    "name": "Hardware Shop POS project"
+    "name": "Counterpoint project"
   },
   "metadata": {
-    "description": "Plugins for the Hardware Shop POS project.",
+    "description": "Plugins for the Counterpoint project.",
     "version": "1.0.0"
   },
   "plugins": [

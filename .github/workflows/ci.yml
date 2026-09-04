@@ -12,6 +12,27 @@ env:
   CI: true
 
 jobs:
+  commitlint:
+    name: Commit messages (Conventional Commits)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - run: >
+          npx commitlint
+          --from ${{ github.event.pull_request.base.sha }}
+          --to ${{ github.event.pull_request.head.sha }}
+          --verbose
+
   build-and-test:
     name: Build and test (Linux)
     runs-on: ubuntu-24.04
@@ -65,7 +86,7 @@ jobs:
       # retired in task P0-T07.
       - name: Publish
         run: >
-          dotnet publish src/HardwarePos.Ui -c Release -r win-x64
+          dotnet publish src/Counterpoint.Ui -c Release -r win-x64
           --self-contained true -p:PublishReadyToRun=true
           -o artifacts/publish
 

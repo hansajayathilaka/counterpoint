@@ -17,7 +17,7 @@ Run review. Scope: **$ARGUMENTS** (default: uncommitted changes).
 
 Additionally, run in parallel where they apply to the changed files:
 - **data-modeler** if migrations, entities or queries changed
-- **device-integrator** if anything under `src/HardwarePos.Devices` changed
+- **device-integrator** if anything under `src/Counterpoint.Devices` changed
 - **test-engineer** if the change adds a business rule but no test named for its SRS id
 
 ## Consolidate

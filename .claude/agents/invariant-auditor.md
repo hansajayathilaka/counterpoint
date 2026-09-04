@@ -13,7 +13,7 @@ Work through each invariant with targeted searches. Report evidence, not impress
 
 | # | Invariant | How to check |
 |---|---|---|
-| 1 | Scaled integers, no floats | `grep -rnE '\b(double\|float)\b' src/HardwarePos.{Domain,Application,Infrastructure}` · check every EF value converter maps to `long` · run `sqlite3 <db> "SELECT typeof(total) FROM sale LIMIT 5"` and confirm `integer` |
+| 1 | Scaled integers, no floats | `grep -rnE '\b(double\|float)\b' src/Counterpoint.{Domain,Application,Infrastructure}` · check every EF value converter maps to `long` · run `sqlite3 <db> "SELECT typeof(total) FROM sale LIMIT 5"` and confirm `integer` |
 | 2 | Rounding at two points only | Find every call to `Math.Round` and every `IRoundingPolicy` usage. Anything outside line-total and bill-total computation is drift. |
 | 3 | Ledger and projection | Every writer of `stock_balance` must be `StockLedger`. Every read path must use the projection, never `SUM(stock_movement)`. |
 | 4 | Numbering | No `AUTOINCREMENT` on document tables, no `MAX(n)+1`. Allocation happens inside the business transaction. |

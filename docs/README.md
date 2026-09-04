@@ -1,6 +1,6 @@
-# Hardware Shop POS — Development Plan
+# Counterpoint — Development Plan
 
-Companion to `Hardware_Shop_POS_Requirements.md` (SRS v1.0) and `POS_Architecture_Design.md` (SAD v1.0).
+Companion to `Counterpoint_Requirements.md` (SRS v1.0) and `POS_Architecture_Design.md` (SAD v1.0).
 
 **Stack (decided):** .NET 10 LTS · C# · Avalonia UI · SQLite + SQLCipher · EF Core (writes/migrations) + Dapper (hot reads/reports).
 

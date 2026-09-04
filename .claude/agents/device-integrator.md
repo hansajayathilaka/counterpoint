@@ -1,6 +1,6 @@
 ---
 name: device-integrator
-description: Works on peripherals — ESC/POS receipt printing, cash drawer, label printers, barcode scanners and serial scales. Use for anything in src/HardwarePos.Devices.
+description: Works on peripherals — ESC/POS receipt printing, cash drawer, label printers, barcode scanners and serial scales. Use for anything in src/Counterpoint.Devices.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
 ---

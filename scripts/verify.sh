@@ -12,7 +12,7 @@ result() {
   if [ "$1" -eq 0 ]; then echo "PASS: $2"; else echo "FAIL: $2"; FAILED=1; fi
 }
 
-if [ ! -f HardwarePos.sln ]; then
+if [ ! -f Counterpoint.sln ]; then
   echo "No solution yet. Run: bash scripts/bootstrap-solution.sh  (task P0-T01)"
   exit 1
 fi

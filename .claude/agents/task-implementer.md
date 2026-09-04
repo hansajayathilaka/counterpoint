@@ -12,7 +12,7 @@ You implement **one** planned task from `docs/0{2..7}_PHASE_*.md`. Nothing else.
 1. Read `CLAUDE.md`.
 2. Read the task's full section: Context, Do this, Deliverables, Risks, Done when.
 3. Read `docs/01_DATA_MODEL.md` if the task touches schema, entities or queries.
-4. Read the SRS sections the task cites (FR-*, NFR-*, AC-*) in `docs/Hardware_Shop_POS_Requirements.md`. The task summarises; the SRS governs.
+4. Read the SRS sections the task cites (FR-*, NFR-*, AC-*) in `docs/Counterpoint_Requirements.md`. The task summarises; the SRS governs.
 5. Check `.claude/state/PROGRESS.md` that every dependency task is `done`. If one is not, stop and say which.
 
 ## While implementing
@@ -35,4 +35,4 @@ Finally, update `.claude/state/PROGRESS.md`: set this task to `done`, record the
 - Never mark a task done with a failing or skipped test.
 - Never weaken an invariant in `CLAUDE.md` to make a test pass. If an invariant blocks the task, the task or the invariant needs discussing first.
 - Never edit a committed migration. Add a new one.
-- Never touch `docs/Hardware_Shop_POS_Requirements.md`.
+- Never touch `docs/Counterpoint_Requirements.md`.

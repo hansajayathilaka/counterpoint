@@ -23,7 +23,7 @@ Benchmark from the SRS (NFR-U2): a 5-item bill completes with **no mouse** and a
 
 The viewmodel holds a `Bill` aggregate from `Domain` and asks it to recalculate. **It never computes a total itself.** Duplicating pricing logic in a viewmodel is how the screen and the receipt end up disagreeing.
 
-`HardwarePos.Ui` may reference `Application` and `Domain` only — never `Infrastructure`, `Devices`, `Reporting` or `Backup`. An architecture test enforces this. If a viewmodel needs data, it goes through an Application service, which is also what makes authorisation real rather than cosmetic (AC-17).
+`Counterpoint.Ui` may reference `Application` and `Domain` only — never `Infrastructure`, `Devices`, `Reporting` or `Backup`. An architecture test enforces this. If a viewmodel needs data, it goes through an Application service, which is also what makes authorisation real rather than cosmetic (AC-17).
 
 ## Scanner input
 

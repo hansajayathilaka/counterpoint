@@ -22,7 +22,7 @@ esac
 
 # 2. The SRS is the client's document, not ours.
 case "$FILE" in
-  *docs/Hardware_Shop_POS_Requirements.md)
+  *docs/Counterpoint_Requirements.md)
     echo "BLOCKED: the SRS is the client's signed document and is read-only here." >&2
     echo "Raise a change request in docs/adr/ instead." >&2
     exit 2

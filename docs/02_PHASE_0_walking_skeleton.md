@@ -18,7 +18,7 @@ The SRS phasing goes straight into core trading. That defers three risks — ESC
 **Context.** The project boundaries in `00_ENGINEERING_GUIDE.md` §3 are what keep authorisation and business rules out of the UI later (AC-17). If they are not enforced mechanically from day one, they will erode.
 
 **Do this.**
-1. `dotnet new sln -n HardwarePos`. Create all seven `src` projects and four `tests` projects per the layout in the engineering guide.
+1. `dotnet new sln -n Counterpoint`. Create all seven `src` projects and four `tests` projects per the layout in the engineering guide.
 2. `Directory.Build.props` at the root: `net10.0`, `nullable enable`, `TreatWarningsAsErrors`, `LangVersion latest`, `InvariantGlobalization false`, deterministic builds.
 3. Set project references exactly per the dependency table. `Domain` gets zero package references.
 4. Write `ArchitectureTests.cs`:
@@ -76,7 +76,7 @@ The SRS phasing goes straight into core trading. That defers three risks — ESC
 **Do this.**
 1. Add `SQLitePCLRaw.bundle_e_sqlcipher`, `Microsoft.EntityFrameworkCore.Sqlite`, `Dapper`.
 2. `Infrastructure/Data/PosConnectionFactory.cs`:
-   - Resolves the data directory to `%ProgramData%\HardwarePos\`. **Refuses to start** if it is a UNC path, a mapped drive, or under a known sync root (`OneDrive`, `Google Drive`, `Dropbox`) — log and throw a plain-language error.
+   - Resolves the data directory to `%ProgramData%\Counterpoint\`. **Refuses to start** if it is a UNC path, a mapped drive, or under a known sync root (`OneDrive`, `Google Drive`, `Dropbox`) — log and throw a plain-language error.
    - Opens with the SQLCipher key, then applies all PRAGMAs from the engineering guide §4.8 on every connection.
    - Exposes one write connection guarded by `SemaphoreSlim(1,1)` and a read connection factory.
 3. `Infrastructure/Security/DatabaseKeyStore.cs`: generate a 256-bit key on first run, protect with DPAPI (`ProtectedData`, `CurrentUser`), store in Windows Credential Manager. Retrieve on start.
@@ -182,10 +182,10 @@ The SRS phasing goes straight into core trading. That defers three risks — ESC
 1. `Backup/SnapshotService`: `VACUUM INTO` a temp file, zstd compress, AES-256-GCM encrypt with a key from Argon2id over a passphrase, write a header (magic, version, salt, nonce, schema version, taken-at), SHA-256 the ciphertext, write to the local backup folder, insert `backup_record`.
 2. `Backup/RestoreService` (local only for now): decrypt, verify checksum, `PRAGMA integrity_check`, open and count rows.
 3. `dotnet publish -r win-x64 --self-contained -p:PublishReadyToRun=true`, trimming off.
-4. Inno Setup script: install to `%ProgramFiles%\HardwarePos`, create `%ProgramData%\HardwarePos\{db,backups,logs}` with appropriate ACLs, desktop shortcut, uninstaller.
+4. Inno Setup script: install to `%ProgramFiles%\Counterpoint`, create `%ProgramData%\Counterpoint\{db,backups,logs}` with appropriate ACLs, desktop shortcut, uninstaller.
 5. Measure and record cold start on the target hardware.
 
-**Deliverables.** Snapshot/restore services, publish profile, `installer/HardwarePos.iss`, a measured start-time figure.
+**Deliverables.** Snapshot/restore services, publish profile, `installer/Counterpoint.iss`, a measured start-time figure.
 
 **Risks.** Cold start over 10 s on the minimum spec. If so, apply the EF compiled model now (`dotnet ef dbcontext optimize`) rather than in Phase 3 — it is usually 1–2 s on its own.
 

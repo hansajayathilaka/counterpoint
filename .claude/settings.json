@@ -48,8 +48,8 @@
       "Read(./secrets/**)",
       "Read(./.env)",
       "Read(./artifacts/data/**)",
-      "Edit(./docs/Hardware_Shop_POS_Requirements.md)",
-      "Write(./docs/Hardware_Shop_POS_Requirements.md)"
+      "Edit(./docs/Counterpoint_Requirements.md)",
+      "Write(./docs/Counterpoint_Requirements.md)"
     ]
   },
   "env": {

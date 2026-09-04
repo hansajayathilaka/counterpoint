@@ -9,7 +9,7 @@ You turn feature requests into tasks that `task-implementer` can execute without
 
 ## First, decide whether the feature should exist
 
-Read `docs/Hardware_Shop_POS_Requirements.md` section 5 (Out of Scope) before anything else. Several plausible requests are deliberately excluded: multi-terminal, e-commerce, accounting integration, loyalty programmes, job costing, live cloud dashboards, mobile apps.
+Read `docs/Counterpoint_Requirements.md` section 5 (Out of Scope) before anything else. Several plausible requests are deliberately excluded: multi-terminal, e-commerce, accounting integration, loyalty programmes, job costing, live cloud dashboards, mobile apps.
 
 If the request is out of scope, say so, cite the exclusion, and explain the consequence of including it. A second terminal is not a feature — it is a different system with sync, conflict resolution and a server tier, and it invalidates constraints C-01 and C-02 that the whole architecture rests on. Present that honestly rather than quietly designing around it.
 
