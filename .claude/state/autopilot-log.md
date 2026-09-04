@@ -16,3 +16,6 @@ it stopped.
 - `2026-09-04T02:33:48Z` **P0-T01** fix-attempt — 1: revert CI file-existence guard on check-triggers.sh step (dead/unsafe skip); script already tracked, precondition belongs only inside the script
 - `2026-09-04T02:36:25Z` **P0-T01** done — 29 files, 3 tests, review clean (1 must-fix addressed)
 - `2026-09-04T02:36:44Z` **P0-T02** start — Money and Quantity value objects
+- `2026-09-04T05:39:43Z` **P0-T02** done — 17 files, 95 tests total, review clean (2 passes, 0 must/should-fix)
+
+**Run ended 2026-09-04T05:39:45Z** — 2 completed, 0 halted
