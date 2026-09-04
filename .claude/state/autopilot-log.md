@@ -37,3 +37,4 @@ it stopped.
 - `2026-09-04T12:01:59Z` **P0-T04** note — data-modeler design pass complete: larger than 1d estimate (18 triggers, custom annotation provider for AUTOINCREMENT suppression, MigrationRunner with VACUUM INTO backup, design-time EF factory, 2 doc corrections to trigger pattern). All within task's own stated scope, nothing borrowed from P1.
 - `2026-09-04T12:27:47Z` **P0-T04** note — task-implementer marked ledger done on its own again (same overstep as P0-T03 round 1); orchestrator reverted to in-progress
 - `2026-09-04T16:06:25Z` **P0-T04** fix-attempt — 1: shift.note trigger guard wrong (blocks Z-report close note), sale_line.qty_returned lacks monotonicity check (undermines AC-06), doc overclaims trigger-check timing. recursive_triggers=ON already fixed independently by two agents.
+- `2026-09-04T16:14:26Z` **P0-T04** done — 54 files, 261 tests, 2 review rounds (3 must-fix closed: shift.note guard, recursive_triggers hole, qty_returned monotonicity)
