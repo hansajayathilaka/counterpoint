@@ -38,7 +38,7 @@ hands them back.
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
-| P1-T01 | Full schema migration | todo | | |
+| P1-T01 | Full schema migration | in-progress | | |
 | P1-T02 | Users, authentication, roles, authorisation | todo | | |
 | P1-T03 | Settings framework | todo | | |
 | P1-T04 | Catalogue reference data | todo | | |
