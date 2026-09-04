@@ -26,8 +26,8 @@ hands them back.
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
-| P0-T01 | Solution scaffold and architecture tests | in-progress | | |
-| P0-T02 | Money and Quantity value objects | todo | | |
+| P0-T01 | Solution scaffold and architecture tests | done | 2026-09-04 | 1f78380 feat(P0-T01): solution scaffold and architecture tests |
+| P0-T02 | Money and Quantity value objects | in-progress | | |
 | P0-T03 | Database bootstrap, SQLCipher, connection factory | todo | | |
 | P0-T04 | Minimal schema, migrations, append-only triggers | todo | | |
 | P0-T05 | ESC/POS renderer and one printed receipt | todo | | |
