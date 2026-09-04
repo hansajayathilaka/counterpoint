@@ -15,8 +15,8 @@ namespace Counterpoint.Infrastructure.DependencyInjection;
 public static class InfrastructureServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the data directory, key store, connection factory, unit of work and
-    /// <see cref="PosDbContext"/>.
+    /// Registers the data directory, key store, connection factory, unit of work and the
+    /// <see cref="PosDbContext"/> factory.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="dataDirectoryOverride">
@@ -42,12 +42,12 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<SqliteUnitOfWork>();
         services.AddSingleton<IUnitOfWork>(provider => provider.GetRequiredService<SqliteUnitOfWork>());
 
-        // One keyed, PRAGMA'd connection per scope, owned and disposed by the context. EF is the
-        // write and migration path; the single-writer rule is enforced by IUnitOfWork above.
-        services.AddDbContext<PosDbContext>((provider, options) =>
-            options.UseSqlite(
-                provider.GetRequiredService<IPosConnectionFactory>().OpenConfiguredConnection(),
-                contextOwnsConnection: true));
+        // No AddDbContext, on purpose. AddDbContext hands every scope its own connection, which
+        // would write outside the write gate and outside the open transaction - two writers on
+        // one file. PosDbContext is only reachable through the unit of work's lease, and its
+        // constructor is internal so nothing outside this assembly can go around that.
+        services.AddSingleton<IPosDbContextFactory>(provider =>
+            provider.GetRequiredService<SqliteUnitOfWork>());
 
         return services;
     }

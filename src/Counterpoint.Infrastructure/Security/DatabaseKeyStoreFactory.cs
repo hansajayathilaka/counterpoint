@@ -16,7 +16,7 @@ public static class DatabaseKeyStoreFactory
 
         if (OperatingSystem.IsWindows())
         {
-            return new WindowsDatabaseKeyStore();
+            return new WindowsDatabaseKeyStore(dataDirectory);
         }
 
         // Linux and macOS are development hosts only (CLAUDE.md "Development platform note").

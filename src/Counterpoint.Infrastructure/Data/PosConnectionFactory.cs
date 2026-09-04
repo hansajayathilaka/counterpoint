@@ -16,6 +16,13 @@ namespace Counterpoint.Infrastructure.Data;
 public sealed class PosConnectionFactory : IPosConnectionFactory, IDisposable, IAsyncDisposable
 {
     /// <summary>
+    /// The busy wait every connection promises (engineering guide §4.8, CLAUDE.md invariant 9).
+    /// Set in two places that must agree: as milliseconds in <c>PRAGMA busy_timeout</c>, and as
+    /// seconds in the connection string's <c>Default Timeout</c>.
+    /// </summary>
+    private const int BusyTimeoutSeconds = 5;
+
+    /// <summary>
     /// Applied to every connection, in this order, immediately after the key. Engineering guide
     /// §4.8 and CLAUDE.md invariant 9.
     /// </summary>
@@ -31,7 +38,7 @@ public sealed class PosConnectionFactory : IPosConnectionFactory, IDisposable, I
         "PRAGMA synchronous = FULL;",
 
         "PRAGMA foreign_keys = ON;",
-        "PRAGMA busy_timeout = 5000;",
+        FormattableString.Invariant($"PRAGMA busy_timeout = {BusyTimeoutSeconds * 1000};"),
         "PRAGMA temp_store = MEMORY;",
         "PRAGMA cache_size = -20000;",
     ];
@@ -71,6 +78,12 @@ public sealed class PosConnectionFactory : IPosConnectionFactory, IDisposable, I
             Mode = SqliteOpenMode.ReadWriteCreate,
             Cache = SqliteCacheMode.Private,
 
+            // Seconds, and it must stay equal to PRAGMA busy_timeout below: on top of SQLite's
+            // own busy handler, Microsoft.Data.Sqlite retries a busy statement until the command
+            // timeout expires, so a longer one here (30 s by default) silently overrides the
+            // pragma's promise and blocks the sale.
+            DefaultTimeout = BusyTimeoutSeconds,
+
             // Pooling off on purpose: a recycled handle would skip the PRAGMA key and PRAGMA
             // block below, and there is no way to prove from the outside that it did not.
             Pooling = false,
@@ -107,6 +120,7 @@ public sealed class PosConnectionFactory : IPosConnectionFactory, IDisposable, I
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _ = NativeProvider.Value;
+        _ = _keyHex.Value;
 
         var connection = new SqliteConnection(_connectionString);
         try
@@ -177,6 +191,13 @@ public sealed class PosConnectionFactory : IPosConnectionFactory, IDisposable, I
     private async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken)
     {
         _ = NativeProvider.Value;
+
+        // Resolve the key before the connection is opened, not inside ApplyKeyAndPragmas below.
+        // Mode=ReadWriteCreate means Open() creates the database file, and the Windows key store
+        // refuses to mint a new key once a database exists - correctly, since a new key would
+        // orphan it. Asking for the key first keeps that rule from tripping over the empty file
+        // this very call is about to create on a first run.
+        _ = _keyHex.Value;
 
         var connection = new SqliteConnection(_connectionString);
         try

@@ -19,7 +19,21 @@ internal static class WindowsCredentialManager
     private const uint CredTypeGeneric = 1;
     private const uint CredPersistLocalMachine = 2;
 
-    /// <summary>Returns the stored blob, or null when no such credential exists.</summary>
+    /// <summary>
+    /// <c>ERROR_NOT_FOUND</c>. The one failure from <c>CredReadW</c> that means "no such
+    /// credential" rather than "the credential store could not be asked".
+    /// </summary>
+    private const int ErrorNotFound = 1168;
+
+    /// <summary>
+    /// Returns the stored blob, or null when no such credential exists.
+    /// </summary>
+    /// <exception cref="Win32Exception">
+    /// The credential store could not be read. Deliberately not folded into "no credential":
+    /// a transient failure such as <c>ERROR_NO_SUCH_LOGON_SESSION</c> would otherwise look like
+    /// a first run, and the caller would mint a new key over the top of the one that unlocks the
+    /// existing database (NFR-S3, NFR-S6).
+    /// </exception>
     internal static byte[]? TryRead(string targetName)
     {
         var handle = IntPtr.Zero;
@@ -27,7 +41,15 @@ internal static class WindowsCredentialManager
         {
             if (!NativeMethods.CredReadW(targetName, CredTypeGeneric, 0, out handle))
             {
-                return null;
+                var error = Marshal.GetLastWin32Error();
+                if (error == ErrorNotFound)
+                {
+                    return null;
+                }
+
+                throw new Win32Exception(
+                    error,
+                    "Windows Credential Manager could not be read for the Counterpoint database key.");
             }
 
             var credential = Marshal.PtrToStructure<NativeMethods.Credential>(handle);
