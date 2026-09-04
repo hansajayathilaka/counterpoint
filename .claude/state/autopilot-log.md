@@ -40,3 +40,4 @@ it stopped.
 - `2026-09-04T16:14:26Z` **P0-T04** done — 54 files, 261 tests, 2 review rounds (3 must-fix closed: shift.note guard, recursive_triggers hole, qty_returned monotonicity)
 
 **Run ended 2026-09-04T16:20:49Z** — 2 completed, 0 halted
+- `2026-09-04T16:27:30Z` **P0-T04** note — CI failure post-merge-to-branch: scripts/check-triggers.sh hardcoded -c Debug, CI builds Release only. Fixed in e7300c1 (CONFIGURATION env var), verified against both configs locally before push.
