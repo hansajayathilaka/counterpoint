@@ -28,7 +28,7 @@ hands them back.
 |---|---|---|---|---|
 | P0-T01 | Solution scaffold and architecture tests | done | 2026-09-04 | 1f78380 feat(P0-T01): solution scaffold and architecture tests |
 | P0-T02 | Money and Quantity value objects | done | 2026-09-04 | 263b2a4 feat(P0-T02): money and quantity value objects |
-| P0-T03 | Database bootstrap, SQLCipher, connection factory | done | 2026-09-04 | a50cb5f: all automatable work complete and reviewed clean; self-contained Windows publish from %ProgramFiles% verified by CI's windows-publish job, which runs only on merge to main (.github/workflows/ci.yml) - outstanding until then |
+| P0-T03 | Database bootstrap, SQLCipher, connection factory | done | 2026-09-04 | a50cb5f: all automatable work complete and reviewed clean; self-contained Windows publish from %ProgramFiles% confirmed - CI's "Windows self-contained publish" job passed on windows-2022 after merge to main (run 33896159464). Every Done-when criterion is now proven. |
 | P0-T04 | Minimal schema, migrations, append-only triggers | done | 2026-09-04 | 0142082: 15 tables, 18 append-only triggers, MigrationRunner, all Done-when criteria proven; 261 tests; 2 review rounds + 1 fix round |
 | P0-T05 | ESC/POS renderer and one printed receipt | todo | | |
 | P0-T06 | One sale, end to end | todo | | |
