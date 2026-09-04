@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <!-- Versions come from Directory.Packages.props. -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <!--
+    Counterpoint.Ui may reference Application and Domain ONLY.
+    Never Infrastructure, Devices, Reporting or Backup - the composition root wires
+    those in by interface. See CLAUDE.md "Project boundaries"; enforced by
+    tests/Counterpoint.Domain.Tests/ArchitectureTests.cs.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\Counterpoint.Application\Counterpoint.Application.csproj" />
+    <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

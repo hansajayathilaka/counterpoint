@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Counterpoint.Application\Counterpoint.Application.csproj" />
+    <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

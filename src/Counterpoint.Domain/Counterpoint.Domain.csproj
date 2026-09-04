@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Counterpoint.Domain has ZERO package references and ZERO project references,
+       by design (CLAUDE.md "Project boundaries"). ArchitectureTests enforces it.
+       All other settings come from the root Directory.Build.props. -->
+
+</Project>

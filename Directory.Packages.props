@@ -29,6 +29,11 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.2.3" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.2.3" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <!-- Transitive, via Avalonia.Desktop's X11 backend (Linux dev/CI only).
+         Avalonia 11.2.3 pulls 0.20.0, which carries GHSA-xrw6-gwf8-vvr9 (CVE-2026-39959).
+         Pinned forward to 0.21.3, the fix on that line; CentralPackageTransitivePinningEnabled
+         makes this stick. Remove when Avalonia's own floor moves past it. -->
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>
 
   <ItemGroup Label="Documents and devices">

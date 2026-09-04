@@ -8,6 +8,14 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# Precondition: there must be a migration chain to apply. The chain, and the
+# triggers it creates, arrive in P0-T04. Before that there is genuinely nothing
+# to check - which is different from the check failing.
+if ! compgen -G "src/Counterpoint.Infrastructure/Migrations/*.cs" >/dev/null; then
+  echo "SKIP: no EF migrations yet (they arrive in P0-T04); nothing to check"
+  exit 0
+fi
+
 DB="artifacts/data/trigger-check.db"
 mkdir -p artifacts/data
 rm -f "$DB"

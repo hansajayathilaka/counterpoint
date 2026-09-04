@@ -37,3 +37,8 @@ dotnet_diagnostic.VSTHRD200.severity = none
 
 [tests/**/*.cs]
 dotnet_diagnostic.CA1305.severity = suggestion
+
+# Test names carry requirement ids and read as sentences:
+# FR_2_4_BoxToPieceConversion, AC03_PartialReturnRefundsAtOriginalPrice
+# (docs/00_ENGINEERING_GUIDE.md §6). Underscores are the convention here, not an accident.
+dotnet_diagnostic.CA1707.severity = none
