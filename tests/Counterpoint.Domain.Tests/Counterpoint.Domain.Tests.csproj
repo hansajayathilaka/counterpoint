@@ -36,4 +36,19 @@
                       CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!--
+    The no-double/float scan walks every member of every Counterpoint.Infrastructure type, so the
+    types in those signatures (SqliteConnection, DbContext, IServiceCollection) have to be
+    resolvable at run time or the scan throws instead of proving anything.
+
+    ExcludeAssets="compile" puts these assemblies in this project's runtime dependency set without
+    letting a domain test compile against them - the boundary above stays exactly as strict.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" ExcludeAssets="compile" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" ExcludeAssets="compile" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" ExcludeAssets="compile" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" ExcludeAssets="compile" />
+  </ItemGroup>
+
 </Project>

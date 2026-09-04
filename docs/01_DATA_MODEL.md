@@ -1,6 +1,7 @@
 # Data Model
 
-SQLite 3 (SQLCipher). All identifiers `snake_case`. Every table has `id INTEGER PRIMARY KEY`.
+SQLite 3 (SQLCipher). All identifiers `snake_case`. Every table has `id INTEGER PRIMARY KEY` —
+plain, never `AUTOINCREMENT` — apart from three documented exceptions listed in §13.
 
 ---
 
@@ -19,6 +20,12 @@ SQLite 3 (SQLCipher). All identifiers `snake_case`. Every table has `id INTEGER 
 | JSON | `TEXT` | Audit before/after, held-bill payload, variant attributes |
 
 Constants in code: `MoneyScale = 10_000`, `QtyScale = 10_000`, `RateScale = 10_000`.
+
+`stock_balance` is the only projection in the schema, and the only one in the skeleton migration
+(§13). It is written in the same transaction as the `stock_movement` rows it summarises and is
+rebuildable from them (CLAUDE.md invariant 3). The rebuild command, the start-up sample check and
+the recompute test belong to **P1-T07** and are deliberately absent from the skeleton: a rebuild
+that nothing yet posts to would be untestable ceremony.
 
 ---
 
@@ -899,9 +906,45 @@ CREATE TABLE schema_version (
 );
 ```
 
-### Append-only triggers (pattern — repeat per table)
+### Append-only triggers
+
+The complete set, as created by migration `Skeleton0001`. These are the whole of CLAUDE.md
+invariant 5: there is no application code path that can be trusted to enforce it, because a
+repair session with `sqlite3` is not application code.
+
+**Trigger recreation rule.** EF Core's SQLite provider rebuilds a table (create-copy-drop-rename)
+for almost any alter, and **a rebuild silently drops that table's triggers**. Any migration that
+alters an append-only table must re-create its triggers in the same migration, with the trigger
+SQL written out literally. `Infrastructure/Data/AppendOnlyTables.cs` holds the expected trigger
+*names* only — never the SQL, because migrations are immutable history and a shared constant
+edited later would retroactively change what an already-applied migration did. `MigrationRunner`
+checks that manifest against `sqlite_schema` **on any run that actually applied a migration** —
+a start with nothing pending returns before the check, because nothing can have dropped a trigger
+when no DDL ran. `AppendOnlyTriggerTests` checks the manifest too, on every test run.
+
+**`IS NOT`, not `<>`.** Every `WHEN` guard below compares with `IS NOT`. `<>` against a nullable
+column yields NULL when either side is NULL, a NULL `WHEN` clause does not fire, and an UPDATE
+touching a nullable column of a row where it was NULL would slip straight past the guard — on the
+very rows (`note`, `product_variant_id`, `customer_id`) most likely to hold NULLs. `IS NOT` is
+NULL-safe and identical for NOT NULL columns.
+
+**`PRAGMA recursive_triggers = ON` is part of the protection, not a tuning knob.** SQLite fires a
+`BEFORE DELETE` trigger for the row that `REPLACE` conflict resolution removes *only* when
+recursive triggers are enabled, and they are **off by default**. With them off,
+`INSERT OR REPLACE INTO sale (id, …) VALUES (1, …)` walks past `trg_sale_no_delete` and rewrites
+the bill — new total, new `row_hash`, no error — and the same for `sale_line`, `payment`,
+`stock_movement`, `audit_log` and `shift`. The pragma is applied to every connection by
+`PosConnectionFactory` (CLAUDE.md invariant 9's list); none of the triggers below write, so there
+is no recursion for it to enable. Note the residual limit: this closes the hole for every
+connection the application opens, but a `sqlite3` repair session that does not set the pragma
+still gets the old behaviour. Closing that would need a `BEFORE INSERT` existence guard on each
+append-only table as well.
+
+`cash_movement`, `sale_return` and `sale_return_line` are append-only too; their triggers land
+with their tables in P1/P2.
 
 ```sql
+-- ---- stock_movement: the stock ledger is the truth (invariant 3) --------------------
 CREATE TRIGGER trg_stock_movement_no_update
 BEFORE UPDATE ON stock_movement
 BEGIN SELECT RAISE(ABORT, 'stock_movement is append-only'); END;
@@ -910,24 +953,146 @@ CREATE TRIGGER trg_stock_movement_no_delete
 BEFORE DELETE ON stock_movement
 BEGIN SELECT RAISE(ABORT, 'stock_movement is append-only'); END;
 
--- Column-scoped exception: only qty_returned may change on sale_line
-CREATE TRIGGER trg_sale_line_restricted_update
-BEFORE UPDATE ON sale_line
-WHEN  old.sale_id            <> new.sale_id
-   OR old.product_variant_id IS NOT new.product_variant_id
-   OR old.qty                <> new.qty
-   OR old.qty_base           <> new.qty_base
-   OR old.unit_price         <> new.unit_price
-   OR old.line_total         <> new.line_total
-   OR old.unit_cost          <> new.unit_cost
-BEGIN SELECT RAISE(ABORT, 'sale_line: only qty_returned may be updated'); END;
+-- ---- payment ------------------------------------------------------------------------
+CREATE TRIGGER trg_payment_no_update
+BEFORE UPDATE ON payment
+BEGIN SELECT RAISE(ABORT, 'payment is append-only'); END;
 
--- Sales may not be posted into a closed shift (FR-8.5, AC-11)
+CREATE TRIGGER trg_payment_no_delete
+BEFORE DELETE ON payment
+BEGIN SELECT RAISE(ABORT, 'payment is append-only'); END;
+
+-- ---- audit_log: hash chained, so a single edited row breaks the chain ---------------
+CREATE TRIGGER trg_audit_log_no_update
+BEFORE UPDATE ON audit_log
+BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+
+CREATE TRIGGER trg_audit_log_no_delete
+BEFORE DELETE ON audit_log
+BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+
+-- ---- sale: append-only except status, cancelled_by, cancelled_at --------------------
+CREATE TRIGGER trg_sale_no_delete
+BEFORE DELETE ON sale
+BEGIN SELECT RAISE(ABORT, 'sale is append-only'); END;
+
+CREATE TRIGGER trg_sale_restricted_update
+BEFORE UPDATE ON sale
+WHEN  old.id            IS NOT new.id
+   OR old.bill_no       IS NOT new.bill_no
+   OR old.sold_at       IS NOT new.sold_at
+   OR old.business_date IS NOT new.business_date
+   OR old.customer_id   IS NOT new.customer_id
+   OR old.user_id       IS NOT new.user_id
+   OR old.shift_id      IS NOT new.shift_id
+   OR old.subtotal      IS NOT new.subtotal
+   OR old.line_discount IS NOT new.line_discount
+   OR old.bill_discount IS NOT new.bill_discount
+   OR old.tax           IS NOT new.tax
+   OR old.rounding      IS NOT new.rounding
+   OR old.total         IS NOT new.total
+   OR old.cogs          IS NOT new.cogs
+   OR old.note          IS NOT new.note
+   OR old.prev_hash     IS NOT new.prev_hash
+   OR old.row_hash      IS NOT new.row_hash
+BEGIN SELECT RAISE(ABORT, 'sale: only status, cancelled_by and cancelled_at may be updated'); END;
+
+-- COMPLETED -> CANCELLED, one direction, once. A cancelled bill keeps its number (invariant 4).
+CREATE TRIGGER trg_sale_cancel_only_forward
+BEFORE UPDATE OF status ON sale
+WHEN NOT (old.status = 'COMPLETED' AND new.status = 'CANCELLED')
+BEGIN SELECT RAISE(ABORT, 'sale.status may only change from COMPLETED to CANCELLED'); END;
+
+-- Without this, cancelled_at could be rewritten on a live COMPLETED bill: the trigger above
+-- only fires when status is named in the SET clause.
+CREATE TRIGGER trg_sale_cancel_fields_together
+BEFORE UPDATE ON sale
+WHEN (old.cancelled_by IS NOT new.cancelled_by OR old.cancelled_at IS NOT new.cancelled_at)
+     AND NOT (old.status = 'COMPLETED' AND new.status = 'CANCELLED')
+BEGIN SELECT RAISE(ABORT, 'sale: cancellation fields may only be set while cancelling'); END;
+
+-- FR-8.5, AC-11: no sale may be posted into a closed shift.
 CREATE TRIGGER trg_sale_shift_open
 BEFORE INSERT ON sale
-WHEN (SELECT status FROM shift WHERE id = new.shift_id) <> 'OPEN'
+WHEN (SELECT status FROM shift WHERE id = new.shift_id) IS NOT 'OPEN'
 BEGIN SELECT RAISE(ABORT, 'cannot post into a closed shift'); END;
+
+-- ---- sale_line: append-only except qty_returned -------------------------------------
+CREATE TRIGGER trg_sale_line_no_delete
+BEFORE DELETE ON sale_line
+BEGIN SELECT RAISE(ABORT, 'sale_line is append-only'); END;
+
+CREATE TRIGGER trg_sale_line_restricted_update
+BEFORE UPDATE ON sale_line
+WHEN  old.id                 IS NOT new.id
+   OR old.sale_id            IS NOT new.sale_id
+   OR old.line_no            IS NOT new.line_no
+   OR old.product_variant_id IS NOT new.product_variant_id
+   OR old.description        IS NOT new.description
+   OR old.qty                IS NOT new.qty
+   OR old.uom_id             IS NOT new.uom_id
+   OR old.qty_base           IS NOT new.qty_base
+   OR old.unit_price         IS NOT new.unit_price
+   OR old.discount           IS NOT new.discount
+   OR old.tax_rate           IS NOT new.tax_rate
+   OR old.tax                IS NOT new.tax
+   OR old.line_total         IS NOT new.line_total
+   OR old.unit_cost          IS NOT new.unit_cost
+   OR old.note               IS NOT new.note
+BEGIN SELECT RAISE(ABORT, 'sale_line: only qty_returned may be updated'); END;
+
+-- AC-06: no cumulative over-return. The application checks this inside the return
+-- transaction; the database is what makes it true. Monotonic, because there is no reversal
+-- document for a sale_return: winding qty_returned back down would let the same line be
+-- returned twice over and defeat the cumulative bound.
+CREATE TRIGGER trg_sale_line_qty_returned_bounds
+BEFORE UPDATE OF qty_returned ON sale_line
+WHEN new.qty_returned < 0
+  OR new.qty_returned > new.qty_base
+  OR new.qty_returned < old.qty_returned
+BEGIN SELECT RAISE(ABORT, 'sale_line.qty_returned must be between 0 and qty_base and may never decrease'); END;
+
+-- ---- shift: append-only except the close fields, settable once ----------------------
+CREATE TRIGGER trg_shift_no_delete
+BEFORE DELETE ON shift
+BEGIN SELECT RAISE(ABORT, 'shift is append-only'); END;
+
+CREATE TRIGGER trg_shift_restricted_update
+BEFORE UPDATE ON shift
+WHEN  old.id            IS NOT new.id
+   OR old.shift_no      IS NOT new.shift_no
+   OR old.user_id       IS NOT new.user_id
+   OR old.opened_at     IS NOT new.opened_at
+   OR old.business_date IS NOT new.business_date
+   OR old.opening_float IS NOT new.opening_float
+BEGIN SELECT RAISE(ABORT, 'shift: only the close fields may be updated'); END;
+
+-- "Settable once": a closed shift is frozen, so status can never go CLOSED -> OPEN either.
+CREATE TRIGGER trg_shift_closed_is_final
+BEFORE UPDATE ON shift
+WHEN old.status = 'CLOSED'
+BEGIN SELECT RAISE(ABORT, 'a closed shift is immutable'); END;
+
+-- note is a close field, not an immutable one: SRS §8.7 requires a note when the cash variance
+-- exceeds the threshold, and RPT-05 prints it on the Z report. It is written by the same UPDATE
+-- that closes the shift, so it is guarded here - never settable on a live OPEN shift, never
+-- editable afterwards (trg_shift_closed_is_final).
+CREATE TRIGGER trg_shift_close_fields_together
+BEFORE UPDATE ON shift
+WHEN (old.closed_at     IS NOT new.closed_at
+   OR old.counted_cash  IS NOT new.counted_cash
+   OR old.expected_cash IS NOT new.expected_cash
+   OR old.variance      IS NOT new.variance
+   OR old.closed_by     IS NOT new.closed_by
+   OR old.note          IS NOT new.note)
+   AND NOT (old.status = 'OPEN' AND new.status = 'CLOSED')
+BEGIN SELECT RAISE(ABORT, 'shift close fields may only be set while closing the shift'); END;
 ```
+
+An abort reaches the client as `SQLITE_CONSTRAINT` (19) with extended code
+`SQLITE_CONSTRAINT_TRIGGER` (1811) and the message above. SQLite does not order triggers on the
+same event, so when two of them would both refuse a statement, which message comes back is
+unspecified — assert on the code, not the message, in that case.
 
 ---
 
@@ -1035,5 +1200,131 @@ Mirror these exactly as C# enums in `Domain/Enums/`. The `CHECK` constraints abo
 | `stock_balance.qty_base` | low-stock / reorder report |
 | `ux_one_open_shift` partial unique | C-01 enforced by the database |
 | `print_job.status` partial | outbox polling stays O(pending) |
+| `ix_product_category`, `ix_product_brand` | catalogue browsing and the category/brand filters on every product list |
+| `ix_product_active` | every screen and report that excludes discontinued lines, which is most of them |
+| `ix_variant_product` | loading a product's SKUs — the join behind every catalogue and label screen |
+| `ix_movement_time` | date-range stock movement reports that are not scoped to one item |
+| `ix_sale_shift` | X and Z reports, which read a whole shift's bills |
+| `ix_sale_soldat` | "what happened between 2 and 3 pm", and audit lookups by clock time rather than business day |
+| `ix_payment_sale` | tender breakdown per bill: reprint, refund, Z report |
+| `ix_payment_return` | the same for a refund out |
+| `ix_audit_time` | the audit log viewer's default ordering and its date filter |
+| `ix_audit_entity` | "show me everything that happened to bill 1234" |
+| `ix_sale_cust` | customer purchase history. **No foreign key stands behind it yet** — `customer` arrives with P5-T02 (§13). |
+
+**From the skeleton migration onwards, every index in this schema is one somebody chose.** EF
+Core's `ForeignKeyIndexConvention` is removed in `PosDbContext.ConfigureConventions`, so a foreign
+key does not silently acquire an index that costs a write on the sale path and serves no read.
+Anything wanted is declared, named and listed here.
 
 Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
+
+---
+
+## 13. Skeleton subset and migrations
+
+Migration `Skeleton0001` (P0-T04) creates fifteen of the tables above — enough for one product,
+one sale, one payment, one stock movement and one printed receipt. The rest of this document
+arrives in P1-T01 through the same pipe.
+
+### The fifteen tables and the foreign keys that actually exist
+
+```mermaid
+erDiagram
+    UOM       ||--o{ PRODUCT : "base unit"
+    TAX_CLASS ||--o{ PRODUCT : taxes
+    PRODUCT   ||--|{ PRODUCT_VARIANT : "has SKUs"
+    PRODUCT_VARIANT ||--|| STOCK_BALANCE : "current state"
+    PRODUCT_VARIANT ||--o{ STOCK_MOVEMENT : ledger
+    PRODUCT_VARIANT ||--o{ SALE_LINE : "sold as"
+    APP_USER  ||--o{ STOCK_MOVEMENT : posts
+    APP_USER  ||--o{ SHIFT : "opens and closes"
+    APP_USER  ||--o{ SALE : "rings up and cancels"
+    APP_USER  ||--o{ AUDIT_LOG : acts
+    SHIFT     ||--o{ SALE : within
+    SALE      ||--|{ SALE_LINE : contains
+    SALE      ||--o{ PAYMENT : "tendered by"
+    UOM       ||--o{ SALE_LINE : "sold in"
+    NUMBER_SEQUENCE {
+        text doc_type PK
+    }
+    PRINT_JOB {
+        int id PK
+    }
+    SCHEMA_VERSION {
+        text version PK
+    }
+```
+
+`number_sequence`, `print_job` and `schema_version` stand alone by design: a document number must
+be allocatable without touching the document, the print outbox must survive the sale it came from,
+and the schema version is about the file rather than the business.
+
+### The four dangling references
+
+The DDL above writes these as `REFERENCES`, but the tables they point at do not exist yet. With
+`PRAGMA foreign_keys = ON` a reference to a missing table is accepted at `CREATE TABLE` and then
+fails at **INSERT** time with "no such table" — a landmine, not a constraint. All four are
+therefore plain nullable `INTEGER` columns in the skeleton:
+
+| Column | Points at | Added by |
+|---|---|---|
+| `product.category_id` | `category(id)` | P1-T01 |
+| `product.brand_id` | `brand(id)` | P1-T01 |
+| `sale.customer_id` | `customer(id)` | P5-T02 |
+| `payment.sale_return_id` | `sale_return(id)` | P2-T02 |
+
+Adding a foreign key to SQLite rebuilds the table, **which drops that table's triggers**. The
+migrations that add these constraints to `sale` and `payment` must re-create their append-only
+triggers in the same migration — see the trigger recreation rule in §6.
+
+### Migrations
+
+- **Naming:** `Skeleton0001`, `FullSchema0002`, … Never a name starting with a digit: EF sanitises
+  `0001_Skeleton` into class `_0001_Skeleton`, which fails this repository's `CA1707` build.
+- **Forward only.** `Down` is generated and left alone so `dotnet ef migrations remove` works while
+  a migration is being written. It is never run against a till.
+- **Never edit an applied migration.** Add a new one.
+- **`schema_version` is the documented authority**; `__EFMigrationsHistory` (and its companion
+  `__EFMigrationsLock`) is EF's mechanism. `MigrationRunner` writes `schema_version` after the
+  chain and reconciles the two on every start, so an upgrade interrupted between them repairs
+  itself rather than drifting.
+- **Regenerating a migration** needs the design-time package, which is behind an MSBuild flag
+  (docs/adr/0004):
+
+  ```
+  EfTooling=true dotnet ef migrations add <Name> \
+    --project src/Counterpoint.Infrastructure \
+    --startup-project src/Counterpoint.Infrastructure
+  ```
+
+  Then hand-append any `migrationBuilder.Sql(...)` triggers to `Up()`. Never hand-edit
+  `PosDbContextModelSnapshot.cs`.
+
+### EF mapping rules that are now schema contracts
+
+The model is the source EF regenerates a table from, so anything true of the database has to be
+true of the model — otherwise the first `ALTER` in a later migration quietly rewrites it.
+
+| Rule | Why |
+|---|---|
+| No `decimal`, `double` or `float` in the mapped model. Money, quantity and rates are C# `long`. | A bare `decimal` maps to `TEXT` in SQLite with no error to show for it, and money stored as text does not add up (CLAUDE.md invariant 1). |
+| No `AUTOINCREMENT`, no `sqlite_sequence`. | Document numbers come from `number_sequence` (invariant 4), and AUTOINCREMENT costs a `sqlite_sequence` write per insert on the sale path. Enforced by `NoAutoincrementAnnotationProvider`, a replaced `IRelationalAnnotationProvider` — not by editing the migration, which a table rebuild would undo. |
+| No automatic foreign-key indexes. | See §12. |
+| `DeleteBehavior.NoAction` on every relationship. | EF defaults a required FK to `ON DELETE CASCADE`; on `stock_movement` that would let deleting a variant wipe the stock ledger. The DDL above is bare `REFERENCES`, which is `NO ACTION`. |
+| `HasDefaultValue(x).ValueGeneratedNever()`, always both. | With `HasDefaultValue` alone, EF treats an explicitly assigned CLR default as "not set" and sends the column's DEFAULT instead — an inactive product would save as active. |
+| Unique constraints are named `ux_*` indexes, not inline `UNIQUE`. | The model must name an index the same as the database, or the next migration's diff drops and recreates it. |
+| Timestamps are `DateTimeOffset` through `Iso8601TimestampConverter`, set once as a convention. | DM-06, fixed width so a TEXT sort is a chronological sort. Covers `DateTimeOffset?` too. |
+| Business dates (`sale.business_date`, `shift.business_date`) are plain `TEXT` `YYYY-MM-DD` strings. | They are the grouping key for every rollup. Routing them through the timestamp converter would corrupt it. |
+| Property declaration order is the DDL column order. | EF emits columns in declaration order, so the generated `CREATE TABLE` matches this document column for column and stays reviewable. |
+
+Persistence rows live in `Infrastructure/Data/Schema` and their mapping in
+`Infrastructure/Data/Configurations`, one file per table. They are `internal`, hold no behaviour
+and know nothing of `Money` or `Quantity`: P1-T05 onward brings the real domain types and P1-T01
+moves the mapping onto them.
+
+### Three tables are not keyed on `id`
+
+`stock_balance` (keyed on `product_variant_id`, one row per variant), `number_sequence` (keyed on
+`doc_type`) and `schema_version` (keyed on `version`). Every other table is a bare
+`id INTEGER PRIMARY KEY`.

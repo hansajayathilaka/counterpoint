@@ -1,5 +1,40 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Versions come from Directory.Packages.props. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.Core" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
+  <!-- Design-time only. `dotnet ef migrations add` needs Microsoft.EntityFrameworkCore.Design,
+       whose transitive graph pulls System.Security.Cryptography.Xml, which NuGet audit flags
+       (NU1903) on every published version - and TreatWarningsAsErrors turns that into a build
+       error. The package is therefore referenced only when a developer regenerates a migration
+       (`EfTooling=true dotnet ef migrations add ...`). The generated migration and model
+       snapshot compile without it, because Migration and ModelSnapshot live in
+       Microsoft.EntityFrameworkCore.Relational, so the normal build, CI and the shipped
+       application never restore it. See docs/adr/0004. -->
+  <PropertyGroup Condition="'$(EfTooling)' == 'true'">
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(EfTooling)' == 'true'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Integration tests exercise the snake_case naming helper directly. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Counterpoint.Integration.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Counterpoint.Application\Counterpoint.Application.csproj" />
     <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />

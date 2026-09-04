@@ -1,51 +1,21 @@
 #!/usr/bin/env bash
-# Applies the full migration chain to a scratch database and asserts that every
-# append-only table still has both triggers.
+# Append-only trigger survival (CLAUDE.md invariant 5, docs/01_DATA_MODEL.md §6).
 #
-# This exists because EF Core's SQLite provider rebuilds tables for some alters,
-# which silently drops triggers. Without this check, append-only protection can
-# disappear without a single test failing.
+# EF Core's SQLite provider rebuilds a table (create-copy-drop-rename) for almost any alter, and a
+# rebuild silently drops that table's triggers. A migration that looks like it only added a column
+# can therefore leave the bill ledger editable with nothing to show for it.
+#
+# The check itself lives in the integration tests, against a real encrypted database with the whole
+# migration chain applied - it compares sqlite_schema to the manifest in
+# src/Counterpoint.Infrastructure/Data/AppendOnlyTables.cs. This script is the entry point
+# scripts/verify.sh calls, so the check has a name of its own in the verification output.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-# Precondition: there must be a migration chain to apply. The chain, and the
-# triggers it creates, arrive in P0-T04. Before that there is genuinely nothing
-# to check - which is different from the check failing.
-if ! compgen -G "src/Counterpoint.Infrastructure/Migrations/*.cs" >/dev/null; then
-  echo "SKIP: no EF migrations yet (they arrive in P0-T04); nothing to check"
-  exit 0
-fi
+# Must match whatever configuration the caller already built (scripts/verify.sh builds Debug;
+# CI's build-and-test job builds Release) - --no-build fails outright against the other one.
+CONFIGURATION="${CONFIGURATION:-Debug}"
 
-DB="artifacts/data/trigger-check.db"
-mkdir -p artifacts/data
-rm -f "$DB"
-
-TABLES="sale sale_line payment sale_return sale_return_line stock_movement shift cash_movement audit_log"
-
-echo "Applying migration chain to $DB"
-POS_DB_PATH="$DB" POS_DEV_MODE=1 dotnet ef database update \
-  --project src/Counterpoint.Infrastructure \
-  --startup-project src/Counterpoint.Ui >/dev/null 2>&1 || {
-    echo "FAIL: migrations did not apply"; exit 1; }
-
-MISSING=0
-for t in $TABLES; do
-  if ! sqlite3 "$DB" "SELECT name FROM sqlite_master WHERE type='table' AND name='$t';" | grep -q .; then
-    continue  # table not created yet at this point in the build
-  fi
-  COUNT=$(sqlite3 "$DB" "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND tbl_name='$t';")
-  if [ "$COUNT" -lt 2 ]; then
-    echo "FAIL: table '$t' has $COUNT trigger(s), expected at least 2 (no-update, no-delete)"
-    MISSING=1
-  fi
-done
-
-INTEGRITY=$(sqlite3 "$DB" "PRAGMA integrity_check;")
-if [ "$INTEGRITY" != "ok" ]; then
-  echo "FAIL: integrity_check returned: $INTEGRITY"
-  MISSING=1
-fi
-
-rm -f "$DB"
-[ "$MISSING" -eq 0 ] && echo "OK: append-only triggers intact, integrity_check ok"
-exit "$MISSING"
+dotnet test tests/Counterpoint.Integration.Tests/Counterpoint.Integration.Tests.csproj \
+  --no-build -c "$CONFIGURATION" \
+  --filter "FullyQualifiedName~AppendOnlyTriggerTests"

@@ -6,7 +6,9 @@ using Counterpoint.Ui.Views;
 
 namespace Counterpoint.Ui;
 
-public partial class App : Application
+// Fully qualified: "Application" on its own now binds to the Counterpoint.Application
+// namespace rather than to Avalonia's base class.
+public partial class App : Avalonia.Application
 {
     public override void Initialize()
     {
