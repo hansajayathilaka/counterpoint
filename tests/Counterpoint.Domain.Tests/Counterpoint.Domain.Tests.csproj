@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Counterpoint.Domain\Counterpoint.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Counterpoint.Application\Counterpoint.Application.csproj" />
+  </ItemGroup>
+
+  <!--
+    ArchitectureTests reflects over Counterpoint.Infrastructure to prove the
+    "no double/float" rule. It must NOT compile against it: a compile-time reference
+    would let a domain test quietly reach into infrastructure.
+
+    ReferenceOutputAssembly="false" gives a build-order dependency with no compile-time
+    reference. OutputItemType="Content" + CopyToOutputDirectory drops the built assembly
+    beside the test assembly so it can be loaded by path at run time.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Content"
+                      CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

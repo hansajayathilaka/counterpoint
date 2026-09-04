@@ -2,9 +2,18 @@
 bin/
 obj/
 artifacts/
+publish/
+TestResults/
+BenchmarkDotNet.Artifacts/
 *.user
 *.suo
+*.nupkg
 .vs/
+.idea/
+
+# Verify (snapshot testing) writes these next to the .verified.* files.
+# Only the .verified.* files are committed.
+*.received.*
 
 # Runtime data that must never be committed
 *.db
