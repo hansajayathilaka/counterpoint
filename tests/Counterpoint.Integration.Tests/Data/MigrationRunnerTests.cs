@@ -13,30 +13,36 @@ namespace Counterpoint.Integration.Tests.Data;
 /// </summary>
 public sealed class MigrationRunnerTests
 {
-    /// <summary>Every table docs/01_DATA_MODEL.md's skeleton subset (§13) is meant to create.</summary>
-    private static readonly string[] SkeletonTables =
+    /// <summary>
+    /// Every migration in the chain, in order, as EF ids. The chain is what a till applies on
+    /// start-up, so the count here is the count of migrations that must be reviewed together.
+    /// </summary>
+    private static readonly string[] Chain =
     [
-        "app_user", "audit_log", "number_sequence", "payment", "print_job", "product",
-        "product_variant", "sale", "sale_line", "schema_version", "shift", "stock_balance",
-        "stock_movement", "tax_class", "uom",
+        "20260904121117_Skeleton0001",
+        "20260905005921_FullSchema0002",
+        "20260905010014_ProductForeignKeys0003",
+        "20260905010104_ProductSearch0004",
     ];
 
     [Fact]
     public async Task NFR_M3_TheChainAppliesToAnEmptyDatabaseAndLeavesItIntact()
     {
-        await using var database = await SkeletonDatabase.CreateAsync(seed: false);
+        await using var database = await MigratedDatabase.CreateAsync(seed: false);
 
-        database.MigrationResult.AppliedMigrations.Should().ContainSingle()
-            .Which.Should().EndWith("_Skeleton0001");
+        database.MigrationResult.AppliedMigrations.Should().Equal(Chain);
 
         (await database.ScalarAsync("PRAGMA integrity_check;")).Should().Be("ok");
 
         // __EFMigrationsHistory and __EFMigrationsLock are EF's own bookkeeping, not schema.
+        // product_search's four shadow tables are SQLite's, created by the FTS5 module.
         var tables = await database.ColumnAsync(
             "SELECT name FROM sqlite_schema WHERE type = 'table' " +
-            "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '\\_\\_EF%' ESCAPE '\\' ORDER BY name;");
+            "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '\\_\\_EF%' ESCAPE '\\' " +
+            "AND name NOT LIKE 'product\\_search\\_%' ESCAPE '\\' ORDER BY name;");
 
-        tables.Should().BeEquivalentTo(SkeletonTables);
+        tables.Should().HaveCount(41, "forty documented tables plus the product_search index");
+        tables.Should().Contain("product_search");
     }
 
     /// <summary>
@@ -46,7 +52,7 @@ public sealed class MigrationRunnerTests
     [Fact]
     public async Task NFR_M3_AFirstRunOnAnEmptyDatabaseTakesNoBackup()
     {
-        await using var database = await SkeletonDatabase.CreateAsync(seed: false);
+        await using var database = await MigratedDatabase.CreateAsync(seed: false);
 
         database.MigrationResult.BackupFilePath.Should().BeNull();
 
@@ -61,7 +67,7 @@ public sealed class MigrationRunnerTests
     [Fact]
     public async Task DM_05_SchemaVersionAgreesWithTheMigrationHistory()
     {
-        await using var database = await SkeletonDatabase.CreateAsync(seed: false);
+        await using var database = await MigratedDatabase.CreateAsync(seed: false);
 
         var recorded = await database.ColumnAsync("SELECT version FROM schema_version ORDER BY version;");
         var history = await database.ColumnAsync(
@@ -86,11 +92,11 @@ public sealed class MigrationRunnerTests
 
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var first = await runner.ApplyPendingMigrationsAsync();
-        first.AppliedMigrations.Should().ContainSingle();
+        first.AppliedMigrations.Should().Equal(Chain);
 
         await using (var connection = factory.OpenConfiguredConnection())
         {
-            await SkeletonSeed.ApplyAsync(connection);
+            await TradingDaySeed.ApplyAsync(connection);
         }
 
         var second = await runner.ApplyPendingMigrationsAsync();
@@ -113,10 +119,17 @@ public sealed class MigrationRunnerTests
     /// migration write, and that copy must be openable, complete and still encrypted.
     /// </summary>
     /// <remarks>
-    /// The "populated database with a migration pending" state is manufactured by deleting the
-    /// <c>__EFMigrationsHistory</c> rows from an already-migrated file. That is exactly the shape
-    /// of the real case - user tables present, a migration outstanding - without needing a second
-    /// migration that P1-T01 has not written yet.
+    /// <para>
+    /// This is also the migration test the engineering guide asks for on the seeded side.
+    /// <c>FullSchema0002</c> gives <c>product</c> two foreign keys, and EF's SQLite provider adds
+    /// a foreign key by copying the table into a new one - so a database with rows in it takes a
+    /// different path through the migration from an empty one, and it is the one a real till
+    /// takes.
+    /// </para>
+    /// <para>
+    /// The pending state is genuine: the database is brought up to <c>Skeleton0001</c>, seeded,
+    /// and then handed to the runner with two migrations outstanding.
+    /// </para>
     /// </remarks>
     [Fact]
     public async Task NFR_M3_APopulatedDatabaseIsBackedUpBeforeMigrating()
@@ -124,50 +137,236 @@ public sealed class MigrationRunnerTests
         using var fixture = new TemporaryDataDirectory();
         await using var factory = fixture.CreateConnectionFactory();
 
-        var runner = new MigrationRunner(factory, fixture.DataDirectory);
-        await runner.ApplyPendingMigrationsAsync();
+        await MigratedDatabase.MigrateToAsync(factory, "Skeleton0001");
 
         await using (var connection = factory.OpenConfiguredConnection())
         {
-            await SkeletonSeed.ApplyAsync(connection);
+            await TradingDaySeed.ApplySkeletonAsync(connection);
 
-            // A day's trade, carried across the drops below so the backup has real seeded rows in
-            // it and not only the marker table. `sale` itself cannot survive - the migration is
-            // about to create it - but its contents can.
-            await using (var archive = connection.CreateCommand())
-            {
-                archive.CommandText =
-                    "CREATE TABLE archived_sale AS SELECT bill_no, total, status FROM sale;" +
-                    "CREATE TABLE archived_payment AS SELECT tender_type, amount FROM payment;";
-                await archive.ExecuteNonQueryAsync();
-            }
-
-            await using var forget = connection.CreateCommand();
-
-            // Pretend Skeleton0001 was never applied, so the next run has work to do against a
-            // database that already holds a day's trade.
-            forget.CommandText = "DELETE FROM \"__EFMigrationsHistory\"; DROP TABLE sale_line;" +
-                " DROP TABLE payment; DROP TABLE stock_movement; DROP TABLE audit_log;" +
-                " DROP TABLE print_job; DROP TABLE stock_balance; DROP TABLE sale;" +
-                " DROP TABLE shift; DROP TABLE product_variant; DROP TABLE product;" +
-                " DROP TABLE number_sequence; DROP TABLE schema_version; DROP TABLE app_user;" +
-                " DROP TABLE tax_class; DROP TABLE uom;";
-            await forget.ExecuteNonQueryAsync();
-
-            // Something worth losing that the migration will not touch.
-            await using var evidence = connection.CreateCommand();
-            evidence.CommandText = "CREATE TABLE takings (note TEXT); INSERT INTO takings VALUES ('day one');";
-            await evidence.ExecuteNonQueryAsync();
+            // A day's trade, copied aside so the assertions below can show it came through the
+            // rebuild of `product` unchanged rather than merely still existing.
+            await using var archive = connection.CreateCommand();
+            archive.CommandText =
+                "CREATE TABLE archived_sale AS SELECT bill_no, total, status FROM sale;" +
+                "CREATE TABLE archived_payment AS SELECT tender_type, amount FROM payment;";
+            await archive.ExecuteNonQueryAsync();
         }
 
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().ContainSingle();
+        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3]);
         result.BackupFilePath.Should().NotBeNull();
         File.Exists(result.BackupFilePath!).Should().BeTrue();
         Path.GetFileName(result.BackupFilePath!).Should().StartWith("counterpoint-pre-");
 
+        await using (var check = factory.OpenConfiguredConnection())
+        {
+            await using var command = check.CreateCommand();
+
+            command.CommandText = "PRAGMA integrity_check;";
+            (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+            command.CommandText = "PRAGMA foreign_key_check;";
+            (await command.ExecuteScalarAsync()).Should().BeNull();
+
+            // The rebuilt table kept every row and every value, not just its shape.
+            command.CommandText = "SELECT code || '|' || name || '|' || cost_avg FROM product;";
+            (await command.ExecuteScalarAsync()).Should().Be("P-001|Galvanised bolt M8|900000");
+
+            command.CommandText = "SELECT count(*) FROM sale;";
+            (await command.ExecuteScalarAsync()).Should().Be(1L);
+
+            // The catalogue that was already there is searchable. ProductSearch0004's triggers only
+            // see what happens after them, so without its backfill an upgraded till would come back
+            // with a working search box that finds nothing - and nothing would fail, because an
+            // empty index is a valid index.
+            command.CommandText =
+                "SELECT count(*) FROM product_search WHERE product_search MATCH 'galvanised';";
+            (await command.ExecuteScalarAsync()).Should().Be(1L);
+        }
+
         await AssertBackupIsUsableAsync(fixture, result.BackupFilePath!);
+    }
+
+    /// <summary>
+    /// AC-15 for the upgrade path: a power cut part-way through <c>ProductForeignKeys0003</c> must
+    /// leave a database the next start can finish migrating, not one it can never migrate again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// That migration is the one step of this upgrade that cannot be a single transaction. SQLite
+    /// ignores <c>PRAGMA foreign_keys = 0</c> inside a transaction, so EF emits it
+    /// transaction-suppressed and the migration commits in three groups, with the
+    /// <c>__EFMigrationsHistory</c> row written after the last. A cut inside the second group
+    /// rolls that group back but leaves the first one's <c>ef_temp_product</c> durably on disk -
+    /// and without the <c>DROP TABLE IF EXISTS</c> that opens the migration, the retry would die
+    /// on "table ef_temp_product already exists" for ever.
+    /// </para>
+    /// <para>
+    /// The interrupted state is manufactured rather than genuinely interrupted, because a test
+    /// cannot cut the power: the database is taken to <c>FullSchema0002</c> and a populated
+    /// <c>ef_temp_product</c> is left behind, which is exactly what the first command group
+    /// commits.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task AC_15_AnUpgradeInterruptedDuringTheProductRebuildFinishesOnTheNextStart()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "FullSchema0002");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+
+            await using var interrupted = connection.CreateCommand();
+            interrupted.CommandText = "CREATE TABLE ef_temp_product AS SELECT * FROM product;";
+            await interrupted.ExecuteNonQueryAsync();
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+        var result = await runner.ApplyPendingMigrationsAsync();
+
+        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3]);
+
+        await using (var check = factory.OpenConfiguredConnection())
+        {
+            await using var command = check.CreateCommand();
+
+            command.CommandText = "PRAGMA integrity_check;";
+            (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+            command.CommandText = "PRAGMA foreign_key_check;";
+            (await command.ExecuteScalarAsync()).Should().BeNull();
+
+            // The rebuild really did happen: the foreign keys are there and the leftovers are not.
+            command.CommandText =
+                "SELECT count(*) FROM pragma_foreign_key_list('product') WHERE \"table\" IN ('brand','category');";
+            (await command.ExecuteScalarAsync()).Should().Be(2L);
+
+            command.CommandText =
+                "SELECT count(*) FROM sqlite_schema WHERE name = 'ef_temp_product';";
+            (await command.ExecuteScalarAsync()).Should().Be(0L);
+
+            // The day's trade came through it.
+            command.CommandText = "SELECT code FROM product WHERE id = 1;";
+            (await command.ExecuteScalarAsync()).Should().Be("P-001");
+        }
+    }
+
+    /// <summary>
+    /// A migration that fails must say where the file as it stood is sitting. A bare
+    /// <c>SqliteException</c> tells the operator nothing about the backup the runner just took.
+    /// </summary>
+    [Fact]
+    public async Task NFR_M3_AFailedMigrationNamesThePreMigrationBackup()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "Skeleton0001");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplySkeletonAsync(connection);
+
+            // Stands where FullSchema0002 is about to create its own, so the migration aborts.
+            await using var blocker = connection.CreateCommand();
+            blocker.CommandText = "CREATE TABLE app_setting (whatever TEXT);";
+            await blocker.ExecuteNonQueryAsync();
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+
+        var act = async () => await runner.ApplyPendingMigrationsAsync();
+
+        var thrown = await act.Should().ThrowAsync<SchemaMigrationException>();
+        thrown.Which.Message.Should().Contain("counterpoint-pre-").And.Contain("must not trade");
+        thrown.Which.InnerException.Should().NotBeNull();
+    }
+
+    /// <summary>
+    /// A row that the constraint about to be added would forbid stops the upgrade rather than
+    /// being copied through it. SQLite refuses the rebuild's COMMIT; the runner turns that into a
+    /// message that names the backup.
+    /// </summary>
+    [Fact]
+    public async Task DM_04_ARowTheNewConstraintForbidsStopsTheUpgrade()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "FullSchema0002");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+
+            // A category that does not exist. Legal now - category_id is still a plain column at
+            // FullSchema0002 - and an orphan the moment ProductForeignKeys0003 lands.
+            await using var orphan = connection.CreateCommand();
+            orphan.CommandText = "UPDATE product SET category_id = 4242 WHERE id = 1;";
+            await orphan.ExecuteNonQueryAsync();
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+
+        var act = async () => await runner.ApplyPendingMigrationsAsync();
+
+        var thrown = await act.Should().ThrowAsync<SchemaMigrationException>();
+        thrown.Which.Message.Should().Contain("counterpoint-pre-").And.Contain("must not trade");
+
+        // And it stopped rather than half-applied: the till is still at FullSchema0002.
+        await using var check = factory.OpenConfiguredConnection();
+        await using var command = check.CreateCommand();
+        command.CommandText =
+            "SELECT count(*) FROM pragma_foreign_key_list('product') WHERE \"table\" = 'category';";
+        (await command.ExecuteScalarAsync()).Should().Be(0L);
+    }
+
+    /// <summary>
+    /// DM-04: <c>PRAGMA integrity_check</c> says nothing about foreign keys, so the runner checks
+    /// both. This is the case <c>integrity_check</c> alone would wave through - an orphan in a
+    /// table the migration never touches, which SQLite has no reason to notice on its own.
+    /// </summary>
+    /// <remarks>
+    /// The orphan is created with <c>PRAGMA foreign_keys = OFF</c> on the test's own connection,
+    /// because with the pragma on - as <c>PosConnectionFactory</c> sets it - the insert could not
+    /// happen. That is exactly how such a row gets into a real file: a repair session with
+    /// <c>sqlite3</c>, which does not set the pragma either.
+    /// </remarks>
+    [Fact]
+    public async Task DM_04_AnOrphanElsewhereInTheFileStopsTheUpgrade()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "FullSchema0002");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+
+            await using var orphan = connection.CreateCommand();
+            orphan.CommandText =
+                "PRAGMA foreign_keys = OFF;" +
+                "INSERT INTO barcode (id, product_variant_id, barcode, is_primary)" +
+                " VALUES (99, 4242, '0000000000000', 0);" +
+                "PRAGMA foreign_keys = ON;";
+            await orphan.ExecuteNonQueryAsync();
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+
+        var act = async () => await runner.ApplyPendingMigrationsAsync();
+
+        var thrown = await act.Should().ThrowAsync<SchemaMigrationException>();
+        thrown.Which.Message.Should().Contain("break a foreign key")
+            .And.Contain("barcode -> product_variant")
+            .And.Contain("counterpoint-pre-");
     }
 
     /// <summary>
@@ -196,12 +395,7 @@ public sealed class MigrationRunnerTests
             integrity.CommandText = "PRAGMA integrity_check;";
             (await integrity.ExecuteScalarAsync()).Should().Be("ok");
 
-            await using var takings = opened.CreateCommand();
-            takings.CommandText = "SELECT note FROM takings;";
-            (await takings.ExecuteScalarAsync()).Should().Be("day one");
-
-            // The seeded trade, not just the marker table: a backup that loses the day's bills is
-            // not a backup.
+            // The seeded trade: a backup that loses the day's bills is not a backup.
             await using var bill = opened.CreateCommand();
             bill.CommandText = "SELECT bill_no || ' ' || total || ' ' || status FROM archived_sale;";
             (await bill.ExecuteScalarAsync()).Should().Be("INV-2026-000001 2875000 COMPLETED");
@@ -211,10 +405,10 @@ public sealed class MigrationRunnerTests
             (await tender.ExecuteScalarAsync()).Should().Be("CASH 2875000");
 
             // Taken *before* the chain ran, which nothing else here would catch: move the backup
-            // call after MigrateAsync and the copy would carry the migration's own tables.
+            // call after MigrateAsync and the copy would carry FullSchema0002's own tables.
             await using var beforeMigrating = opened.CreateCommand();
             beforeMigrating.CommandText =
-                "SELECT count(*) FROM sqlite_schema WHERE type = 'table' AND name = 'sale';";
+                "SELECT count(*) FROM sqlite_schema WHERE type = 'table' AND name = 'category';";
             (await beforeMigrating.ExecuteScalarAsync()).Should().Be(0L);
         }
 

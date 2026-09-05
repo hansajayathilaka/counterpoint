@@ -1,3 +1,5 @@
+using Counterpoint.Domain.ValueObjects;
+
 namespace Counterpoint.Infrastructure.Data.Schema;
 
 /// <summary>
@@ -28,23 +30,20 @@ internal sealed class SaleLine
     /// <summary>Quantity ×10 000, in base units.</summary>
     public long QtyBase { get; set; }
 
-    /// <summary>Money ×10 000, per <c>uom_id</c>, as charged.</summary>
-    public long UnitPrice { get; set; }
+    /// <summary>Per <c>uom_id</c>, as charged.</summary>
+    public Money UnitPrice { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long Discount { get; set; }
+    public Money Discount { get; set; }
 
-    /// <summary>Rate ×10 000.</summary>
-    public long TaxRate { get; set; }
+    /// <summary>The rate charged on this line, snapshotted.</summary>
+    public TaxRate TaxRate { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long Tax { get; set; }
+    public Money Tax { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long LineTotal { get; set; }
+    public Money LineTotal { get; set; }
 
-    /// <summary>Money ×10 000. COGS snapshot, per base unit.</summary>
-    public long UnitCost { get; set; }
+    /// <summary>COGS snapshot, per base unit.</summary>
+    public Money UnitCost { get; set; }
 
     /// <summary>Quantity ×10 000, in base units (AC-06). The one column that may be updated.</summary>
     public long QtyReturned { get; set; }

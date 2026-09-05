@@ -1,3 +1,5 @@
+using Counterpoint.Domain.ValueObjects;
+
 namespace Counterpoint.Infrastructure.Data.Schema;
 
 /// <summary>
@@ -25,26 +27,19 @@ internal sealed class Sale
 
     public long ShiftId { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long Subtotal { get; set; }
+    public Money Subtotal { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long LineDiscount { get; set; }
+    public Money LineDiscount { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long BillDiscount { get; set; }
+    public Money BillDiscount { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long Tax { get; set; }
+    public Money Tax { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long Rounding { get; set; }
+    public Money Rounding { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long Total { get; set; }
+    public Money Total { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long Cogs { get; set; }
+    public Money Cogs { get; set; }
 
     public string Status { get; set; } = string.Empty;
 

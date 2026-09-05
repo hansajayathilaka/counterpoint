@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Append-only trigger survival (CLAUDE.md invariant 5, docs/01_DATA_MODEL.md §6).
+# Append-only trigger survival (CLAUDE.md invariant 5, docs/01_DATA_MODEL.md §8).
 #
 # EF Core's SQLite provider rebuilds a table (create-copy-drop-rename) for almost any alter, and a
 # rebuild silently drops that table's triggers. A migration that looks like it only added a column

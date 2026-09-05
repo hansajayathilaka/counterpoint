@@ -1,3 +1,5 @@
+using Counterpoint.Domain.ValueObjects;
+
 namespace Counterpoint.Infrastructure.Data.Schema;
 
 /// <summary>
@@ -17,19 +19,15 @@ internal sealed class Shift
     /// <summary><c>YYYY-MM-DD</c> TEXT, not a timestamp. See <see cref="Sale.BusinessDate"/>.</summary>
     public string BusinessDate { get; set; } = string.Empty;
 
-    /// <summary>Money ×10 000.</summary>
-    public long OpeningFloat { get; set; }
+    public Money OpeningFloat { get; set; }
 
     public DateTimeOffset? ClosedAt { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long? CountedCash { get; set; }
+    public Money? CountedCash { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long? ExpectedCash { get; set; }
+    public Money? ExpectedCash { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long? Variance { get; set; }
+    public Money? Variance { get; set; }
 
     public string Status { get; set; } = string.Empty;
 

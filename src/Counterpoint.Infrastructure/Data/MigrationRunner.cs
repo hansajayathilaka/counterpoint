@@ -83,10 +83,26 @@ public sealed class MigrationRunner
 
             // No outer transaction wrapping the chain, on purpose. EF opens a transaction per
             // migration and commits it together with that migration's __EFMigrationsHistory row,
-            // so each migration is individually atomic - SQLite DDL is transactional. What an
-            // outer wrap across the whole chain would buy is bought instead by the backup above.
-            // Do not "fix" this by wrapping it: see the class remarks for why it cannot work.
-            await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+            // so a migration is individually atomic - SQLite DDL is transactional - except where
+            // it contains a table rebuild, which needs a transaction-suppressed
+            // `PRAGMA foreign_keys` and so splits into several commits (see
+            // ProductForeignKeys0003). What an outer wrap across the whole chain would buy is
+            // bought instead by the backup above. Do not "fix" this by wrapping it: see the class
+            // remarks for why it cannot work.
+            try
+            {
+                await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (DbException exception)
+            {
+                // Without this the operator gets a bare SqliteException and never learns that the
+                // file as it stood a moment ago is sitting in the backup folder.
+                throw new SchemaMigrationException(
+                    "The database could not be brought up to the schema this build expects, so the " +
+                    "till must not trade against it: " + exception.Message + " " +
+                    BackupHint(backupFilePath),
+                    exception);
+            }
 
             // Written in its own transaction, after the chain. A crash between the two leaves
             // __EFMigrationsHistory ahead of schema_version; the reconciliation below repairs
@@ -96,6 +112,8 @@ public sealed class MigrationRunner
             await VerifyTriggersSurvivedAsync(lease.Connection, backupFilePath, cancellationToken)
                 .ConfigureAwait(false);
             await VerifyIntegrityAsync(lease.Connection, backupFilePath, cancellationToken)
+                .ConfigureAwait(false);
+            await VerifyForeignKeysAsync(lease.Connection, backupFilePath, cancellationToken)
                 .ConfigureAwait(false);
 
             return new MigrationRunResult(pending, backupFilePath, stopwatch.Elapsed);
@@ -202,6 +220,47 @@ public sealed class MigrationRunner
             throw new SchemaMigrationException(
                 "PRAGMA integrity_check reported '" + result + "' after migrating, so the " +
                 "database file is damaged. Do not trade against it. " + BackupHint(backupFilePath));
+        }
+    }
+
+    /// <summary>
+    /// Every row that now breaks a foreign key, if any (DM-04).
+    /// </summary>
+    /// <remarks>
+    /// <c>PRAGMA integrity_check</c> does not look at foreign keys - it checks page structure and
+    /// indexes - so this is not covered by the check above. It matters because EF rebuilds a table
+    /// under <c>PRAGMA foreign_keys = 0</c> and copies the existing rows in without validating
+    /// them against the constraint being added: the first migration to add a real foreign key to a
+    /// populated table is the first that can leave an orphan behind. Louder here than at some
+    /// random INSERT months later, and louder still than never - on <c>sale</c> or
+    /// <c>stock_movement</c> the offending row could not be corrected afterwards, because those
+    /// tables are append-only.
+    /// </remarks>
+    private static async Task VerifyForeignKeysAsync(
+        DbConnection connection,
+        string? backupFilePath,
+        CancellationToken cancellationToken)
+    {
+        var violations = new List<string>();
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA foreign_key_check;";
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                // table, rowid, parent table, foreign key index.
+                violations.Add(reader.GetValue(0) + " -> " + reader.GetValue(2));
+            }
+        }
+
+        if (violations.Count > 0)
+        {
+            throw new SchemaMigrationException(
+                "The upgraded database has " + violations.Count.ToString(CultureInfo.InvariantCulture) +
+                " row(s) that break a foreign key, so it cannot be trusted: " +
+                string.Join(", ", violations.Distinct(StringComparer.Ordinal).Take(10)) + ". " +
+                BackupHint(backupFilePath));
         }
     }
 

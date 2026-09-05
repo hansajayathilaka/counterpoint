@@ -1,3 +1,5 @@
+using Counterpoint.Domain.ValueObjects;
+
 namespace Counterpoint.Infrastructure.Data.Schema;
 
 /// <summary>Row of <c>payment</c>. APPEND ONLY. See Schema/README.md.</summary>
@@ -12,8 +14,8 @@ internal sealed class Payment
 
     public string TenderType { get; set; } = string.Empty;
 
-    /// <summary>Money ×10 000. Negative for a refund out.</summary>
-    public long Amount { get; set; }
+    /// <summary>Negative for a refund out.</summary>
+    public Money Amount { get; set; }
 
     /// <summary>Max 20 characters, PAN-rejecting (NFR-S7).</summary>
     public string? Reference { get; set; }

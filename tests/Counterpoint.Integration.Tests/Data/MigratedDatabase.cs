@@ -5,24 +5,34 @@ using System.Globalization;
 using System.Threading.Tasks;
 using Counterpoint.Infrastructure.Data;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Counterpoint.Integration.Tests.Data;
 
 /// <summary>
-/// A real, encrypted database with migration <c>Skeleton0001</c> applied, and a connection on
-/// which to poke it with raw SQL.
+/// A real, encrypted database with the whole migration chain applied, and a connection on which
+/// to poke it with raw SQL.
 /// </summary>
 /// <remarks>
+/// <para>
+/// A file on disk through <see cref="PosConnectionFactory"/>, never the in-memory provider: the
+/// in-memory provider enforces neither foreign keys nor triggers, which is most of what these
+/// tests exist to check.
+/// </para>
+/// <para>
 /// The connection is a normal keyed connection from the factory, not the write lease: the runner
 /// takes and releases that lease itself, and a test that held it would deadlock the next run.
+/// </para>
 /// </remarks>
-internal sealed class SkeletonDatabase : IAsyncDisposable
+internal sealed class MigratedDatabase : IAsyncDisposable
 {
     private readonly TemporaryDataDirectory _fixture;
     private readonly PosConnectionFactory _factory;
     private readonly DbConnection _connection;
 
-    private SkeletonDatabase(
+    private MigratedDatabase(
         TemporaryDataDirectory fixture,
         PosConnectionFactory factory,
         DbConnection connection,
@@ -41,7 +51,7 @@ internal sealed class SkeletonDatabase : IAsyncDisposable
 
     internal PosDataDirectory DataDirectory => _fixture.DataDirectory;
 
-    internal static async Task<SkeletonDatabase> CreateAsync(bool seed = true)
+    internal static async Task<MigratedDatabase> CreateAsync(bool seed = true)
     {
         var fixture = new TemporaryDataDirectory();
         var factory = fixture.CreateConnectionFactory();
@@ -52,11 +62,11 @@ internal sealed class SkeletonDatabase : IAsyncDisposable
             var result = await runner.ApplyPendingMigrationsAsync();
 
             var connection = factory.OpenConfiguredConnection();
-            var database = new SkeletonDatabase(fixture, factory, connection, result);
+            var database = new MigratedDatabase(fixture, factory, connection, result);
 
             if (seed)
             {
-                await SkeletonSeed.ApplyAsync(connection);
+                await TradingDaySeed.ApplyAsync(connection);
             }
 
             return database;
@@ -66,6 +76,28 @@ internal sealed class SkeletonDatabase : IAsyncDisposable
             await factory.DisposeAsync();
             fixture.Dispose();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Brings <paramref name="factory"/>'s database up to <paramref name="targetMigration"/> and
+    /// no further, so a test can seed it and then migrate it forward with rows already in it.
+    /// </summary>
+    /// <remarks>
+    /// Goes through EF's <see cref="IMigrator"/> rather than <see cref="MigrationRunner"/>, which
+    /// deliberately offers no way to stop part-way: a till is only ever brought fully up to date.
+    /// </remarks>
+    internal static async Task MigrateToAsync(PosConnectionFactory factory, string targetMigration)
+    {
+        var lease = await factory.AcquireWriteConnectionAsync();
+        await using (lease.ConfigureAwait(false))
+        {
+            var options = new DbContextOptionsBuilder<PosDbContext>()
+                .UseSqlite(lease.Connection, contextOwnsConnection: false)
+                .Options;
+
+            using var context = new PosDbContext(options);
+            await context.Database.GetService<IMigrator>().MigrateAsync(targetMigration);
         }
     }
 

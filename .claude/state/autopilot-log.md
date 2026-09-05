@@ -49,3 +49,4 @@ it stopped.
 - budget: 1 task(s)
 
 - `2026-09-04T16:47:16Z` **P1-T01** start — Full schema migration
+- `2026-09-05T00:55:43Z` **P1-T01** fix-attempt — 1: non-atomic product-FK migration (unbootable-till risk), column reorder on rebuild, missing foreign_key_check, missing negative-CHECK tests, misleading comments

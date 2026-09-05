@@ -1,3 +1,4 @@
+using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data.Schema;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -19,7 +20,7 @@ internal sealed class StockBalanceConfiguration : IEntityTypeConfiguration<Stock
         entity.Property(balance => balance.ProductVariantId).ValueGeneratedNever();
 
         entity.Property(balance => balance.QtyBase).HasDefaultValue(0L).ValueGeneratedNever();
-        entity.Property(balance => balance.CostAvg).HasDefaultValue(0L).ValueGeneratedNever();
+        entity.Property(balance => balance.CostAvg).HasDefaultValue(Money.Zero).ValueGeneratedNever();
         entity.Property(balance => balance.UpdatedAt).IsRequired();
 
         entity.HasIndex(balance => balance.QtyBase).HasDatabaseName("ix_stock_balance_low");

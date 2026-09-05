@@ -1,3 +1,5 @@
+using Counterpoint.Domain.ValueObjects;
+
 namespace Counterpoint.Infrastructure.Data.Schema;
 
 /// <summary>Row of <c>product</c>. See Schema/README.md.</summary>
@@ -11,10 +13,10 @@ internal sealed class Product
 
     public string? NameAlt { get; set; }
 
-    /// <summary>No foreign key yet: <c>category</c> arrives in P1-T01. See §13 of the data model.</summary>
+    /// <summary>Null for an unclassified product. Foreign key to <c>category</c> since P1-T01.</summary>
     public long? CategoryId { get; set; }
 
-    /// <summary>No foreign key yet: <c>brand</c> arrives in P1-T01. See §13 of the data model.</summary>
+    /// <summary>Null for an unbranded product. Foreign key to <c>brand</c> since P1-T01.</summary>
     public long? BrandId { get; set; }
 
     public long BaseUomId { get; set; }
@@ -23,8 +25,8 @@ internal sealed class Product
 
     public long TaxClassId { get; set; }
 
-    /// <summary>Money ×10 000. Moving average, per base unit.</summary>
-    public long CostAvg { get; set; }
+    /// <summary>Moving average cost, per base unit.</summary>
+    public Money CostAvg { get; set; }
 
     /// <summary>Quantity ×10 000.</summary>
     public long ReorderLevel { get; set; }
@@ -39,8 +41,8 @@ internal sealed class Product
     /// <summary>Quantity ×10 000.</summary>
     public long MinSellQty { get; set; }
 
-    /// <summary>Rate ×10 000. Null means "use the global limit".</summary>
-    public long? MaxDiscountRate { get; set; }
+    /// <summary>Null means "use the global limit".</summary>
+    public Percentage? MaxDiscountRate { get; set; }
 
     /// <summary>Plain count of days. Not scaled.</summary>
     public int? WarrantyDays { get; set; }
