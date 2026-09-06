@@ -23,6 +23,9 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+    <!-- Abstractions only: the device and infrastructure layers depend on ILogger, never on a
+         logging implementation. Serilog is chosen once, in the composition root. See docs/adr/0005. -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="9.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
   </ItemGroup>
