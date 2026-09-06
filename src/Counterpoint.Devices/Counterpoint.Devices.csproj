@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Versions come from Directory.Packages.props.
+       ILogger only - never a logging implementation. See docs/adr/0005. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Counterpoint.Application\Counterpoint.Application.csproj" />
     <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />

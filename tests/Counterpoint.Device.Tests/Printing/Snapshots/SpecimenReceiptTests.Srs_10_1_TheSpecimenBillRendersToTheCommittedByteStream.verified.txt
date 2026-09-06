@@ -1,0 +1,194 @@
+﻿=== commands ===
+0000  ESC @        initialise
+0002  ESC t 0      select code page
+0005  ESC a 1      align centre
+0008  GS ! 01      character size (normal width, double height)
+000B  ESC E 1      bold on
+000E  TEXT         "SHOP NAME"
+0017  ESC E 0      bold off
+001A  GS ! 00      character size (normal width, normal height)
+001D  LF
+001E  TEXT         "123 Main Street, Town"
+0033  LF
+0034  TEXT         "Tel: 000-0000000"
+0044  LF
+0045  TEXT         "Tax Reg No: XXXXXXXXX"
+005A  LF
+005B  ESC a 0      align left
+005E  TEXT         "------------------------------------------------"
+008E  LF
+008F  TEXT         "Bill No : INV-2026-004312"
+00A8  LF
+00A9  TEXT         "Date    : 03/09/2026   Time: 14:07"
+00CB  LF
+00CC  TEXT         "Cashier : Kamal        Customer: Walk-in"
+00F4  LF
+00F5  TEXT         "------------------------------------------------"
+0125  LF
+0126  TEXT         "Item                    Qty      Rate     Amount"
+0156  LF
+0157  TEXT         "------------------------------------------------"
+0187  LF
+0188  TEXT         "Hex Bolt M10x50 Zn"
+019A  LF
+019B  TEXT         "                     20 pcs     25.00     500.00"
+01CB  LF
+01CC  TEXT         "PVC Elbow 1" 90deg"
+01DE  LF
+01DF  TEXT         "                      4 pcs     90.00     360.00"
+020F  LF
+0210  TEXT         "Cable 2.5mm 3-core"
+0222  LF
+0223  TEXT         "                     2.75 m    420.00    1155.00"
+0253  LF
+0254  TEXT         "  (cut to length - non returnable)"
+0276  LF
+0277  TEXT         "Cutting charge"
+0285  LF
+0286  TEXT         "                      1 svc     50.00      50.00"
+02B6  LF
+02B7  TEXT         "------------------------------------------------"
+02E7  LF
+02E8  TEXT         "Sub total                                2065.00"
+0318  LF
+0319  TEXT         "Discount                                  -65.00"
+0349  LF
+034A  TEXT         "Taxable value                            2000.00"
+037A  LF
+037B  TEXT         "Tax @ 0%                                    0.00"
+03AB  LF
+03AC  TEXT         "------------------------------------------------"
+03DC  LF
+03DD  GS ! 11      character size (double width, double height)
+03E0  ESC E 1      bold on
+03E3  TEXT         "TOTAL            2000.00"
+03FB  ESC E 0      bold off
+03FE  GS ! 00      character size (normal width, normal height)
+0401  LF
+0402  TEXT         "------------------------------------------------"
+0432  LF
+0433  TEXT         "Cash                                     2500.00"
+0463  LF
+0464  TEXT         "CHANGE                                    500.00"
+0494  LF
+0495  TEXT         "------------------------------------------------"
+04C5  LF
+04C6  TEXT         "Items: 4     Units: 27.75"
+04DF  LF
+04E0  ESC d 1      feed lines
+04E3  ESC a 1      align centre
+04E6  GS h 80      barcode height (dots)
+04E9  GS w 2       barcode module width
+04EC  GS H 2       barcode HRI position
+04EF  GS f 0       barcode HRI font
+04F2  GS k 73      barcode Code 128 "{BINV-2026-004312"
+0507  ESC d 1      feed lines
+050A  ESC a 0      align left
+050D  TEXT         "Returns accepted within 14 days with this bill."
+053C  LF
+053D  TEXT         "Cut goods & mixed paint are non-returnable."
+0568  LF
+0569  ESC a 1      align centre
+056C  TEXT         "Thank you - please come again"
+0589  LF
+058A  ESC a 0      align left
+058D  TEXT         "------------------------------------------------"
+05BD  LF
+05BE  ESC p 0 25 250  drawer kick (pin 2)
+05C3  ESC d 4      feed lines
+05C6  GS V 1       partial cut
+
+=== bytes ===
+0000  1B 40 1B 74 00 1B 61 01 1D 21 01 1B 45 01 53 48   |.@.t..a..!..E.SH|
+0010  4F 50 20 4E 41 4D 45 1B 45 00 1D 21 00 0A 31 32   |OP NAME.E..!..12|
+0020  33 20 4D 61 69 6E 20 53 74 72 65 65 74 2C 20 54   |3 Main Street, T|
+0030  6F 77 6E 0A 54 65 6C 3A 20 30 30 30 2D 30 30 30   |own.Tel: 000-000|
+0040  30 30 30 30 0A 54 61 78 20 52 65 67 20 4E 6F 3A   |0000.Tax Reg No:|
+0050  20 58 58 58 58 58 58 58 58 58 0A 1B 61 00 2D 2D   | XXXXXXXXX..a.--|
+0060  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0070  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0080  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 0A 42   |--------------.B|
+0090  69 6C 6C 20 4E 6F 20 3A 20 49 4E 56 2D 32 30 32   |ill No : INV-202|
+00A0  36 2D 30 30 34 33 31 32 0A 44 61 74 65 20 20 20   |6-004312.Date   |
+00B0  20 3A 20 30 33 2F 30 39 2F 32 30 32 36 20 20 20   | : 03/09/2026   |
+00C0  54 69 6D 65 3A 20 31 34 3A 30 37 0A 43 61 73 68   |Time: 14:07.Cash|
+00D0  69 65 72 20 3A 20 4B 61 6D 61 6C 20 20 20 20 20   |ier : Kamal     |
+00E0  20 20 20 43 75 73 74 6F 6D 65 72 3A 20 57 61 6C   |   Customer: Wal|
+00F0  6B 2D 69 6E 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |k-in.-----------|
+0100  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0110  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0120  2D 2D 2D 2D 2D 0A 49 74 65 6D 20 20 20 20 20 20   |-----.Item      |
+0130  20 20 20 20 20 20 20 20 20 20 20 20 20 20 51 74   |              Qt|
+0140  79 20 20 20 20 20 20 52 61 74 65 20 20 20 20 20   |y      Rate     |
+0150  41 6D 6F 75 6E 74 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D   |Amount.---------|
+0160  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0170  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0180  2D 2D 2D 2D 2D 2D 2D 0A 48 65 78 20 42 6F 6C 74   |-------.Hex Bolt|
+0190  20 4D 31 30 78 35 30 20 5A 6E 0A 20 20 20 20 20   | M10x50 Zn.     |
+01A0  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+01B0  32 30 20 70 63 73 20 20 20 20 20 32 35 2E 30 30   |20 pcs     25.00|
+01C0  20 20 20 20 20 35 30 30 2E 30 30 0A 50 56 43 20   |     500.00.PVC |
+01D0  45 6C 62 6F 77 20 31 22 20 39 30 64 65 67 0A 20   |Elbow 1" 90deg. |
+01E0  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+01F0  20 20 20 20 20 34 20 70 63 73 20 20 20 20 20 39   |     4 pcs     9|
+0200  30 2E 30 30 20 20 20 20 20 33 36 30 2E 30 30 0A   |0.00     360.00.|
+0210  43 61 62 6C 65 20 32 2E 35 6D 6D 20 33 2D 63 6F   |Cable 2.5mm 3-co|
+0220  72 65 0A 20 20 20 20 20 20 20 20 20 20 20 20 20   |re.             |
+0230  20 20 20 20 20 20 20 20 32 2E 37 35 20 6D 20 20   |        2.75 m  |
+0240  20 20 34 32 30 2E 30 30 20 20 20 20 31 31 35 35   |  420.00    1155|
+0250  2E 30 30 0A 20 20 28 63 75 74 20 74 6F 20 6C 65   |.00.  (cut to le|
+0260  6E 67 74 68 20 2D 20 6E 6F 6E 20 72 65 74 75 72   |ngth - non retur|
+0270  6E 61 62 6C 65 29 0A 43 75 74 74 69 6E 67 20 63   |nable).Cutting c|
+0280  68 61 72 67 65 0A 20 20 20 20 20 20 20 20 20 20   |harge.          |
+0290  20 20 20 20 20 20 20 20 20 20 20 20 31 20 73 76   |            1 sv|
+02A0  63 20 20 20 20 20 35 30 2E 30 30 20 20 20 20 20   |c     50.00     |
+02B0  20 35 30 2E 30 30 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D   | 50.00.---------|
+02C0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+02D0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+02E0  2D 2D 2D 2D 2D 2D 2D 0A 53 75 62 20 74 6F 74 61   |-------.Sub tota|
+02F0  6C 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |l               |
+0300  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0310  20 32 30 36 35 2E 30 30 0A 44 69 73 63 6F 75 6E   | 2065.00.Discoun|
+0320  74 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |t               |
+0330  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0340  20 20 20 2D 36 35 2E 30 30 0A 54 61 78 61 62 6C   |   -65.00.Taxabl|
+0350  65 20 76 61 6C 75 65 20 20 20 20 20 20 20 20 20   |e value         |
+0360  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0370  20 20 20 32 30 30 30 2E 30 30 0A 54 61 78 20 40   |   2000.00.Tax @|
+0380  20 30 25 20 20 20 20 20 20 20 20 20 20 20 20 20   | 0%             |
+0390  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+03A0  20 20 20 20 20 20 20 30 2E 30 30 0A 2D 2D 2D 2D   |       0.00.----|
+03B0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+03C0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+03D0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 0A 1D 21 11   |------------..!.|
+03E0  1B 45 01 54 4F 54 41 4C 20 20 20 20 20 20 20 20   |.E.TOTAL        |
+03F0  20 20 20 20 32 30 30 30 2E 30 30 1B 45 00 1D 21   |    2000.00.E..!|
+0400  00 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |..--------------|
+0410  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0420  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0430  2D 2D 0A 43 61 73 68 20 20 20 20 20 20 20 20 20   |--.Cash         |
+0440  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0450  20 20 20 20 20 20 20 20 20 20 20 20 32 35 30 30   |            2500|
+0460  2E 30 30 0A 43 48 41 4E 47 45 20 20 20 20 20 20   |.00.CHANGE      |
+0470  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0480  20 20 20 20 20 20 20 20 20 20 20 20 20 20 35 30   |              50|
+0490  30 2E 30 30 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |0.00.-----------|
+04A0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+04B0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+04C0  2D 2D 2D 2D 2D 0A 49 74 65 6D 73 3A 20 34 20 20   |-----.Items: 4  |
+04D0  20 20 20 55 6E 69 74 73 3A 20 32 37 2E 37 35 0A   |   Units: 27.75.|
+04E0  1B 64 01 1B 61 01 1D 68 50 1D 77 02 1D 48 02 1D   |.d..a..hP.w..H..|
+04F0  66 00 1D 6B 49 11 7B 42 49 4E 56 2D 32 30 32 36   |f..kI.{BINV-2026|
+0500  2D 30 30 34 33 31 32 1B 64 01 1B 61 00 52 65 74   |-004312.d..a.Ret|
+0510  75 72 6E 73 20 61 63 63 65 70 74 65 64 20 77 69   |urns accepted wi|
+0520  74 68 69 6E 20 31 34 20 64 61 79 73 20 77 69 74   |thin 14 days wit|
+0530  68 20 74 68 69 73 20 62 69 6C 6C 2E 0A 43 75 74   |h this bill..Cut|
+0540  20 67 6F 6F 64 73 20 26 20 6D 69 78 65 64 20 70   | goods & mixed p|
+0550  61 69 6E 74 20 61 72 65 20 6E 6F 6E 2D 72 65 74   |aint are non-ret|
+0560  75 72 6E 61 62 6C 65 2E 0A 1B 61 01 54 68 61 6E   |urnable...a.Than|
+0570  6B 20 79 6F 75 20 2D 20 70 6C 65 61 73 65 20 63   |k you - please c|
+0580  6F 6D 65 20 61 67 61 69 6E 0A 1B 61 00 2D 2D 2D   |ome again..a.---|
+0590  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+05A0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+05B0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 0A 1B 70   |-------------..p|
+05C0  00 19 FA 1B 64 04 1D 56 01                        |....d..V.|

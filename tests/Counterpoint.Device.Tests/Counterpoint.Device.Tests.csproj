@@ -9,6 +9,9 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
+    <!-- Snapshot tests: the rendered ESC/POS stream against a committed .verified.txt. -->
+    <PackageReference Include="Verify.Xunit" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
