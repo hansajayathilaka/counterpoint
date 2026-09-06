@@ -64,3 +64,4 @@ it stopped.
 - `2026-09-06T09:59:49Z` **P0-T05** start — ESC/POS renderer and one rendered receipt
 - `2026-09-06T10:27:58Z` **P0-T05** note — task-implementer done, 374 tests passing, verify.sh green; checked out into checkpoint commit 3749cbf; code-reviewer + device-integrator review in flight
 - `2026-09-06T10:28:03Z` **P0-T05** note — task-implementer done, 374 tests passing, verify.sh green; checkpoint commit 3749cbf pushed; code-reviewer + device-integrator review in flight
+- `2026-09-06T10:34:00Z` **P0-T05** fix-attempt — 1: rounding applied past the two invariant-2 points in SpecimenReceipt.FormatAmount; FileReceiptPrinter can throw outside its try (Done-when 3); drawer pulse timing and cutter command family (ESC i/m) not capability-flaggable per task's own Risks section; raster barcode mode silently drops the HRI bill-number text; HW-T01 checkbox list doesn't literally reference this task's snapshot
