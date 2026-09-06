@@ -1,3 +1,5 @@
+using Counterpoint.Domain.ValueObjects;
+
 namespace Counterpoint.Infrastructure.Data.Schema;
 
 /// <summary>Row of <c>stock_movement</c>. APPEND ONLY. See Schema/README.md.</summary>
@@ -12,8 +14,8 @@ internal sealed class StockMovement
     /// <summary>Quantity ×10 000, signed: positive increases stock.</summary>
     public long QtyBase { get; set; }
 
-    /// <summary>Money ×10 000, at the moment of movement.</summary>
-    public long UnitCost { get; set; }
+    /// <summary>Cost at the moment of movement.</summary>
+    public Money UnitCost { get; set; }
 
     public string RefDocType { get; set; } = string.Empty;
 

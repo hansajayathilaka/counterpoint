@@ -41,3 +41,15 @@ it stopped.
 
 **Run ended 2026-09-04T16:20:49Z** — 2 completed, 0 halted
 - `2026-09-04T16:27:30Z` **P0-T04** note — CI failure post-merge-to-branch: scripts/check-triggers.sh hardcoded -c Debug, CI builds Release only. Fixed in e7300c1 (CONFIGURATION env var), verified against both configs locally before push.
+
+## Run 2026-09-04T16:47:08Z
+
+- branch: `claude/autopilot-lqek25`
+- head: `05dce53`
+- budget: 1 task(s)
+
+- `2026-09-04T16:47:16Z` **P1-T01** start — Full schema migration
+- `2026-09-05T00:55:43Z` **P1-T01** fix-attempt — 1: non-atomic product-FK migration (unbootable-till risk), column reorder on rebuild, missing foreign_key_check, missing negative-CHECK tests, misleading comments
+- `2026-09-05T10:19:43Z` **P1-T01** done — 132 files, 343 tests (+82), 2 review rounds, 1 fix round; outstanding: NFR-P6 hardware perf gate
+
+**Run ended 2026-09-05T10:20:15Z** — 0 completed, 0 halted, 1 in-progress (P1-T01: 3/4 Done-when proven, NFR-P6 hardware perf gate outstanding)

@@ -30,6 +30,14 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- DesignTime/ is the other half of the same arrangement: it references
+       Microsoft.EntityFrameworkCore.Design types, so it can only compile when that package is
+       restored. `dotnet ef dbcontext optimize` needs it to scaffold the compiled model, and the
+       shipped application must never carry it. -->
+  <ItemGroup Condition="'$(EfTooling)' != 'true'">
+    <Compile Remove="DesignTime/**/*.cs" />
+  </ItemGroup>
+
   <!-- Integration tests exercise the snake_case naming helper directly. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Counterpoint.Integration.Tests" />

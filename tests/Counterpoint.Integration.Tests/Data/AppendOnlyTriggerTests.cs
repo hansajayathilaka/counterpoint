@@ -8,8 +8,8 @@ using FluentAssertions;
 namespace Counterpoint.Integration.Tests.Data;
 
 /// <summary>
-/// The append-only guarantees of CLAUDE.md invariant 5 and docs/01_DATA_MODEL.md §6 (DM-05),
-/// exercised against a real encrypted database with migration <c>Skeleton0001</c> applied.
+/// The append-only guarantees of CLAUDE.md invariant 5 and docs/01_DATA_MODEL.md §8 (DM-05),
+/// exercised against a real encrypted database with the whole migration chain applied.
 /// </summary>
 /// <remarks>
 /// A trigger abort reaches the client as <c>SQLITE_CONSTRAINT</c> (19) with the extended code
@@ -29,21 +29,51 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task DM_05_EveryAppendOnlyTriggerSurvivesTheMigrationChain()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
+
+        var present = await database.ColumnAsync(
+            "SELECT name FROM sqlite_schema WHERE type = 'trigger' ORDER BY name;");
+
+        present.Should().Contain(
+            AppendOnlyTables.AllTriggerNames,
+            "Data/AppendOnlyTables.cs is the manifest of what must exist after the whole chain");
+    }
+
+    /// <summary>
+    /// The other half of the same question: no trigger exists that nobody chose. A stray trigger
+    /// is as much a surprise in a repair session as a missing one, and the FTS5 maintenance
+    /// triggers - which are not protection and are not in the manifest - have to be accounted for
+    /// somewhere.
+    /// </summary>
+    [Fact]
+    public async Task DM_05_TheFileCarriesExactlyTheTriggersTheSchemaDefines()
+    {
+        await using var database = await MigratedDatabase.CreateAsync();
 
         var present = await database.ColumnAsync(
             "SELECT name FROM sqlite_schema WHERE type = 'trigger' ORDER BY name;");
 
         present.Should().BeEquivalentTo(
-            AppendOnlyTables.AllTriggerNames,
-            "Data/AppendOnlyTables.cs is the manifest of what must exist after the whole chain");
+        [
+            .. AppendOnlyTables.AllTriggerNames,
+
+            // FR-2.20, the two-level category rule.
+            "trg_category_two_levels_insert",
+            "trg_category_two_levels_update",
+
+            // FR-2.11, the FTS5 search index. Rebuildable, so not append-only protection.
+            "trg_product_search_variant_insert",
+            "trg_product_search_variant_update",
+            "trg_product_search_variant_delete",
+            "trg_product_search_product_update",
+        ]);
     }
 
     /// <summary>Every trigger is on the table the manifest says it is.</summary>
     [Fact]
     public async Task DM_05_EveryTriggerIsOnItsOwnTable()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         var actual = await database.ColumnAsync(
             "SELECT tbl_name || ':' || name FROM sqlite_schema WHERE type = 'trigger';");
@@ -51,7 +81,7 @@ public sealed class AppendOnlyTriggerTests
         var expected = AppendOnlyTables.ExpectedTriggers
             .SelectMany(entry => entry.Value.Select(name => entry.Key + ":" + name));
 
-        actual.Should().BeEquivalentTo(expected);
+        actual.Should().Contain(expected);
     }
 
     [Theory]
@@ -121,9 +151,34 @@ public sealed class AppendOnlyTriggerTests
     [InlineData(
         "UPDATE shift SET counted_cash = 1 WHERE id = 1;",
         "close fields may only be set while closing the shift")]
+
+    // cash_movement, sale_return and sale_return_line arrived with their tables in
+    // FullSchema0002. None of the three has a column-scoped exception: a mistake on any of them
+    // is corrected with another document, never by editing this one.
+    [InlineData(
+        "UPDATE cash_movement SET amount = 1 WHERE id = 1;",
+        "cash_movement is append-only")]
+    [InlineData(
+        "DELETE FROM cash_movement WHERE id = 1;",
+        "cash_movement is append-only")]
+    [InlineData(
+        "UPDATE sale_return SET total_refund = 0 WHERE id = 1;",
+        "sale_return is append-only")]
+    [InlineData(
+        "UPDATE sale_return SET row_hash = 'forged' WHERE id = 1;",
+        "sale_return is append-only")]
+    [InlineData(
+        "DELETE FROM sale_return WHERE id = 1;",
+        "sale_return is append-only")]
+    [InlineData(
+        "UPDATE sale_return_line SET qty_base = 1 WHERE id = 1;",
+        "sale_return_line is append-only")]
+    [InlineData(
+        "DELETE FROM sale_return_line WHERE id = 1;",
+        "sale_return_line is append-only")]
     public async Task DM_05_ForbiddenStatementIsAborted(string sql, string expectedMessageFragment)
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         var exception = await database.ExecuteExpectingAbortAsync(sql);
 
@@ -187,9 +242,34 @@ public sealed class AppendOnlyTriggerTests
         VALUES (2, 'SH-000000', 1, '2026-09-03T08:05:00.000+05:30', '2026-09-03', 0, 'OPEN');
         """,
         "shift is append-only")]
+    [InlineData(
+        """
+        INSERT OR REPLACE INTO cash_movement (id, shift_id, direction, amount, reason, user_id,
+                                              occurred_at)
+        VALUES (1, 1, 'IN', 1, 'nothing to see', 1, '2026-09-04T10:00:00.000+05:30');
+        """,
+        "cash_movement is append-only")]
+    [InlineData(
+        """
+        INSERT OR REPLACE INTO sale_return (id, return_no, returned_at, business_date, user_id,
+                                            shift_id, subtotal, total_refund, refund_method,
+                                            prev_hash, row_hash)
+        VALUES (1, 'RTN-2026-999999', '2026-09-04T10:30:00.000+05:30', '2026-09-04', 1,
+                1, 1, 1, 'CASH',
+                'forged', 'forged');
+        """,
+        "sale_return is append-only")]
+    [InlineData(
+        """
+        INSERT OR REPLACE INTO sale_return_line (id, sale_return_id, product_variant_id, qty_base,
+                                                 unit_price, unit_cost, line_refund, reason,
+                                                 disposition)
+        VALUES (1, 1, 1, 10000, 1, 1, 1, 'Changed my mind', 'SELLABLE');
+        """,
+        "sale_return_line is append-only")]
     public async Task DM_05_ReplaceCannotOverwriteAnAppendOnlyRow(string sql, string expectedMessageFragment)
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         var exception = await database.ExecuteExpectingAbortAsync(sql);
 
@@ -202,7 +282,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task DM_05_ARefusedReplaceLeavesTheBillExactlyAsItWas()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         await database.ExecuteExpectingAbortAsync(
             """
@@ -227,7 +307,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task AC_06_QtyReturnedWithinBoundsIsTheOnePermittedSaleLineUpdate()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         await database.ExecuteAsync("UPDATE sale_line SET qty_returned = 10000 WHERE id = 1;");
 
@@ -250,7 +330,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task AC_06_QtyReturnedCanNeverBeWoundBackward()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         await database.ExecuteAsync("UPDATE sale_line SET qty_returned = qty_base WHERE id = 1;");
 
@@ -272,7 +352,7 @@ public sealed class AppendOnlyTriggerTests
     }
 
     /// <summary>
-    /// The reason docs/01_DATA_MODEL.md §6 now says <c>IS NOT</c> and not <c>&lt;&gt;</c>.
+    /// The reason docs/01_DATA_MODEL.md §8 now says <c>IS NOT</c> and not <c>&lt;&gt;</c>.
     /// <c>old.note &lt;&gt; new.note</c> evaluates to NULL when the stored note is NULL, a NULL
     /// <c>WHEN</c> clause does not fire, and the update would go straight through - on the very
     /// rows most likely to have NULLs. <c>shift.note</c> makes the same point one trigger over, in
@@ -282,7 +362,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task DM_05_ANullColumnDoesNotLetAnUpdateSlipPastTheGuard()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         (await database.ScalarAsync("SELECT note FROM sale_line WHERE id = 1;")).Should().BeNull();
 
@@ -301,7 +381,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task FR_8_4_TheVarianceNoteIsWrittenByTheClosingUpdateAndNowhereElse()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         // (a) On a live OPEN shift, on its own, the note is not a thing the till may set.
         var onItsOwn = await database.ExecuteExpectingAbortAsync(
@@ -344,7 +424,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task DM_05_ANullColumnOnSaleDoesNotLetAnUpdateSlipPastTheGuard()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         (await database.ScalarAsync("SELECT customer_id FROM sale WHERE id = 1;")).Should().BeNull();
         (await database.ScalarAsync("SELECT note FROM sale WHERE id = 1;")).Should().BeNull();
@@ -367,7 +447,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task DM_05_BlankingAPopulatedNullableColumnIsStillAnEdit()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         (await database.ScalarAsync("SELECT product_variant_id FROM sale_line WHERE id = 1;"))
             .Should().Be("1");
@@ -390,7 +470,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task DM_05_WritingNullOverNullIsNotAChangeAndDoesNotTripTheGuard()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         (await database.ScalarAsync("SELECT note FROM sale_line WHERE id = 1;")).Should().BeNull();
 
@@ -403,7 +483,7 @@ public sealed class AppendOnlyTriggerTests
 
     /// <summary>
     /// Every column of a restricted table is either guarded by its trigger or on the short list
-    /// docs/01_DATA_MODEL.md §6 permits - no third category.
+    /// docs/01_DATA_MODEL.md §8 permits - no third category.
     /// </summary>
     /// <remarks>
     /// This is the test that survives P1. A migration that adds a column to <c>sale</c> and forgets
@@ -426,7 +506,7 @@ public sealed class AppendOnlyTriggerTests
         string trigger,
         string permittedColumns)
     {
-        await using var database = await SkeletonDatabase.CreateAsync(seed: false);
+        await using var database = await MigratedDatabase.CreateAsync(seed: false);
 
         var triggerSql = await database.ScalarAsync(
             "SELECT sql FROM sqlite_schema WHERE type = 'trigger' AND name = '" + trigger + "';");
@@ -444,7 +524,7 @@ public sealed class AppendOnlyTriggerTests
         guarded.Concat(permitted).Should().BeEquivalentTo(
             columns,
             "every column of " + table + " is either guarded by " + trigger +
-            " or on the permitted list in docs/01_DATA_MODEL.md §6");
+            " or on the permitted list in docs/01_DATA_MODEL.md §8");
     }
 
     /// <summary>The bare column names a trigger body compares through <c>old.</c>.</summary>
@@ -481,7 +561,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task DM_05_ASaleMayBeCancelledOnceAndOnlyForwards()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         await database.ExecuteAsync(
             """
@@ -506,7 +586,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task FR_8_5_ASaleCannotBePostedIntoAClosedShift()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         var exception = await database.ExecuteExpectingAbortAsync(
             """
@@ -521,13 +601,47 @@ public sealed class AppendOnlyTriggerTests
     }
 
     /// <summary>
+    /// FR-8.5, AC-11 again, for the return document. A refund posted into a shift that has been
+    /// counted and closed would move money out of a drawer whose Z report is already printed.
+    /// </summary>
+    [Fact]
+    public async Task FR_8_5_AReturnCannotBePostedIntoAClosedShift()
+    {
+        await using var database = await MigratedDatabase.CreateAsync();
+
+        var exception = await database.ExecuteExpectingAbortAsync(
+            """
+            INSERT INTO sale_return (id, return_no, returned_at, business_date, user_id, shift_id,
+                                     subtotal, total_refund, refund_method, prev_hash, row_hash)
+            VALUES (99, 'RTN-2026-000099', '2026-09-04T11:00:00.000+05:30', '2026-09-04', 1, 2,
+                    1000, 1000, 'CASH', 'x', 'y');
+            """);
+
+        exception.SqliteErrorCode.Should().Be(SqliteConstraint);
+        exception.SqliteExtendedErrorCode.Should().Be(SqliteConstraintTrigger);
+        exception.Message.Should().Contain("cannot post into a closed shift");
+
+        // And, as on `sale`, a shift that is not there at all is refused rather than let through
+        // on a NULL comparison.
+        var missing = await database.ExecuteExpectingAbortAsync(
+            """
+            INSERT INTO sale_return (id, return_no, returned_at, business_date, user_id, shift_id,
+                                     subtotal, total_refund, refund_method, prev_hash, row_hash)
+            VALUES (98, 'RTN-2026-000098', '2026-09-04T11:00:00.000+05:30', '2026-09-04', 1, 4242,
+                    1000, 1000, 'CASH', 'x', 'y');
+            """);
+
+        missing.SqliteExtendedErrorCode.Should().Be(SqliteConstraintTrigger);
+    }
+
+    /// <summary>
     /// A shift id that does not exist at all must be refused too. <c>&lt;&gt; 'OPEN'</c> would
     /// return NULL for the missing row and let the bill through; <c>IS NOT 'OPEN'</c> does not.
     /// </summary>
     [Fact]
     public async Task FR_8_5_ASaleCannotBePostedIntoAShiftThatDoesNotExist()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         var exception = await database.ExecuteExpectingAbortAsync(
             """
@@ -544,7 +658,7 @@ public sealed class AppendOnlyTriggerTests
     [Fact]
     public async Task DM_05_AShiftClosesOnceAndIsThenImmutable()
     {
-        await using var database = await SkeletonDatabase.CreateAsync();
+        await using var database = await MigratedDatabase.CreateAsync();
 
         await database.ExecuteAsync(
             """
@@ -588,6 +702,6 @@ public sealed class AppendOnlyTriggerTests
 
         names.Should().OnlyContain(name => name.StartsWith("trg_", StringComparison.Ordinal));
         names.Should().OnlyContain(name => !name.Contains(' ', StringComparison.Ordinal));
-        names.Should().HaveCount(18);
+        names.Should().HaveCount(25);
     }
 }

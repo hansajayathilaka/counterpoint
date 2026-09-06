@@ -1,3 +1,5 @@
+using Counterpoint.Domain.ValueObjects;
+
 namespace Counterpoint.Infrastructure.Data.Schema;
 
 /// <summary>Row of <c>product_variant</c>. See Schema/README.md.</summary>
@@ -12,8 +14,8 @@ internal sealed class ProductVariant
     /// <summary>JSON, for example <c>{"size":"M8"}</c>.</summary>
     public string Attributes { get; set; } = "{}";
 
-    /// <summary>Money ×10 000, per base unit, retail.</summary>
-    public long Price { get; set; }
+    /// <summary>Per base unit, retail.</summary>
+    public Money Price { get; set; }
 
     public bool Active { get; set; }
 

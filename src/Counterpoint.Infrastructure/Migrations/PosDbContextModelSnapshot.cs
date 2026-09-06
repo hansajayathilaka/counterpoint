@@ -16,6 +16,40 @@ namespace Counterpoint.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
 
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.AppSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("key");
+
+                    b.Property<string>("UpdatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_at");
+
+                    b.Property<long?>("UpdatedBy")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_by");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("value");
+
+                    b.Property<string>("ValueType")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("value_type");
+
+                    b.HasKey("Key")
+                        .HasName("pk_app_setting");
+
+                    b.ToTable("app_setting", t =>
+                        {
+                            t.HasCheckConstraint("ck_app_setting_value_type", "value_type IN ('STRING','INT','MONEY','BOOL','JSON')");
+                        });
+                });
+
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.AppUser", b =>
                 {
                     b.Property<long>("Id")
@@ -143,6 +177,602 @@ namespace Counterpoint.Infrastructure.Migrations
                     b.ToTable("audit_log");
                 });
 
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.BackupRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("checksum");
+
+                    b.Property<string>("CloudKey")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("cloud_key");
+
+                    b.Property<string>("CloudStatus")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("cloud_status");
+
+                    b.Property<string>("Filename")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("filename");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("last_error");
+
+                    b.Property<string>("LocalPath")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("local_path");
+
+                    b.Property<string>("SchemaVer")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("schema_ver");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("TakenAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("taken_at");
+
+                    b.Property<string>("UsbStatus")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("usb_status");
+
+                    b.Property<string>("VerifiedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("verified_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_backup_record");
+
+                    b.ToTable("backup_record", t =>
+                        {
+                            t.HasCheckConstraint("ck_backup_record_cloud_status", "cloud_status IN ('PENDING','OK','FAILED','SKIPPED')");
+
+                            t.HasCheckConstraint("ck_backup_record_usb_status", "usb_status IN ('NA','OK','FAILED')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Barcode", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_primary");
+
+                    b.Property<long>("ProductVariantId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_variant_id");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("barcode");
+
+                    b.HasKey("Id")
+                        .HasName("pk_barcode");
+
+                    b.HasIndex("ProductVariantId")
+                        .HasDatabaseName("ix_barcode_variant");
+
+                    b.HasIndex("Value")
+                        .IsUnique()
+                        .HasDatabaseName("ux_barcode");
+
+                    b.ToTable("barcode");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Brand", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true)
+                        .HasColumnName("active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_brand");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ux_brand_name");
+
+                    b.ToTable("brand");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.CashMovement", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("amount");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("direction");
+
+                    b.Property<string>("OccurredAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("reason");
+
+                    b.Property<long>("ShiftId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("shift_id");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cash_movement");
+
+                    b.ToTable("cash_movement", t =>
+                        {
+                            t.HasCheckConstraint("ck_cash_movement_amount", "amount > 0");
+
+                            t.HasCheckConstraint("ck_cash_movement_direction", "direction IN ('IN','OUT')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Category", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true)
+                        .HasColumnName("active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("name");
+
+                    b.Property<long?>("ParentId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("parent_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_category");
+
+                    b.HasIndex("Name", "ParentId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_category_name_parent");
+
+                    b.ToTable("category");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.CreditNote", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long>("AmountIssued")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("amount_issued");
+
+                    b.Property<long>("AmountRemaining")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("amount_remaining");
+
+                    b.Property<long?>("CustomerId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("customer_id");
+
+                    b.Property<string>("ExpiresOn")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("expires_on");
+
+                    b.Property<string>("IssuedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("issued_at");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("number");
+
+                    b.Property<long>("SaleReturnId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("sale_return_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_credit_note");
+
+                    b.HasIndex("Number")
+                        .IsUnique()
+                        .HasDatabaseName("ux_credit_note_number");
+
+                    b.ToTable("credit_note", t =>
+                        {
+                            t.HasCheckConstraint("ck_credit_note_status", "status IN ('ACTIVE','SPENT','EXPIRED','VOID')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.CreditNoteRedemption", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("amount");
+
+                    b.Property<long>("CreditNoteId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("credit_note_id");
+
+                    b.Property<string>("RedeemedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("redeemed_at");
+
+                    b.Property<long>("SaleId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("sale_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_credit_note_redemption");
+
+                    b.ToTable("credit_note_redemption");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Customer", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true)
+                        .HasColumnName("active");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("address");
+
+                    b.Property<long>("Balance")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("balance");
+
+                    b.Property<string>("CreatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("CreditLimit")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("credit_limit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("phone");
+
+                    b.Property<string>("TaxNo")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tax_no");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("RETAIL")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_customer");
+
+                    b.HasIndex("Phone")
+                        .HasDatabaseName("ix_customer_phone");
+
+                    b.ToTable("customer", t =>
+                        {
+                            t.HasCheckConstraint("ck_customer_type", "type IN ('RETAIL','TRADE')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.DailyProductSummary", b =>
+                {
+                    b.Property<string>("BusinessDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("business_date");
+
+                    b.Property<long>("ProductVariantId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_variant_id");
+
+                    b.Property<long>("Cogs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("cogs");
+
+                    b.Property<long>("Net")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("net");
+
+                    b.Property<long>("QtyBase")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("qty_base");
+
+                    b.HasKey("BusinessDate", "ProductVariantId")
+                        .HasName("pk_daily_product_summary");
+
+                    b.ToTable("daily_product_summary");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.DailySalesSummary", b =>
+                {
+                    b.Property<string>("BusinessDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("business_date");
+
+                    b.Property<long>("BillCount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("bill_count");
+
+                    b.Property<string>("BuiltAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("built_at");
+
+                    b.Property<long>("Cogs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("cogs");
+
+                    b.Property<long>("Discount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("discount");
+
+                    b.Property<long>("Gross")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("gross");
+
+                    b.Property<long>("Net")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("net");
+
+                    b.Property<long>("ReturnCount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("return_count");
+
+                    b.Property<long>("ReturnValue")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("return_value");
+
+                    b.Property<long>("Tax")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("tax");
+
+                    b.Property<long>("TenderCard")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("tender_card");
+
+                    b.Property<long>("TenderCash")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("tender_cash");
+
+                    b.Property<long>("TenderOther")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("tender_other");
+
+                    b.HasKey("BusinessDate")
+                        .HasName("pk_daily_sales_summary");
+
+                    b.ToTable("daily_sales_summary");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.GoodsReceipt", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("GrnNo")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("grn_no");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("note");
+
+                    b.Property<long>("OtherCost")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("other_cost");
+
+                    b.Property<long?>("PurchaseOrderId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("purchase_order_id");
+
+                    b.Property<string>("ReceivedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("received_at");
+
+                    b.Property<long>("Subtotal")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("subtotal");
+
+                    b.Property<long>("SupplierId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<string>("SupplierInvNo")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("supplier_inv_no");
+
+                    b.Property<long>("Tax")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("tax");
+
+                    b.Property<long>("Total")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("total");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_goods_receipt");
+
+                    b.HasIndex("GrnNo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_grn_no");
+
+                    b.ToTable("goods_receipt");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.GoodsReceiptLine", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long>("GoodsReceiptId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("goods_receipt_id");
+
+                    b.Property<long>("LineTotal")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("line_total");
+
+                    b.Property<long>("ProductVariantId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_variant_id");
+
+                    b.Property<long>("Qty")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("qty");
+
+                    b.Property<long>("QtyBase")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("qty_base");
+
+                    b.Property<long>("Tax")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("tax");
+
+                    b.Property<long>("UnitCost")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("unit_cost");
+
+                    b.Property<long>("UnitCostBase")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("unit_cost_base");
+
+                    b.Property<long>("UomId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("uom_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_goods_receipt_line");
+
+                    b.HasIndex("GoodsReceiptId")
+                        .HasDatabaseName("ix_grn_line_grn");
+
+                    b.ToTable("goods_receipt_line");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.HeldBill", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CreatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("label");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("payload");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_held_bill");
+
+                    b.ToTable("held_bill");
+                });
+
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.NumberSequence", b =>
                 {
                     b.Property<string>("DocType")
@@ -219,6 +849,89 @@ namespace Counterpoint.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_payment_one_document", "(sale_id IS NOT NULL) <> (sale_return_id IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_payment_tender_type", "tender_type IN ('CASH','CARD','BANK_TRANSFER','CREDIT_NOTE','ON_ACCOUNT','CHEQUE')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.PriceChangeLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChangedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("changed_at");
+
+                    b.Property<long>("NewPrice")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("new_price");
+
+                    b.Property<long>("OldPrice")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("old_price");
+
+                    b.Property<long>("ProductVariantId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_variant_id");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("reason");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_price_change_log");
+
+                    b.ToTable("price_change_log");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.PriceTier", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long>("MinQty")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("min_qty");
+
+                    b.Property<long>("Price")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("price");
+
+                    b.Property<long>("ProductVariantId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_variant_id");
+
+                    b.Property<string>("Tier")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tier");
+
+                    b.Property<string>("ValidFrom")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("valid_from");
+
+                    b.Property<string>("ValidTo")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("valid_to");
+
+                    b.HasKey("Id")
+                        .HasName("pk_price_tier");
+
+                    b.HasIndex("ProductVariantId", "Tier", "MinQty")
+                        .HasDatabaseName("ix_price_tier_lookup");
+
+                    b.ToTable("price_tier", t =>
+                        {
+                            t.HasCheckConstraint("ck_price_tier_tier", "tier IN ('RETAIL','TRADE')");
                         });
                 });
 
@@ -302,102 +1015,124 @@ namespace Counterpoint.Infrastructure.Migrations
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
-                        .HasColumnName("id");
+                        .HasColumnName("id")
+                        .HasColumnOrder(0);
 
                     b.Property<bool>("Active")
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true)
-                        .HasColumnName("active");
+                        .HasColumnName("active")
+                        .HasColumnOrder(19);
 
                     b.Property<long>("BaseUomId")
                         .HasColumnType("INTEGER")
-                        .HasColumnName("base_uom_id");
+                        .HasColumnName("base_uom_id")
+                        .HasColumnOrder(6);
 
                     b.Property<long?>("BrandId")
                         .HasColumnType("INTEGER")
-                        .HasColumnName("brand_id");
+                        .HasColumnName("brand_id")
+                        .HasColumnOrder(5);
 
                     b.Property<long?>("CategoryId")
                         .HasColumnType("INTEGER")
-                        .HasColumnName("category_id");
+                        .HasColumnName("category_id")
+                        .HasColumnOrder(4);
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("TEXT")
-                        .HasColumnName("code");
+                        .HasColumnName("code")
+                        .HasColumnOrder(1);
 
                     b.Property<long>("CostAvg")
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0L)
-                        .HasColumnName("cost_avg");
+                        .HasColumnName("cost_avg")
+                        .HasColumnOrder(9);
 
                     b.Property<string>("CreatedAt")
                         .IsRequired()
                         .HasColumnType("TEXT")
-                        .HasColumnName("created_at");
+                        .HasColumnName("created_at")
+                        .HasColumnOrder(20);
 
                     b.Property<string>("ImagePath")
                         .HasColumnType("TEXT")
-                        .HasColumnName("image_path");
+                        .HasColumnName("image_path")
+                        .HasColumnOrder(18);
 
                     b.Property<string>("Location")
                         .HasColumnType("TEXT")
-                        .HasColumnName("location");
+                        .HasColumnName("location")
+                        .HasColumnOrder(12);
 
                     b.Property<long?>("MaxDiscountRate")
                         .HasColumnType("INTEGER")
-                        .HasColumnName("max_discount_rate");
+                        .HasColumnName("max_discount_rate")
+                        .HasColumnOrder(15);
 
                     b.Property<long>("MinSellQty")
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0L)
-                        .HasColumnName("min_sell_qty");
+                        .HasColumnName("min_sell_qty")
+                        .HasColumnOrder(14);
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT")
-                        .HasColumnName("name");
+                        .HasColumnName("name")
+                        .HasColumnOrder(2);
 
                     b.Property<string>("NameAlt")
                         .HasColumnType("TEXT")
-                        .HasColumnName("name_alt");
+                        .HasColumnName("name_alt")
+                        .HasColumnOrder(3);
 
                     b.Property<bool>("NonReturnable")
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(false)
-                        .HasColumnName("non_returnable");
+                        .HasColumnName("non_returnable")
+                        .HasColumnOrder(13);
 
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT")
-                        .HasColumnName("notes");
+                        .HasColumnName("notes")
+                        .HasColumnOrder(17);
 
                     b.Property<long>("ReorderLevel")
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0L)
-                        .HasColumnName("reorder_level");
+                        .HasColumnName("reorder_level")
+                        .HasColumnOrder(10);
 
                     b.Property<long>("ReorderQty")
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0L)
-                        .HasColumnName("reorder_qty");
+                        .HasColumnName("reorder_qty")
+                        .HasColumnOrder(11);
 
                     b.Property<long>("TaxClassId")
                         .HasColumnType("INTEGER")
-                        .HasColumnName("tax_class_id");
+                        .HasColumnName("tax_class_id")
+                        .HasColumnOrder(8);
 
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("TEXT")
-                        .HasColumnName("type");
+                        .HasColumnName("type")
+                        .HasColumnOrder(7);
 
                     b.Property<string>("UpdatedAt")
                         .IsRequired()
                         .HasColumnType("TEXT")
-                        .HasColumnName("updated_at");
+                        .HasColumnName("updated_at")
+                        .HasColumnOrder(21);
 
                     b.Property<int?>("WarrantyDays")
                         .HasColumnType("INTEGER")
-                        .HasColumnName("warranty_days");
+                        .HasColumnName("warranty_days")
+                        .HasColumnOrder(16);
 
                     b.HasKey("Id")
                         .HasName("pk_product");
@@ -418,6 +1153,80 @@ namespace Counterpoint.Infrastructure.Migrations
                     b.ToTable("product", t =>
                         {
                             t.HasCheckConstraint("ck_product_type", "type IN ('STANDARD','DECIMAL','SERVICE','NON_INVENTORY')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.ProductSupplier", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long?>("LastCost")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("last_cost");
+
+                    b.Property<long>("ProductId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_id");
+
+                    b.Property<long>("SupplierId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<string>("SupplierRef")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("supplier_ref");
+
+                    b.HasKey("Id")
+                        .HasName("pk_product_supplier");
+
+                    b.HasIndex("ProductId", "SupplierId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_product_supplier");
+
+                    b.ToTable("product_supplier");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.ProductUom", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long>("ConversionFactor")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("conversion_factor");
+
+                    b.Property<bool>("IsBase")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_base");
+
+                    b.Property<long>("ProductId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_id");
+
+                    b.Property<long?>("SellingPrice")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("selling_price");
+
+                    b.Property<long>("UomId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("uom_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_product_uom");
+
+                    b.HasIndex("ProductId", "UomId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_product_uom");
+
+                    b.ToTable("product_uom", t =>
+                        {
+                            t.HasCheckConstraint("ck_product_uom_conversion_factor", "conversion_factor > 0");
                         });
                 });
 
@@ -468,6 +1277,95 @@ namespace Counterpoint.Infrastructure.Migrations
                         .HasDatabaseName("ux_variant_sku");
 
                     b.ToTable("product_variant");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.PurchaseOrder", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ExpectedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("expected_at");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("note");
+
+                    b.Property<string>("OrderedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("ordered_at");
+
+                    b.Property<string>("PoNo")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("po_no");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.Property<long>("SupplierId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_purchase_order");
+
+                    b.HasIndex("PoNo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_po_no");
+
+                    b.ToTable("purchase_order", t =>
+                        {
+                            t.HasCheckConstraint("ck_purchase_order_status", "status IN ('DRAFT','SENT','PARTIAL','RECEIVED','CANCELLED')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.PurchaseOrderLine", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long>("ProductVariantId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_variant_id");
+
+                    b.Property<long>("PurchaseOrderId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("purchase_order_id");
+
+                    b.Property<long>("Qty")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("qty");
+
+                    b.Property<long>("QtyReceivedBase")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("qty_received_base");
+
+                    b.Property<long>("UnitCost")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("unit_cost");
+
+                    b.Property<long>("UomId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("uom_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_purchase_order_line");
+
+                    b.ToTable("purchase_order_line");
                 });
 
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Sale", b =>
@@ -678,6 +1576,169 @@ namespace Counterpoint.Infrastructure.Migrations
                     b.ToTable("sale_line");
                 });
 
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.SaleReturn", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long?>("AuthorisedBy")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("authorised_by");
+
+                    b.Property<string>("BusinessDate")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("business_date");
+
+                    b.Property<long?>("CustomerId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("customer_id");
+
+                    b.Property<long?>("ExchangeSaleId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("exchange_sale_id");
+
+                    b.Property<long?>("OriginalSaleId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("original_sale_id");
+
+                    b.Property<string>("PrevHash")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("prev_hash");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("RefundMethod")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("refund_method");
+
+                    b.Property<long>("RestockingFee")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("restocking_fee");
+
+                    b.Property<string>("ReturnNo")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("return_no");
+
+                    b.Property<string>("ReturnedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("returned_at");
+
+                    b.Property<string>("RowHash")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("row_hash");
+
+                    b.Property<long>("ShiftId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("shift_id");
+
+                    b.Property<long>("Subtotal")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("subtotal");
+
+                    b.Property<long>("Tax")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("tax");
+
+                    b.Property<long>("TotalRefund")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("total_refund");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sale_return");
+
+                    b.HasIndex("BusinessDate")
+                        .HasDatabaseName("ix_return_date");
+
+                    b.HasIndex("OriginalSaleId")
+                        .HasDatabaseName("ix_return_sale");
+
+                    b.HasIndex("ReturnNo")
+                        .IsUnique()
+                        .HasDatabaseName("ux_return_no");
+
+                    b.ToTable("sale_return", t =>
+                        {
+                            t.HasCheckConstraint("ck_sale_return_refund_method", "refund_method IN ('CASH','CARD','CREDIT_NOTE','EXCHANGE','ON_ACCOUNT')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.SaleReturnLine", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Disposition")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("disposition");
+
+                    b.Property<long>("LineRefund")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("line_refund");
+
+                    b.Property<long>("ProductVariantId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_variant_id");
+
+                    b.Property<long>("QtyBase")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("qty_base");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("reason");
+
+                    b.Property<long?>("SaleLineId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("sale_line_id");
+
+                    b.Property<long>("SaleReturnId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("sale_return_id");
+
+                    b.Property<long>("Tax")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("tax");
+
+                    b.Property<long>("UnitCost")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("unit_cost");
+
+                    b.Property<long>("UnitPrice")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("unit_price");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sale_return_line");
+
+                    b.ToTable("sale_return_line", t =>
+                        {
+                            t.HasCheckConstraint("ck_sale_return_line_disposition", "disposition IN ('SELLABLE','DAMAGED')");
+
+                            t.HasCheckConstraint("ck_sale_return_line_qty_base", "qty_base > 0");
+                        });
+                });
+
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Shift", b =>
                 {
                     b.Property<long>("Id")
@@ -853,6 +1914,128 @@ namespace Counterpoint.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.StockTake", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CompletedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("completed_at");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("scope");
+
+                    b.Property<string>("StartedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_stock_take");
+
+                    b.ToTable("stock_take", t =>
+                        {
+                            t.HasCheckConstraint("ck_stock_take_status", "status IN ('OPEN','POSTED','ABANDONED')");
+                        });
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.StockTakeLine", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CountedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("counted_at");
+
+                    b.Property<long?>("CountedQty")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("counted_qty");
+
+                    b.Property<long>("ProductVariantId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("product_variant_id");
+
+                    b.Property<long>("StockTakeId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("stock_take_id");
+
+                    b.Property<long>("SystemQty")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("system_qty");
+
+                    b.Property<long?>("Variance")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("variance");
+
+                    b.HasKey("Id")
+                        .HasName("pk_stock_take_line");
+
+                    b.HasIndex("StockTakeId")
+                        .HasDatabaseName("ix_stock_take_line_take");
+
+                    b.ToTable("stock_take_line");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Supplier", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true)
+                        .HasColumnName("active");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("address");
+
+                    b.Property<string>("Contact")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("contact");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("name");
+
+                    b.Property<string>("PaymentTerms")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("payment_terms");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("phone");
+
+                    b.Property<string>("TaxNo")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("tax_no");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supplier");
+
+                    b.ToTable("supplier");
+                });
+
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.TaxClass", b =>
                 {
                     b.Property<long>("Id")
@@ -936,6 +2119,15 @@ namespace Counterpoint.Infrastructure.Migrations
                     b.ToTable("schema_version", (string)null);
                 });
 
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.AppSetting", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_app_setting_app_user_updated_by");
+                });
+
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.AuditLog", b =>
                 {
                     b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
@@ -943,6 +2135,142 @@ namespace Counterpoint.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("fk_audit_log_app_user_user_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Barcode", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_barcode_product_variant_product_variant_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.CashMovement", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Shift", null)
+                        .WithMany()
+                        .HasForeignKey("ShiftId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_cash_movement_shift_shift_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_cash_movement_app_user_user_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Category", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Category", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_category_category_parent_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.CreditNote", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_credit_note_customer_customer_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.SaleReturn", null)
+                        .WithMany()
+                        .HasForeignKey("SaleReturnId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_credit_note_sale_return_sale_return_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.CreditNoteRedemption", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.CreditNote", null)
+                        .WithMany()
+                        .HasForeignKey("CreditNoteId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_credit_note_redemption_credit_note_credit_note_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_credit_note_redemption_sale_sale_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.DailyProductSummary", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_daily_product_summary_product_variant_product_variant_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.GoodsReceipt", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.PurchaseOrder", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_goods_receipt_purchase_order_purchase_order_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_goods_receipt_supplier_supplier_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_goods_receipt_app_user_user_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.GoodsReceiptLine", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.GoodsReceipt", null)
+                        .WithMany()
+                        .HasForeignKey("GoodsReceiptId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_goods_receipt_line_goods_receipt_goods_receipt_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_goods_receipt_line_product_variant_product_variant_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Uom", null)
+                        .WithMany()
+                        .HasForeignKey("UomId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_goods_receipt_line_uom_uom_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.HeldBill", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_held_bill_app_user_user_id");
                 });
 
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Payment", b =>
@@ -954,6 +2282,33 @@ namespace Counterpoint.Infrastructure.Migrations
                         .HasConstraintName("fk_payment_sale_sale_id");
                 });
 
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.PriceChangeLog", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_price_change_log_product_variant_product_variant_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_price_change_log_app_user_user_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.PriceTier", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_price_tier_product_variant_product_variant_id");
+                });
+
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Product", b =>
                 {
                     b.HasOne("Counterpoint.Infrastructure.Data.Schema.Uom", null)
@@ -963,12 +2318,58 @@ namespace Counterpoint.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_product_uom_base_uom_id");
 
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Brand", null)
+                        .WithMany()
+                        .HasForeignKey("BrandId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_product_brand_brand_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_product_category_category_id");
+
                     b.HasOne("Counterpoint.Infrastructure.Data.Schema.TaxClass", null)
                         .WithMany()
                         .HasForeignKey("TaxClassId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("fk_product_tax_class_tax_class_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.ProductSupplier", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_product_supplier_product_product_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_product_supplier_supplier_supplier_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.ProductUom", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_product_uom_product_product_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Uom", null)
+                        .WithMany()
+                        .HasForeignKey("UomId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_product_uom_uom_uom_id");
                 });
 
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.ProductVariant", b =>
@@ -979,6 +2380,47 @@ namespace Counterpoint.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("fk_product_variant_product_product_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.PurchaseOrder", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_order_supplier_supplier_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_order_app_user_user_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.PurchaseOrderLine", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_order_line_product_variant_product_variant_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.PurchaseOrder", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_order_line_purchase_order_purchase_order_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Uom", null)
+                        .WithMany()
+                        .HasForeignKey("UomId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_order_line_uom_uom_id");
                 });
 
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Sale", b =>
@@ -1027,6 +2469,70 @@ namespace Counterpoint.Infrastructure.Migrations
                         .HasConstraintName("fk_sale_line_uom_uom_id");
                 });
 
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.SaleReturn", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorisedBy")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_sale_return_app_user_authorised_by");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_sale_return_customer_customer_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("ExchangeSaleId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_sale_return_sale_exchange_sale_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("OriginalSaleId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_sale_return_sale_original_sale_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.Shift", null)
+                        .WithMany()
+                        .HasForeignKey("ShiftId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_return_shift_shift_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_return_app_user_user_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.SaleReturnLine", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_return_line_product_variant_product_variant_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.SaleLine", null)
+                        .WithMany()
+                        .HasForeignKey("SaleLineId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_sale_return_line_sale_line_sale_line_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.SaleReturn", null)
+                        .WithMany()
+                        .HasForeignKey("SaleReturnId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_return_line_sale_return_sale_return_id");
+                });
+
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.Shift", b =>
                 {
                     b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
@@ -1068,6 +2574,33 @@ namespace Counterpoint.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("fk_stock_movement_app_user_user_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.StockTake", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_take_app_user_user_id");
+                });
+
+            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.StockTakeLine", b =>
+                {
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_take_line_product_variant_product_variant_id");
+
+                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.StockTake", null)
+                        .WithMany()
+                        .HasForeignKey("StockTakeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_stock_take_line_stock_take_stock_take_id");
                 });
 #pragma warning restore 612, 618
         }

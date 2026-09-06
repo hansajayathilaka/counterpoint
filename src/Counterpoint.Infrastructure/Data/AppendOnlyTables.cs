@@ -6,7 +6,7 @@ namespace Counterpoint.Infrastructure.Data;
 
 /// <summary>
 /// The triggers that must exist on every append-only table after the full migration chain
-/// (CLAUDE.md invariant 5, docs/01_DATA_MODEL.md §6).
+/// (CLAUDE.md invariant 5, docs/01_DATA_MODEL.md §8).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -23,8 +23,18 @@ namespace Counterpoint.Infrastructure.Data;
 /// applying migrations, and an integration test checks it too.
 /// </para>
 /// <para>
-/// <c>cash_movement</c>, <c>sale_return</c> and <c>sale_return_line</c> are append-only as well,
-/// but their tables do not exist until P1/P2. They join this list with their tables.
+/// <c>cash_movement</c>, <c>sale_return</c> and <c>sale_return_line</c> joined the list with
+/// their tables in <c>FullSchema0002</c> (P1-T01). Every table CLAUDE.md invariant 5 names is
+/// now here.
+/// </para>
+/// <para>
+/// The search-index triggers on <c>product</c> and <c>product_variant</c> are deliberately absent.
+/// They are not protection - they maintain a rebuildable FTS5 index - so losing one to a table
+/// rebuild costs a stale search result, not an editable ledger, and
+/// <c>ReindexSearchCommand</c> repairs it.
+/// <c>AppendOnlyTriggerTests.DM_05_TheFileCarriesExactlyTheTriggersTheSchemaDefines</c> asserts
+/// the whole trigger set including those; this manifest stays the short list of what must never
+/// go missing.
 /// </para>
 /// </remarks>
 internal static class AppendOnlyTables
@@ -68,6 +78,22 @@ internal static class AppendOnlyTables
                 "trg_shift_restricted_update",
                 "trg_shift_closed_is_final",
                 "trg_shift_close_fields_together",
+            ],
+            ["cash_movement"] =
+            [
+                "trg_cash_movement_no_update",
+                "trg_cash_movement_no_delete",
+            ],
+            ["sale_return"] =
+            [
+                "trg_sale_return_no_update",
+                "trg_sale_return_no_delete",
+                "trg_sale_return_shift_open",
+            ],
+            ["sale_return_line"] =
+            [
+                "trg_sale_return_line_no_update",
+                "trg_sale_return_line_no_delete",
             ],
         }.ToImmutableDictionary(System.StringComparer.Ordinal);
 

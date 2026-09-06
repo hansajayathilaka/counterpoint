@@ -1,3 +1,4 @@
+using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data.Schema;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -20,11 +21,11 @@ internal sealed class SaleLineConfiguration : IEntityTypeConfiguration<SaleLine>
         entity.Property(line => line.Qty).IsRequired();
         entity.Property(line => line.QtyBase).IsRequired();
         entity.Property(line => line.UnitPrice).IsRequired();
-        entity.Property(line => line.Discount).HasDefaultValue(0L).ValueGeneratedNever();
-        entity.Property(line => line.TaxRate).HasDefaultValue(0L).ValueGeneratedNever();
-        entity.Property(line => line.Tax).HasDefaultValue(0L).ValueGeneratedNever();
+        entity.Property(line => line.Discount).HasDefaultValue(Money.Zero).ValueGeneratedNever();
+        entity.Property(line => line.TaxRate).HasDefaultValue(TaxRate.Zero).ValueGeneratedNever();
+        entity.Property(line => line.Tax).HasDefaultValue(Money.Zero).ValueGeneratedNever();
         entity.Property(line => line.LineTotal).IsRequired();
-        entity.Property(line => line.UnitCost).HasDefaultValue(0L).ValueGeneratedNever();
+        entity.Property(line => line.UnitCost).HasDefaultValue(Money.Zero).ValueGeneratedNever();
         entity.Property(line => line.QtyReturned).HasDefaultValue(0L).ValueGeneratedNever();
 
         entity.HasIndex(line => line.SaleId).HasDatabaseName("ix_sale_line_sale");

@@ -21,11 +21,32 @@ plain, never `AUTOINCREMENT` — apart from three documented exceptions listed i
 
 Constants in code: `MoneyScale = 10_000`, `QtyScale = 10_000`, `RateScale = 10_000`.
 
-`stock_balance` is the only projection in the schema, and the only one in the skeleton migration
-(§13). It is written in the same transaction as the `stock_movement` rows it summarises and is
-rebuildable from them (CLAUDE.md invariant 3). The rebuild command, the start-up sample check and
-the recompute test belong to **P1-T07** and are deliberately absent from the skeleton: a rebuild
-that nothing yet posts to would be untestable ceremony.
+**Column suffixes carry the storage rule**, so a reader never has to guess which of the two TEXT
+date forms a column holds:
+
+| Suffix | Storage | Examples |
+|---|---|---|
+| `_at` | ISO-8601 timestamp with offset | `sold_at`, `occurred_at`, `expected_at`, `counted_at` |
+| `_on`, `_from`, `_to`, `_date` | `YYYY-MM-DD` business date | `expires_on`, `valid_from`, `valid_to`, `business_date` |
+
+A business date is a grouping key, not an instant: routing one through the timestamp converter
+would corrupt every rollup built on it.
+
+### The projections, and what each one owes
+
+Everything else in this schema is a fact. These three are caches of facts held elsewhere, so each
+owes a rebuild command, a start-up sample check and a test proving it matches a recomputation from
+history.
+
+| Projection | Recomputable from | Rebuild lands in |
+|---|---|---|
+| `stock_balance` | `stock_movement` (CLAUDE.md invariant 3) | **P1-T07**, with the stock ledger |
+| `customer.balance` | the customer's sales, returns and payments | **P5-T02**, with credit accounts |
+| `daily_sales_summary`, `daily_product_summary` | `sale`, `sale_line`, `payment`, `sale_return` | **P3**, with the Z report that writes them |
+
+Each is written in the same transaction as the rows it summarises. None of the rebuilds exists yet
+and none is missing: a rebuild for a table that nothing yet posts to would be untestable ceremony.
+`stock_balance` is the only one of the three that the skeleton migration created.
 
 ---
 
@@ -206,7 +227,11 @@ CREATE TABLE product_uom (
   UNIQUE (product_id, uom_id)
 );
 -- Exactly one row per product with is_base = 1 and conversion_factor = 10000.
--- Enforced by trigger.
+-- NOT YET ENFORCED. P1-T01 lands the table with `CHECK (conversion_factor > 0)` and the
+-- UNIQUE above; the "exactly one base row" rule needs the UOM conversion domain that has to
+-- satisfy it, and arrives with it in P1-T05. Half of it is a partial unique index on
+-- (product_id) WHERE is_base = 1; the other half - "at least one" - is not expressible as a
+-- column constraint at all, because the first row of a product is inserted before the second.
 
 CREATE TABLE barcode (
   id                 INTEGER PRIMARY KEY,
@@ -259,7 +284,41 @@ CREATE VIRTUAL TABLE product_search USING fts5(
 -- rowid = product_variant.id
 -- Maintained by AFTER INSERT/UPDATE/DELETE triggers on product and
 -- product_variant. Rebuildable by ReindexSearchCommand.
+
+CREATE TRIGGER trg_product_search_variant_insert AFTER INSERT ON product_variant ...
+CREATE TRIGGER trg_product_search_variant_update AFTER UPDATE OF sku, product_id ON product_variant ...
+CREATE TRIGGER trg_product_search_variant_delete AFTER DELETE ON product_variant ...
+CREATE TRIGGER trg_product_search_product_update
+  AFTER UPDATE OF name, name_alt, code, location, brand_id, category_id ON product ...
 ```
+
+Four triggers, not six. `product` needs no INSERT trigger, because a product has no variants at
+the moment it is inserted and there is nothing to index; and no DELETE trigger, because
+`product_variant.product_id` is a foreign key with `NO ACTION`, so a product with variants cannot
+be deleted at all — by the time it goes, its variants have already been through the variant
+trigger.
+
+**The migration that creates the index also backfills it.** Triggers only see what happens after
+them, so a till upgrading with a catalogue already loaded would otherwise come back with a working
+search box that finds nothing — and nothing would fail, because an empty index is a valid index.
+The backfill uses the same `SELECT` as `trg_product_search_variant_insert`, because the two must
+agree on what an indexed row looks like or the first `'delete'` against a backfilled row would
+corrupt the term counts.
+
+**`UPDATE OF`, not a bare `UPDATE`, on both tables.** `product.cost_avg` moves on every goods
+receipt and `product_variant.price` on every repricing. Neither is indexed, and reindexing a
+product's variants on a cost change would put an avoidable write on the stock path.
+
+**The contentless-delete limitation, in full.** A contentless FTS5 table cannot be `DELETE`d from:
+removing a row is the `INSERT INTO product_search(product_search, rowid, …) VALUES('delete', …)`
+command, and it must be handed the values the row was indexed *with*. SQLCipher ships SQLite 3.39
+here; `contentless_delete=1`, which would allow a plain `DELETE`, needs 3.43. The triggers
+therefore read `brand.name` and `category.name` back through their tables, so **renaming a brand or
+a category between one edit of a product and the next leaves stale terms in the index**. The cost
+is a wrong search result, never a wrong price or a wrong bill, and the index is rebuildable:
+`ReindexSearchCommand` (P1-T06) is the remedy, and `INSERT INTO product_search(product_search)
+VALUES('integrity-check')` is what notices. Adding triggers to `brand` and `category` would close
+it and is the obvious extension if it ever bites.
 
 ---
 
@@ -684,6 +743,32 @@ erDiagram
     SHIFT ||--o{ SALE_RETURN : contains
     SHIFT ||--o{ CASH_MOVEMENT : records
     SHIFT ||--o| Z_REPORT : "closed by"
+    Z_REPORT ||--o| DAILY_SALES_SUMMARY : "rolls up"
+    Z_REPORT ||--o{ DAILY_PRODUCT_SUMMARY : "rolls up"
+    PRODUCT_VARIANT ||--o{ DAILY_PRODUCT_SUMMARY : "sold as"
+
+    DAILY_SALES_SUMMARY {
+        text business_date PK
+        int bill_count
+        int gross "money"
+        int discount "money"
+        int tax "money"
+        int net "money"
+        int cogs "money"
+        int return_count
+        int return_value "money"
+        int tender_cash "money"
+        int tender_card "money"
+        int tender_other "money"
+        text built_at
+    }
+    DAILY_PRODUCT_SUMMARY {
+        text business_date PK
+        int product_variant_id PK
+        int qty_base
+        int net "money"
+        int cogs "money"
+    }
 
     SHIFT {
         int id PK
@@ -908,9 +993,9 @@ CREATE TABLE schema_version (
 
 ### Append-only triggers
 
-The complete set, as created by migration `Skeleton0001`. These are the whole of CLAUDE.md
-invariant 5: there is no application code path that can be trusted to enforce it, because a
-repair session with `sqlite3` is not application code.
+The complete set, as created by migrations `Skeleton0001` and `FullSchema0002`. These are the
+whole of CLAUDE.md invariant 5: there is no application code path that can be trusted to enforce
+it, because a repair session with `sqlite3` is not application code.
 
 **Trigger recreation rule.** EF Core's SQLite provider rebuilds a table (create-copy-drop-rename)
 for almost any alter, and **a rebuild silently drops that table's triggers**. Any migration that
@@ -940,8 +1025,69 @@ connection the application opens, but a `sqlite3` repair session that does not s
 still gets the old behaviour. Closing that would need a `BEFORE INSERT` existence guard on each
 append-only table as well.
 
-`cash_movement`, `sale_return` and `sale_return_line` are append-only too; their triggers land
-with their tables in P1/P2.
+**A trigger that names a table EF is about to rebuild breaks the rebuild.** The rule above is
+about triggers being *dropped*; this is the other direction, and it is not obvious. EF's SQLite
+provider emits a table rebuild at the **end** of the migration, whatever order the operations were
+written in. SQLite re-parses every trigger in the schema during the closing
+`ALTER TABLE ef_temp_x RENAME TO x`, so a trigger created earlier in the *same* migration that
+selects `FROM x` fails the rename outright with `no such table: main.x`, and the upgrade stops.
+That is why `ProductForeignKeys0003` — which rebuilds `product` — creates no trigger at all, and
+the `product_search` triggers are in `ProductSearch0004`. Append-only protection is never what
+gets deferred: the triggers for `cash_movement`, `sale_return` and `sale_return_line` are created
+in `FullSchema0002` alongside the tables they protect, so no append-only table exists unprotected
+even between two migrations of one upgrade.
+
+### One rebuild, alone, in a migration of its own
+
+A migration containing a table rebuild **is not atomic**, and this is a property of SQLite rather
+than a choice. Adding a constraint needs `PRAGMA foreign_keys = 0`, which SQLite silently ignores
+inside a transaction, so EF emits it transaction-suppressed and the migration's SQL splits into
+three `BEGIN…COMMIT` groups with the `__EFMigrationsHistory` row written after the last of them:
+
+```
+BEGIN; CREATE TABLE ef_temp_product …; INSERT INTO ef_temp_product SELECT … FROM product; COMMIT;
+PRAGMA foreign_keys = 0;
+BEGIN; DROP TABLE product; ALTER TABLE ef_temp_product RENAME TO product; COMMIT;
+PRAGMA foreign_keys = 1;
+BEGIN; CREATE INDEX ix_product_active …; CREATE UNIQUE INDEX ux_product_code …; COMMIT;
+INSERT INTO __EFMigrationsHistory …;
+```
+
+A power cut between two of those groups — the thing `synchronous = FULL` exists for — leaves work
+durably on disk with no history row, so the next start runs the whole migration again. Two rules
+follow, and both are load-bearing:
+
+1. **A rebuild gets a migration to itself.** Everything that *can* be atomic stays atomic:
+   `FullSchema0002`'s twenty-five tables, sixteen indexes and nine triggers commit as one
+   transaction, so they are either all there or none of them are. Had they shared a migration with
+   the rebuild, a cut after the first COMMIT would leave twenty-five tables on disk and a re-run
+   that dies on `table "app_setting" already exists`, permanently — there is no `IF NOT EXISTS`
+   anywhere in EF's generated DDL.
+2. **The rebuild migration must survive being re-run.** `DROP TABLE IF EXISTS ef_temp_product;` is
+   the first statement of `ProductForeignKeys0003`, because a cut inside the second group rolls
+   that group back and leaves the temp table from the first one committed. The indexes need no
+   such guard: every re-run drops `product` and takes its indexes with it before recreating them.
+
+`PRAGMA defer_foreign_keys = 1` does not avoid the split. `DROP TABLE product` increments the
+deferred-violation counter for every child row and the rename never clears it, so the COMMIT fails
+with `FOREIGN KEY constraint failed`.
+
+**`MigrationRunner` wraps a failed `MigrateAsync` in `SchemaMigrationException`**, naming the
+pre-migration backup, so an operator meeting the half-migrated case is told where the file as it
+stood is sitting rather than getting a bare `SqliteException`.
+
+### `PRAGMA foreign_key_check`, not just `integrity_check`
+
+`integrity_check` checks pages and indexes; it does not look at foreign keys at all. A rebuild
+copies existing rows in under `PRAGMA foreign_keys = 0`, without validating them against the
+constraint being added — so the first migration to add a real foreign key to a populated table is
+the first that can leave an orphan behind. `MigrationRunner` runs both checks after any run that
+applied a migration. On an append-only table an orphan could never be corrected afterwards, which
+is why this is checked at the moment it is created rather than at some random INSERT months later.
+
+`cash_movement`, `sale_return` and `sale_return_line` are append-only too; their triggers landed
+with their tables in `FullSchema0002` (P1-T01). Every table CLAUDE.md invariant 5 names now has
+them.
 
 ```sql
 -- ---- stock_movement: the stock ledger is the truth (invariant 3) --------------------
@@ -1087,7 +1233,69 @@ WHEN (old.closed_at     IS NOT new.closed_at
    OR old.note          IS NOT new.note)
    AND NOT (old.status = 'OPEN' AND new.status = 'CLOSED')
 BEGIN SELECT RAISE(ABORT, 'shift close fields may only be set while closing the shift'); END;
+
+-- ---- cash_movement: money in and out of the drawer is evidence ----------------------
+CREATE TRIGGER trg_cash_movement_no_update
+BEFORE UPDATE ON cash_movement
+BEGIN SELECT RAISE(ABORT, 'cash_movement is append-only'); END;
+
+CREATE TRIGGER trg_cash_movement_no_delete
+BEFORE DELETE ON cash_movement
+BEGIN SELECT RAISE(ABORT, 'cash_movement is append-only'); END;
+
+-- ---- sale_return and sale_return_line: hash chained, no column-scoped exception ------
+-- There is no correcting update to a return. A mistake is fixed with another document.
+CREATE TRIGGER trg_sale_return_no_update
+BEFORE UPDATE ON sale_return
+BEGIN SELECT RAISE(ABORT, 'sale_return is append-only'); END;
+
+CREATE TRIGGER trg_sale_return_no_delete
+BEFORE DELETE ON sale_return
+BEGIN SELECT RAISE(ABORT, 'sale_return is append-only'); END;
+
+CREATE TRIGGER trg_sale_return_line_no_update
+BEFORE UPDATE ON sale_return_line
+BEGIN SELECT RAISE(ABORT, 'sale_return_line is append-only'); END;
+
+CREATE TRIGGER trg_sale_return_line_no_delete
+BEFORE DELETE ON sale_return_line
+BEGIN SELECT RAISE(ABORT, 'sale_return_line is append-only'); END;
+
+-- FR-8.5, AC-11 for the refund side: a refund paid out of a drawer whose Z report is
+-- already printed is money that cannot be reconciled.
+CREATE TRIGGER trg_sale_return_shift_open
+BEFORE INSERT ON sale_return
+WHEN (SELECT status FROM shift WHERE id = new.shift_id) IS NOT 'OPEN'
+BEGIN SELECT RAISE(ABORT, 'cannot post into a closed shift'); END;
 ```
+
+### The two-level category guard (FR-2.20)
+
+Not append-only protection, but the same argument: a category tree that grows a third level is not
+something the catalogue screen can be trusted to prevent for ever.
+
+```sql
+CREATE TRIGGER trg_category_two_levels_insert
+BEFORE INSERT ON category
+WHEN new.parent_id IS NOT NULL
+ AND (new.parent_id = new.id
+   OR (SELECT parent_id FROM category WHERE id = new.parent_id) IS NOT NULL)
+BEGIN SELECT RAISE(ABORT, 'category: two levels only (FR-2.20)'); END;
+
+CREATE TRIGGER trg_category_two_levels_update
+BEFORE UPDATE OF parent_id ON category
+WHEN new.parent_id IS NOT NULL
+ AND (new.parent_id = new.id
+   OR (SELECT parent_id FROM category WHERE id = new.parent_id) IS NOT NULL
+   OR EXISTS (SELECT 1 FROM category WHERE parent_id = new.id))
+BEGIN SELECT RAISE(ABORT, 'category: two levels only (FR-2.20)'); END;
+```
+
+Two triggers, because the ways to break the rule differ by statement. An INSERT can only reach for
+a parent that is already a child. An UPDATE can also push a category that already *has* children
+underneath another one, and can point a category at itself — which the "is my parent a child" test
+alone would not catch, because a `BEFORE UPDATE` trigger reads the row as it stands before the
+change.
 
 An abort reaches the client as `SQLITE_CONSTRAINT` (19) with extended code
 `SQLITE_CONSTRAINT_TRIGGER` (1811) and the message above. SQLite does not order triggers on the
@@ -1210,7 +1418,27 @@ Mirror these exactly as C# enums in `Domain/Enums/`. The `CHECK` constraints abo
 | `ix_payment_return` | the same for a refund out |
 | `ix_audit_time` | the audit log viewer's default ordering and its date filter |
 | `ix_audit_entity` | "show me everything that happened to bill 1234" |
-| `ix_sale_cust` | customer purchase history. **No foreign key stands behind it yet** — `customer` arrives with P5-T02 (§13). |
+| `ix_sale_cust` | customer purchase history. `customer` exists from P1-T01, but **no foreign key stands behind this column yet** — `sale.customer_id` becomes a constraint in P5-T02 (§13). |
+| `ix_barcode_variant` | "which barcodes does this SKU have" — the label screen and the barcode editor |
+| `ix_price_tier_lookup` | the whole of the price lookup in one index: variant, then tier, then the quantity break |
+| `ix_customer_phone` | the only way a cashier finds a customer at the till: they say their number |
+| `ix_grn_line_grn` | opening a goods receipt, which reads all of its lines |
+| `ix_stock_take_line_take` | the same for a count sheet |
+| `ix_return_date` | every date-range report that nets returns off sales |
+| `ix_return_sale` | "has this bill already been returned against", asked on every return |
+| `ux_category_name_parent`, `ux_brand_name`, `ux_po_no`, `ux_grn_no`, `ux_return_no`, `ux_credit_note_number` | document numbers and names that must be unique. The `ux_*_no` ones also serve recall by number |
+| `ux_product_uom`, `ux_product_supplier` | one row per pair; the unique index is the constraint |
+
+**`price_change_log` has no index, deliberately.** Nothing reads it on a hot path: it is written
+when a price changes and read by an owner looking at one variant's history, which is a scan of a
+small table. An index there would cost a write on the catalogue path to serve a screen nobody
+opens twice a day. P1-T08 adds one if the price-history screen needs it.
+
+**`held_bill`, `credit_note_redemption`, `purchase_order_line`, `sale_return_line` and
+`daily_product_summary` have none either.** Each is read by its parent key, and for the first four
+that key belongs to a table small enough to scan — a shop holds a handful of parked bills and a
+purchase order has a dozen lines. `daily_product_summary` is covered by its composite primary key,
+which leads on `business_date`, the column every range query filters on.
 
 **From the skeleton migration onwards, every index in this schema is one somebody chose.** EF
 Core's `ForeignKeyIndexConvention` is removed in `PosDbContext.ConfigureConventions`, so a foreign
@@ -1221,13 +1449,19 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 
 ---
 
-## 13. Skeleton subset and migrations
+## 13. Migrations
 
-Migration `Skeleton0001` (P0-T04) creates fifteen of the tables above — enough for one product,
-one sale, one payment, one stock movement and one printed receipt. The rest of this document
-arrives in P1-T01 through the same pipe.
+| Migration | Task | What it lays down |
+|---|---|---|
+| `Skeleton0001` | P0-T04 | Fifteen tables — enough for one product, one sale, one payment, one stock movement and one printed receipt — and the append-only triggers for six of them |
+| `FullSchema0002` | P1-T01 | The remaining twenty-five tables of areas A–F, sixteen more indexes, the two `product` foreign keys, the append-only triggers for `cash_movement`, `sale_return` and `sale_return_line`, and the two-level `category` guard |
+| `ProductForeignKeys0003` | P1-T01 | The `product.category_id` and `product.brand_id` foreign keys, and the column order that survives the rebuild they cost. The **only** step of this upgrade that is not one transaction |
+| `ProductSearch0004` | P1-T01 | The `product_search` FTS5 index, its four maintenance triggers and its backfill, split out because `ProductForeignKeys0003` rebuilds `product` (see §8) |
 
-### The fifteen tables and the foreign keys that actually exist
+Forty tables, forty-four indexes, thirty-one triggers. Three migrations rather than one, and the
+split is not cosmetic — see §8, "One rebuild, alone, in a migration of its own".
+
+### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 
 ```mermaid
 erDiagram
@@ -1260,27 +1494,29 @@ erDiagram
 be allocatable without touching the document, the print outbox must survive the sale it came from,
 and the schema version is about the file rather than the business.
 
-### The four dangling references
+### The four dangling references, two of which are still dangling
 
-The DDL above writes these as `REFERENCES`, but the tables they point at do not exist yet. With
-`PRAGMA foreign_keys = ON` a reference to a missing table is accepted at `CREATE TABLE` and then
-fails at **INSERT** time with "no such table" — a landmine, not a constraint. All four are
-therefore plain nullable `INTEGER` columns in the skeleton:
+The DDL above writes these as `REFERENCES`, but at `Skeleton0001` the tables they point at did not
+exist. With `PRAGMA foreign_keys = ON` a reference to a missing table is accepted at
+`CREATE TABLE` and then fails at **INSERT** time with "no such table" — a landmine, not a
+constraint. All four were therefore plain nullable `INTEGER` columns:
 
-| Column | Points at | Added by |
+| Column | Points at | Status |
 |---|---|---|
-| `product.category_id` | `category(id)` | P1-T01 |
-| `product.brand_id` | `brand(id)` | P1-T01 |
-| `sale.customer_id` | `customer(id)` | P5-T02 |
-| `payment.sale_return_id` | `sale_return(id)` | P2-T02 |
+| `product.category_id` | `category(id)` | **Resolved** in `FullSchema0002` (P1-T01) |
+| `product.brand_id` | `brand(id)` | **Resolved** in `FullSchema0002` (P1-T01) |
+| `sale.customer_id` | `customer(id)` | Still a plain column. `customer` exists from P1-T01; the constraint is P5-T02's, with credit accounts |
+| `payment.sale_return_id` | `sale_return(id)` | Still a plain column. `sale_return` exists from P1-T01; the constraint is P2-T02's, with returns |
 
-Adding a foreign key to SQLite rebuilds the table, **which drops that table's triggers**. The
-migrations that add these constraints to `sale` and `payment` must re-create their append-only
-triggers in the same migration — see the trigger recreation rule in §6.
+Adding a foreign key to SQLite rebuilds the table, **which drops that table's triggers**.
+`product` carries none of its own, which is why its two were safe to resolve first. The two that
+remain are both on append-only tables: **the migration that adds either constraint must re-create
+that table's append-only triggers in the same migration** — five for `sale`, two for `payment` —
+and must not create any trigger naming the rebuilt table earlier in that same migration (§8).
 
-### Migrations
+### Working on a migration
 
-- **Naming:** `Skeleton0001`, `FullSchema0002`, … Never a name starting with a digit: EF sanitises
+- **Naming:** `Skeleton0001`, `FullSchema0002`, `ProductForeignKeys0003`, … Never a name starting with a digit: EF sanitises
   `0001_Skeleton` into class `_0001_Skeleton`, which fails this repository's `CA1707` build.
 - **Forward only.** `Down` is generated and left alone so `dotnet ef migrations remove` works while
   a migration is being written. It is never run against a till.
@@ -1300,6 +1536,21 @@ triggers in the same migration — see the trigger recreation rule in §6.
 
   Then hand-append any `migrationBuilder.Sql(...)` triggers to `Up()`. Never hand-edit
   `PosDbContextModelSnapshot.cs`.
+- **Regenerate the compiled model in the same change** (NFR-P6), or start-up will build the model
+  from a stale copy and say nothing about it:
+
+  ```
+  EfTooling=true dotnet ef dbcontext optimize \
+    --project src/Counterpoint.Infrastructure \
+    --startup-project src/Counterpoint.Infrastructure \
+    --output-dir Data/CompiledModels \
+    --namespace Counterpoint.Infrastructure.Data.CompiledModels
+  ```
+
+  `FullSchemaTests` compares the compiled model's columns against the database the migrations
+  built, so a forgotten regeneration goes red rather than quiet. If the `CompiledModels` folder is
+  ever deleted rather than overwritten, comment out the `UseModel` line first — `optimize` builds
+  the project before it scaffolds, and the context will not compile without the model it names.
 
 ### EF mapping rules that are now schema contracts
 
@@ -1308,7 +1559,8 @@ true of the model — otherwise the first `ALTER` in a later migration quietly r
 
 | Rule | Why |
 |---|---|
-| No `decimal`, `double` or `float` in the mapped model. Money, quantity and rates are C# `long`. | A bare `decimal` maps to `TEXT` in SQLite with no error to show for it, and money stored as text does not add up (CLAUDE.md invariant 1). |
+| No `decimal`, `double` or `float` reaches the provider. Money is the `Money` value object through `ScaledMoneyConverter`; `tax_class.rate` and `sale_line.tax_rate` are `TaxRate`, `product.max_discount_rate` is `Percentage`, each through its own converter. Registered once in `ConfigureConventions`, so no column can be missed — nullable ones included. | A bare `decimal` maps to `TEXT` in SQLite with no error to show for it, and money stored as text does not add up (CLAUDE.md invariant 1). The converters keep the scaling in `Counterpoint.Domain`, where the arithmetic is, so the two cannot drift on rounding or on the overflow boundary. |
+| **Quantity columns are plain `long`, and `Quantity` is deliberately *not* mapped.** | `Quantity` carries the `uom.id` it was measured in. An EF value converter is a scalar function of one column with no access to its siblings, so reading one back would have to invent a unit — on `qty_base`, whose unit is the *product's* base unit and is not a column of the row at all. Inventing it would defeat the point of the type, which is that adding 3 coils to 2 metres cannot compile. The columns stay `long` until a mapping exists that can supply the unit honestly; the storage is identical either way. |
 | No `AUTOINCREMENT`, no `sqlite_sequence`. | Document numbers come from `number_sequence` (invariant 4), and AUTOINCREMENT costs a `sqlite_sequence` write per insert on the sale path. Enforced by `NoAutoincrementAnnotationProvider`, a replaced `IRelationalAnnotationProvider` — not by editing the migration, which a table rebuild would undo. |
 | No automatic foreign-key indexes. | See §12. |
 | `DeleteBehavior.NoAction` on every relationship. | EF defaults a required FK to `ON DELETE CASCADE`; on `stock_movement` that would let deleting a variant wipe the stock ledger. The DDL above is bare `REFERENCES`, which is `NO ACTION`. |
@@ -1316,15 +1568,29 @@ true of the model — otherwise the first `ALTER` in a later migration quietly r
 | Unique constraints are named `ux_*` indexes, not inline `UNIQUE`. | The model must name an index the same as the database, or the next migration's diff drops and recreates it. |
 | Timestamps are `DateTimeOffset` through `Iso8601TimestampConverter`, set once as a convention. | DM-06, fixed width so a TEXT sort is a chronological sort. Covers `DateTimeOffset?` too. |
 | Business dates (`sale.business_date`, `shift.business_date`) are plain `TEXT` `YYYY-MM-DD` strings. | They are the grouping key for every rollup. Routing them through the timestamp converter would corrupt it. |
-| Property declaration order is the DDL column order. | EF emits columns in declaration order, so the generated `CREATE TABLE` matches this document column for column and stays reviewable. |
+| Property declaration order is the DDL column order, **and any table that a migration rebuilds also carries explicit `HasColumnOrder`**. | EF emits a `CreateTable` in declaration order, but sorts a *rebuilt* table's columns alphabetically after the key — so `product` would have come out of `ProductForeignKeys0003` in a different physical order from §3 with nothing to show for it. That matters beyond reviewability: SQLite's type affinity accepts a positional `INSERT INTO product VALUES (...)` written against the documented order without complaint, putting a code in `active` and a name in `base_uom_id`. A repair session and a bulk import are both exactly that statement. `SchemaConformanceTests` compares every table's physical column order against its declared order. |
 
 Persistence rows live in `Infrastructure/Data/Schema` and their mapping in
-`Infrastructure/Data/Configurations`, one file per table. They are `internal`, hold no behaviour
-and know nothing of `Money` or `Quantity`: P1-T05 onward brings the real domain types and P1-T01
-moves the mapping onto them.
+`Infrastructure/Data/Configurations`, one file per table. They are `internal` and hold no
+behaviour. They know `Money`, `TaxRate` and `Percentage`, because those are how the storage rule
+is expressed; the real domain entities arrive from P1-T05 onward.
 
-### Three tables are not keyed on `id`
+**One design-time helper exists only to make the compiled model buildable.**
+`HasDefaultValue(Money.Zero)` stores a `Money` on the model — EF rejects `HasDefaultValue(0L)` on a
+`Money` property outright — and the compiled-model scaffolder writes annotations out verbatim, so
+it meets a type it has no literal syntax for. `Infrastructure/DesignTime/PosDesignTimeServices.cs`
+supplies one. It compiles only under `EfTooling=true` and is never shipped. The migration
+scaffolder needs no such help: it reads the relational model, which has already run the converter.
 
-`stock_balance` (keyed on `product_variant_id`, one row per variant), `number_sequence` (keyed on
-`doc_type`) and `schema_version` (keyed on `version`). Every other table is a bare
-`id INTEGER PRIMARY KEY`.
+### Six tables are not keyed on `id`
+
+| Table | Key | Because |
+|---|---|---|
+| `stock_balance` | `product_variant_id` | One row per variant; the key *is* the foreign key |
+| `number_sequence` | `doc_type` | One row per document type |
+| `schema_version` | `version` | About the file, not the business |
+| `app_setting` | `key` | One row per setting |
+| `daily_sales_summary` | `business_date` | One row per trading day |
+| `daily_product_summary` | (`business_date`, `product_variant_id`) | One row per product per trading day, and the composite key is also the index every range query uses |
+
+Every other table is a bare `id INTEGER PRIMARY KEY`.

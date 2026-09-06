@@ -1,3 +1,5 @@
+using Counterpoint.Domain.ValueObjects;
+
 namespace Counterpoint.Infrastructure.Data.Schema;
 
 /// <summary>
@@ -11,8 +13,7 @@ internal sealed class StockBalance
     /// <summary>Quantity ×10 000, in base units.</summary>
     public long QtyBase { get; set; }
 
-    /// <summary>Money ×10 000.</summary>
-    public long CostAvg { get; set; }
+    public Money CostAvg { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
 }

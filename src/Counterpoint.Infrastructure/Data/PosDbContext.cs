@@ -1,4 +1,5 @@
 using System;
+using Counterpoint.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -11,8 +12,8 @@ namespace Counterpoint.Infrastructure.Data;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The model covers the fifteen skeleton tables of migration <c>Skeleton0001</c> (P0-T04); the
-/// rest of docs/01_DATA_MODEL.md arrives in P1-T01. The mapping lives one class per table in
+/// The model covers every table in areas A to F of docs/01_DATA_MODEL.md, as created by
+/// <c>Skeleton0001</c> and <c>FullSchema0002</c>. The mapping lives one class per table in
 /// <c>Data/Configurations</c>, over the persistence rows in <c>Data/Schema</c>.
 /// </para>
 /// <para>
@@ -30,9 +31,9 @@ public sealed class PosDbContext : DbContext
 
     /// <summary>
     /// The only <see cref="DbSet{TEntity}"/> in the context. <see cref="MigrationRunner"/> writes
-    /// through it so the ISO-8601 timestamp conversion applies. The other fourteen tables are
-    /// persistence rows registered by configuration only - they are internal, and P1-T01 replaces
-    /// them with real domain types.
+    /// through it so the ISO-8601 timestamp conversion applies. Every other table is a persistence
+    /// row registered by configuration only - they are internal, and the real domain types arrive
+    /// from P1-T05 onward.
     /// </summary>
     public DbSet<SchemaVersion> SchemaVersions => Set<SchemaVersion>();
 
@@ -58,6 +59,22 @@ public sealed class PosDbContext : DbContext
         // edit to the generated migration.
         optionsBuilder.ReplaceService<IRelationalAnnotationProvider, NoAutoincrementAnnotationProvider>();
 
+        // NFR-P6, not an optimisation. Building this model from OnModelCreating takes the best
+        // part of a second on the shop PC and it happens before the sales screen can draw; the
+        // compiled model is built at compile time instead, so start-up only reads it. Regenerate
+        // it in the same change as any model change:
+        //
+        //   EfTooling=true dotnet ef dbcontext optimize \
+        //     --project src/Counterpoint.Infrastructure \
+        //     --startup-project src/Counterpoint.Infrastructure \
+        //     --output-dir Data/CompiledModels \
+        //     --namespace Counterpoint.Infrastructure.Data.CompiledModels
+        //
+        // A stale compiled model would be used in preference to the real one and nothing would
+        // say so, which is why FullSchemaTests.NFR_P6_TheCompiledModelMatchesTheDatabaseTheMigrationsBuilt
+        // compares it against the database the migrations built, on every test run.
+        optionsBuilder.UseModel(CompiledModels.PosDbContextModel.Instance);
+
         base.OnConfiguring(optionsBuilder);
     }
 
@@ -80,6 +97,27 @@ public sealed class PosDbContext : DbContext
         configurationBuilder.Properties<DateTimeOffset>()
             .HaveConversion<Iso8601TimestampConverter>()
             .HaveColumnType("TEXT");
+
+        // Money and the two rate types are INTEGER scaled x10 000 (docs/01_DATA_MODEL.md §1,
+        // CLAUDE.md invariant 1). Registered here rather than per property for the same reason as
+        // the timestamps: a column that got missed would map its decimal to TEXT, silently, and
+        // money stored as text does not add up. Nullable columns are covered too.
+        //
+        // Quantity is deliberately absent. It carries the uom.id it was measured in, and an EF
+        // value converter is a scalar function with no access to the sibling uom_id column, so
+        // reading one back would have to invent a unit. Quantity columns stay `long` until a
+        // mapping exists that can supply the unit honestly - see docs/01_DATA_MODEL.md §13.
+        configurationBuilder.Properties<Money>()
+            .HaveConversion<ScaledMoneyConverter>()
+            .HaveColumnType("INTEGER");
+
+        configurationBuilder.Properties<TaxRate>()
+            .HaveConversion<ScaledTaxRateConverter>()
+            .HaveColumnType("INTEGER");
+
+        configurationBuilder.Properties<Percentage>()
+            .HaveConversion<ScaledPercentageConverter>()
+            .HaveColumnType("INTEGER");
 
         base.ConfigureConventions(configurationBuilder);
     }

@@ -1,3 +1,4 @@
+using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data.Schema;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -24,12 +25,12 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         entity.Property(sale => sale.BusinessDate).IsRequired().HasColumnType("TEXT");
 
         entity.Property(sale => sale.Subtotal).IsRequired();
-        entity.Property(sale => sale.LineDiscount).HasDefaultValue(0L).ValueGeneratedNever();
-        entity.Property(sale => sale.BillDiscount).HasDefaultValue(0L).ValueGeneratedNever();
-        entity.Property(sale => sale.Tax).HasDefaultValue(0L).ValueGeneratedNever();
-        entity.Property(sale => sale.Rounding).HasDefaultValue(0L).ValueGeneratedNever();
+        entity.Property(sale => sale.LineDiscount).HasDefaultValue(Money.Zero).ValueGeneratedNever();
+        entity.Property(sale => sale.BillDiscount).HasDefaultValue(Money.Zero).ValueGeneratedNever();
+        entity.Property(sale => sale.Tax).HasDefaultValue(Money.Zero).ValueGeneratedNever();
+        entity.Property(sale => sale.Rounding).HasDefaultValue(Money.Zero).ValueGeneratedNever();
         entity.Property(sale => sale.Total).IsRequired();
-        entity.Property(sale => sale.Cogs).HasDefaultValue(0L).ValueGeneratedNever();
+        entity.Property(sale => sale.Cogs).HasDefaultValue(Money.Zero).ValueGeneratedNever();
         entity.Property(sale => sale.Status).IsRequired();
         entity.Property(sale => sale.PrevHash).IsRequired();
         entity.Property(sale => sale.RowHash).IsRequired();

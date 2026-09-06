@@ -38,7 +38,7 @@ hands them back.
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
-| P1-T01 | Full schema migration | todo | | |
+| P1-T01 | Full schema migration | in-progress | | 0cc8724 feat(P1-T01): full schema migration - 3 of 4 Done-when proven (tables/indexes/triggers+integrity_check, enum CHECK round-trip, money/quantity storage class); NFR-P6 cold-start-vs-Phase-0-baseline not provable (no Phase 0 baseline was ever recorded, needs real target hardware via /perf-gate); 343 tests, 2 review rounds + 1 fix round |
 | P1-T02 | Users, authentication, roles, authorisation | todo | | |
 | P1-T03 | Settings framework | todo | | |
 | P1-T04 | Catalogue reference data | todo | | |
