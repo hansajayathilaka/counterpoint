@@ -53,3 +53,12 @@ it stopped.
 - `2026-09-05T10:19:43Z` **P1-T01** done — 132 files, 343 tests (+82), 2 review rounds, 1 fix round; outstanding: NFR-P6 hardware perf gate
 
 **Run ended 2026-09-05T10:20:15Z** — 0 completed, 0 halted, 1 in-progress (P1-T01: 3/4 Done-when proven, NFR-P6 hardware perf gate outstanding)
+
+## Run 2026-09-06T09:59:38Z
+
+- branch: `claude/autopilot-bwlq75`
+- head: `236e098`
+- budget: 2 task(s)
+
+- `2026-09-06T09:59:47Z` **P1-T01** done — closed out: 4th Done-when (compiled model + UseModel) verified present and tested
+- `2026-09-06T09:59:49Z` **P0-T05** start — ESC/POS renderer and one rendered receipt
