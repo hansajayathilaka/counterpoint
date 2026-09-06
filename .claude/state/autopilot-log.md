@@ -66,3 +66,5 @@ it stopped.
 - `2026-09-06T10:28:03Z` **P0-T05** note — task-implementer done, 374 tests passing, verify.sh green; checkpoint commit 3749cbf pushed; code-reviewer + device-integrator review in flight
 - `2026-09-06T10:34:00Z` **P0-T05** fix-attempt — 1: rounding applied past the two invariant-2 points in SpecimenReceipt.FormatAmount; FileReceiptPrinter can throw outside its try (Done-when 3); drawer pulse timing and cutter command family (ESC i/m) not capability-flaggable per task's own Risks section; raster barcode mode silently drops the HRI bill-number text; HW-T01 checkbox list doesn't literally reference this task's snapshot
 - `2026-09-06T10:46:18Z` **P0-T05** done — 42 device tests (+8 in fix round), 385 total, 2 review rounds clean after 1 fix round
+
+**Run ended 2026-09-06T10:47:07Z** — 2 completed, 0 halted
