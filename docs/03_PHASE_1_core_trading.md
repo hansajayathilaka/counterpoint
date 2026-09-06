@@ -36,7 +36,7 @@ Returns (Phase 2), GRN and stock take (Phase 2), reports beyond the dashboard (P
 - [ ] All tables, indexes and triggers exist after migration; `integrity_check` returns ok
 - [ ] Every enum round-trips; every invalid enum value is rejected by a CHECK
 - [ ] Every money and quantity column has storage class `INTEGER`
-- [ ] Compiled model in use; cold start not worse than the Phase 0 baseline
+- [ ] The EF compiled model is generated and `UseModel` is wired into the composition root (NFR-P6 cold-start figure is measured on the terminal in `HW-T07`)
 
 ---
 
@@ -46,7 +46,7 @@ Returns (Phase 2), GRN and stock take (Phase 2), reports beyond the dashboard (P
 **Context.** Authorisation must live in the application layer, not the UI. Building it now means every subsequent service is written the right way round.
 
 **Do this.**
-1. `Application/Security/PasswordHasher` — Argon2id, memory 64 MB, iterations 3, parallelism 1. **Tune on the minimum-spec machine so a login stays under 200 ms**; record the parameters in `app_setting`.
+1. `Application/Security/PasswordHasher` — Argon2id, memory 64 MB, iterations 3, parallelism 1. Pick conservative defaults now and record them in `app_setting`; the final tuning pass against the minimum-spec terminal (login under 200 ms) happens in `HW-T07`.
 2. `AuthenticationService`: login, failed-attempt counter, lockout after 5 with exponential backoff (NFR-S9), `last_login`, all logged to `audit_log`.
 3. `ISession` — current user, role, shift; scoped as a singleton (single user, C-01).
 4. `[RequiresRole(Role.Owner)]` attribute + a DI decorator on every application service that checks before delegating. Throws `NotAuthorisedException`, never returns a partial result.
@@ -56,13 +56,13 @@ Returns (Phase 2), GRN and stock take (Phase 2), reports beyond the dashboard (P
 
 **Deliverables.** Hasher, auth service, role decorator, override service, login and user admin screens.
 
-**Risks.** Argon2 parameters tuned on a dev machine make login painfully slow on the shop PC. Measure on target hardware.
+**Risks.** Argon2 parameters tuned on a dev machine make login painfully slow on the shop PC — re-checked and adjusted in `HW-T07`.
 
 **Done when.**
 - [ ] Login succeeds/fails correctly; 5 failures lock the account and log every attempt
 - [ ] Calling an owner-only service method with a cashier session throws, **with the UI bypassed** (test calls the service directly) — this is AC-17
 - [ ] Password hashes are Argon2id; no plaintext or reversible storage anywhere
-- [ ] Login completes in under 500 ms on target hardware
+- [ ] Login completes well under 500 ms on the dev machine (indicative; the terminal figure is `HW-T07`)
 - [ ] A second instance of the app refuses to start
 
 ---
@@ -281,9 +281,9 @@ Returns (Phase 2), GRN and stock take (Phase 2), reports beyond the dashboard (P
 ---
 
 ### P1-T11 — Receipt templates and printing
-**Depends on:** P0-T05, P1-T10 · **Est:** 3d · **SRS:** FR-7.1–7.10, §10, NFR-M1
+**Depends on:** P0-T05, P1-T10 · **Est:** 3d · **SRS:** FR-7.1–7.10, §10, NFR-M1 · **Physical verification:** `HW-T01`
 
-**Context.** Phase 0 printed a hard-coded specimen. This makes the layout owner-editable without a code change (FR-7.3, FR-10.8) and adds the bill QR that Phase 2 needs for return-by-scan.
+**Context.** Phase 0 rendered a hard-coded specimen. This makes the layout owner-editable without a code change (FR-7.3, FR-10.8) and adds the bill QR that Phase 2 needs for return-by-scan. It renders through `FileReceiptPrinter`; `HW-T01` runs it on the real printer.
 
 **Do this.**
 1. Scriban templates stored in `app_setting`, rendering to the receipt IR from P0-T05. Ship the §10.1 specimen as the default.
@@ -299,34 +299,36 @@ Returns (Phase 2), GRN and stock take (Phase 2), reports beyond the dashboard (P
 **Risks.** Trying to share one layout engine between 80 mm thermal and A4. They are separate renderers over the same data model. Keep them separate.
 
 **Done when.**
-- [ ] Changing the shop name, footer or policy text in settings changes the printed receipt with no rebuild
-- [ ] The bill QR scans and resolves to the correct bill number
-- [ ] A reprint prints `DUPLICATE` and writes an audit row
-- [ ] Printer unplugged mid-transaction: the sale completes and the job is queued (AC-16)
+- [ ] Changing the shop name, footer or policy text in settings changes the rendered receipt byte stream with no rebuild
+- [ ] The bill QR encodes the correct bill number (decode it in the test; scanning it back is `HW-T01`)
+- [ ] A reprint renders `DUPLICATE` and writes an audit row
+- [ ] `FileReceiptPrinter` set to throw mid-transaction: the sale completes and the job is queued (AC-16, fake; real printer in `HW-T01`)
 - [ ] An A4 invoice renders with the same totals as the thermal receipt, to the cent
 - [ ] Snapshot tests cover the default template's byte output
 
 ---
 
 ### P1-T12 — Label printing
-**Depends on:** P1-T06 · **Est:** 1.5d · **SRS:** FR-2.10, FR-2.12, Q-15
+**Depends on:** P1-T06 · **Est:** 1.5d · **SRS:** FR-2.10, FR-2.12, Q-15 · **Physical verification:** `HW-T03`
 
 **Context.** Q-15 places label printing in Phase 1. Note that most shelf-label printers speak TSPL/ZPL/EPL, not ESC/POS — this is a separate device abstraction.
 
 **Do this.**
-1. `Devices/Labels/ILabelPrinter` with a TSPL implementation (adjust once Q-14 names the model).
+1. `Devices/Labels/ILabelPrinter` with a TSPL implementation (adjust once Q-14 names the model) and a file-writing dev implementation that emits the byte stream to `artifacts/labels/*.bin`.
 2. Label layout: name, code, barcode, unit, price. Size configurable.
 3. Print for a selected product list, a search result set, or a whole GRN batch (FR-2.12 — the GRN hook lands in Phase 2).
 4. Preview and quantity-per-label.
 
-**Deliverables.** Label printer abstraction, layout, selection UI.
+**Deliverables.** Label printer abstraction, TSPL renderer, file dev implementation, layout, selection UI, byte-stream snapshot tests.
 
-**Risks.** No label printer available at build time. Implement against the spec, snapshot-test the byte stream, and mark the task provisionally done until hardware is on site.
+**Risks.** No label printer available at build time — that is expected. Implement against the spec and snapshot-test the byte stream; `HW-T03` prints and scans a real label.
 
 **Done when.**
-- [ ] Labels print correctly on the actual label printer, and the barcode scans back to the right SKU
-- [ ] A list of 50 products prints in one batch
+- [ ] The TSPL byte stream for a known product matches a committed `.verified.txt`
+- [ ] A list of 50 products renders in one batch
 - [ ] Label size and content are configurable in settings
+
+> Printing on the actual label printer and scanning the barcode back move to **`HW-T03`**.
 - [ ] Snapshot test covers the generated command stream
 
 ---
@@ -399,32 +401,33 @@ Returns (Phase 2), GRN and stock take (Phase 2), reports beyond the dashboard (P
 **Done when.**
 - [ ] A scheduled backup runs unattended and appears in `backup_record`
 - [ ] A backup taken while a sale is being rung up does not delay the sale (measured)
-- [ ] Restore from USB reproduces the database exactly, with the current DB backed up first
-- [ ] Removing the USB drive produces a warning and the local backup still succeeds
+- [ ] Restore from the USB path reproduces the database exactly, with the current DB backed up first
+- [ ] Pointing the USB path at a missing location produces a warning and the local backup still succeeds (a real USB stick pulled mid-write is `HW-T08`)
 - [ ] The dashboard warns after the configured number of days without a backup
 
 ---
 
-### P1-T16 — Phase 1 acceptance and performance gate
+### P1-T16 — Phase 1 acceptance and software performance harness
 **Depends on:** all P1 tasks · **Est:** 2d · **SRS:** AC-02, AC-07, AC-13, AC-15, AC-16, AC-17, AC-19, NFR-P1–P7
 
-**Context.** Turn the SRS acceptance criteria that are reachable in Phase 1 into automated tests. Everything after this phase is protected by them.
+**Context.** Turn the SRS acceptance criteria that are reachable in Phase 1 into automated tests that run in CI against the Linux fakes. Everything after this phase is protected by them. The absolute NFR-P1…P7 budgets are a separate, on-terminal gate — `HW-T07`; this task builds the harness they reuse.
 
 **Do this.**
-1. Seed generator: 20 000 SKUs, 100 000 historical bill lines, realistic distribution (AC-18 baseline).
-2. Acceptance tests: `AC02`, `AC07`, `AC13` (network disabled), `AC15` (kill mid-transaction ×100, assert integrity every time), `AC16`, `AC17`, `AC19` (500 consecutive bills including cancellations, assert gapless).
-3. Performance benchmarks asserting NFR-P1, P2, P3, P4, P6 against the seeded database; fail CI on regression.
+1. Seed generator (`tools/SeedGenerator`, `bash scripts/seed.sh`): 20 000 SKUs, 100 000 historical bill lines, realistic distribution (AC-18 baseline).
+2. Acceptance tests: `AC02`, `AC07`, `AC13` (network disabled at the OS/DI level), `AC15` (kill the process mid-transaction ×100, assert integrity every time), `AC16` (`FileReceiptPrinter` throws), `AC17`, `AC19` (500 consecutive bills including cancellations, assert gapless).
+3. A software performance harness driving NFR-P1, P2, P3, P4, P6 operations against the seeded database. In CI it is a **relative regression guard**: it records timings and fails the build on a >20% drift from `docs/perf-baseline.md`. It does **not** assert the absolute budgets — that is `HW-T07` on the terminal. The same harness is what `/perf-gate` runs there.
 4. Hash-chain verification command run over the seeded data.
-5. A full simulated trading day on the actual shop hardware, network cable unplugged.
 
-**Deliverables.** Seed generator, acceptance test suite, performance gate in CI, a signed-off trading-day run.
+**Deliverables.** Seed generator, acceptance test suite, the reusable performance harness wired into CI as a regression guard.
 
-**Risks.** Discovering at this gate that scan latency degrades with history. If so, fix indexes before Phase 2 — it only gets worse.
+**Risks.** Discovering at this gate that scan latency degrades with history. If so, fix indexes before Phase 2 — it only gets worse. (Absolute-budget failures are found later, in `HW-T07`; the regression guard is the early warning.)
 
 **Done when.**
-- [ ] All listed acceptance tests pass in CI
-- [ ] All performance budgets met with 20 000 SKUs and 100 000 lines, on target hardware
-- [ ] A full trading day offline with zero functional loss (AC-13)
-- [ ] 100 mid-transaction kills leave the database intact every time (AC-15)
+- [ ] All listed acceptance tests pass in CI against the fakes
+- [ ] The performance harness runs in CI over the seeded database and fails on a >20% regression
+- [ ] `AC13` passes with the network disabled in-process (a physical cable-out trading day is `HW-T09`)
+- [ ] 100 mid-transaction process kills leave the database intact every time (AC-15; on-terminal power cuts are `HW-T09`)
 - [ ] 500 bills including cancellations produce a gapless series (AC-19)
-- [ ] `docs/perf-baseline.md` updated with the measured figures
+- [ ] `docs/perf-baseline.md` still shows the budgets as unmeasured, with a note that `HW-T07` populates them
+
+> Absolute NFR-P1…P7 pass/fail on the shop terminal, and the offline trading-day run on real hardware, move to **`HW-T07`** and **`HW-T09`**.

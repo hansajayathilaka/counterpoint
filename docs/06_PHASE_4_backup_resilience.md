@@ -1,6 +1,6 @@
 # Phase 4 — Backup and Resilience
 
-**Duration:** 2 weeks · **Tasks:** 9 · **Exit:** the business is protected off-site and restore is proven on clean hardware.
+**Duration:** 2 weeks · **Tasks:** 9 · **Exit:** the business is protected off-site and restore is proven into a clean VM/container. Timed restore on real replacement hardware is `HW-T08`.
 
 ## Scope
 
@@ -162,19 +162,19 @@ The SRS says it directly: an unbacked-up POS is the single largest risk the shop
    8. swap and restart
 2. Schema version handling: if the backup is older than the current schema, run migrations after restore; if it is newer, refuse with a clear message.
 3. Owner-only; fully audited (FR-11.13).
-4. Restore also works on a **clean machine** with no prior installation — this is the actual disaster case.
+4. Restore also works on a **clean environment** with no prior installation — this is the actual disaster case. A fresh VM/container proves the path here; a real replacement machine on site is `HW-T08`.
 
-**Deliverables.** Restore wizard, schema-version handling, clean-machine path, audit entries.
+**Deliverables.** Restore wizard, schema-version handling, clean-environment path, audit entries.
 
 **Risks.** A restore that half-completes and leaves neither database usable. Restore into a scratch file, verify fully, then swap atomically — never write into the live file.
 
 **Done when.**
-- [ ] AC-14: a backup is taken, uploaded, downloaded from the web page, verified, and restored to a **clean machine**, and the restored data matches exactly
+- [ ] AC-14: a backup is taken, uploaded, downloaded from the portal, verified, and restored into a **clean VM/container**, and the restored data matches exactly
 - [ ] A wrong passphrase fails with a plain-language message and changes nothing
 - [ ] A corrupted file is detected at checksum stage and changes nothing
 - [ ] An older-schema backup restores and migrates; a newer-schema backup is refused clearly
 - [ ] The pre-restore backup of the current database exists and is itself restorable
-- [ ] Restore completes within the 4-hour RTO on replacement hardware, timed end to end (NFR-R5)
+- [ ] Restore completes well within the 4-hour RTO in the clean VM (NFR-R5; the same timing on real replacement hardware is `HW-T08`)
 
 ---
 
@@ -205,10 +205,10 @@ The SRS says it directly: an unbacked-up POS is the single largest risk the shop
 ### P4-T08 — Resilience hardening
 **Depends on:** P4-T03 · **Est:** 1.5d · **SRS:** NFR-R1–R5, C-05, AC-13, AC-15, AC-16
 
-**Context.** Systematically prove that no peripheral, network or power event can stop the shop selling. Phase 1 proved individual cases; this hardens the whole surface.
+**Context.** Systematically prove that no peripheral, network or power event can stop the shop selling. Phase 1 proved individual cases; this hardens the whole surface — in software, against the fakes. Repeating the scenarios by physically pulling cables on the real peripherals is `HW-T08`.
 
 **Do this.**
-1. Failure-injection test harness: printer disconnected, printer error mid-job, scanner unplugged, drawer not responding, scale absent, USB removed, network down, cloud credentials revoked, disk full, DB file locked by another process.
+1. Failure-injection test harness driving the **fakes**: printer disconnected (`FileReceiptPrinter` throws), printer error mid-job, scanner input stops, drawer call fails, `NullScale` absent, USB path missing, network down, cloud credentials revoked, disk full, DB file locked by another process.
 2. For each: assert the sale path still completes, a specific plain-language warning appears, and the event is logged.
 3. Disk-space monitor: warn at a configurable free-space threshold; refuse to start a backup that would fill the disk.
 4. Watchdog: if the app crashes, restart to the sales screen and recover the open shift with no data loss.
@@ -220,12 +220,14 @@ The SRS says it directly: an unbacked-up POS is the single largest risk the shop
 **Risks.** A failure mode that blocks the UI thread — e.g. a device call with no timeout. Every device call gets an explicit timeout and runs off the UI thread.
 
 **Done when.**
-- [ ] Every injected failure leaves the sale path working, with a specific warning
-- [ ] AC-13: a full simulated trading day with the network cable unplugged, zero functional loss
-- [ ] AC-15: 100 mid-transaction kills, database intact and last committed bill present every time
-- [ ] AC-16: printer disconnected mid-transaction, sale completes, bill queued for reprint
+- [ ] Every injected failure (against the fakes) leaves the sale path working, with a specific warning
+- [ ] AC-13: a full simulated trading day with the network disabled in-process, zero functional loss (physical cable-out on the terminal is `HW-T09`)
+- [ ] AC-15: 100 mid-transaction process kills, database intact and last committed bill present every time (on-terminal power cuts are `HW-T09`)
+- [ ] AC-16: `FileReceiptPrinter` fails mid-transaction, sale completes, bill queued for reprint (real printer unplug is `HW-T01`)
 - [ ] Disk-full is detected before it corrupts anything
 - [ ] No device call can block the UI thread (verified by injecting a 30 s device stall)
+
+> The same failure set, performed by physically disconnecting the real peripherals on the terminal, is **`HW-T08`**.
 
 ---
 

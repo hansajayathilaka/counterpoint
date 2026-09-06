@@ -1,8 +1,14 @@
 # Performance baseline
 
 Measured figures against the seeded database (20 000 SKUs, 100 000 bill lines).
-Update after every `/perf-gate` run. A figure without hardware recorded is not a figure —
-NFR-P6 in particular is about the shop's actual low-powered terminal, not a developer machine.
+
+**These rows stay blank until `HW-T07`.** The absolute NFR-P1…P7 budgets are
+measured once, on the shop's terminal, as part of the hardware-integration track
+(`docs/09_HARDWARE_INTEGRATION.md`). A figure without the shop's hardware recorded
+is not a figure — NFR-P6 in particular is about the actual low-powered terminal,
+not a developer machine or a CI runner. The `P1-T16` software perf harness runs in
+CI as a *relative regression guard* against whatever figures land here; it does not
+populate them.
 
 | Requirement | Budget | Measured | Hardware | Date | Note |
 |---|---|---|---|---|---|

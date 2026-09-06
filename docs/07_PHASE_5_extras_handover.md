@@ -110,25 +110,27 @@ Everything here is a **Should** or **Could** in the SRS. If time is short, cut f
 ---
 
 ### P5-T05 — Weighing scale integration
-**Depends on:** P1-T09 · **Est:** 1.5d · **SRS:** §14.2 (optional), FR-3.6
+**Depends on:** P1-T09 · **Est:** 1.5d · **SRS:** §14.2 (optional), FR-3.6 · **Physical verification:** `HW-T04`
 
-**Context.** Optional in the SRS. Build it only if the shop actually has a scale and its protocol is documented (Q-07/Q-14).
+**Context.** Optional in the SRS. Build it only if the shop actually has a scale and its protocol is documented (Q-07/Q-14). Development binds `NullScale`; `HW-T04` binds the real serial port.
 
 **Do this.**
-1. `IScale` with a serial implementation via `System.IO.Ports`; one protocol adapter per model.
+1. `IScale` with `NullScale` for development and a serial implementation via `System.IO.Ports` (Windows-guarded) for the terminal; one protocol adapter per model, written as a **pure parser** over captured serial frames.
 2. Read weight into the quantity field for `DECIMAL` products, with a manual-entry fallback always available.
 3. Stability detection: only accept a settled reading.
 4. Scale absent or failing degrades to manual entry with a warning — never blocks the sale (C-05).
 
-**Deliverables.** Scale abstraction, protocol adapter, sales-screen integration.
+**Deliverables.** Scale abstraction, `NullScale`, protocol adapter(s) with frame-parser tests, sales-screen integration.
 
 **Risks.** Building against an undocumented protocol by guesswork. If the protocol is not documented, defer the task and record it as deferred rather than shipping something unreliable.
 
 **Done when.**
-- [ ] A weight reads into the quantity field correctly on the actual scale
+- [ ] The protocol adapter parses captured serial frames to the correct weight and stability flag (unit tests)
 - [ ] Unstable readings are rejected until settled
-- [ ] Disconnecting the scale falls back to manual entry with a warning, and the sale completes
+- [ ] With `NullScale` bound, the quantity field falls back to manual entry with a warning and the sale completes
 - [ ] Precision matches the UOM's configured decimal places
+
+> Reading a live weight on the actual scale over a real serial port is **`HW-T04`**.
 
 ---
 
@@ -210,12 +212,12 @@ Everything here is a **Should** or **Could** in the SRS. If time is short, cut f
 ---
 
 ### P5-T09 — Go-live and handover
-**Depends on:** all prior tasks · **Est:** 1d · **SRS:** §16 (all AC), NFR-M5, AC-20
+**Depends on:** all prior tasks, the full HW track (`HW-T01…HW-T10`) · **Est:** 1d · **SRS:** §16 (all AC), NFR-M5, AC-20
 
-**Context.** Final acceptance against every criterion in SRS §16, on the shop's actual hardware, plus the handover that makes the owner independent of the vendor.
+**Context.** Final sign-off plus the handover that makes the owner independent of the vendor. The on-hardware acceptance itself is done in `HW-T10`; this task confirms its record and closes out.
 
 **Do this.**
-1. Run the **full AC-01 to AC-20 suite on the shop's actual hardware**, not on a dev machine. Record each result.
+1. Confirm the **`HW-T10` acceptance record** — the full AC-01…AC-20 run on the shop terminal — is complete and every criterion passed. Do not start go-live if any HW-track exit-review item is open.
 2. Handover package: source repository access, build instructions, schema documentation, dependency and licence list, portal infrastructure code and credentials, installer, and the signed passphrase custody record.
 3. Confirm the backup chain end to end on the live system: local, USB, cloud, portal listing, and one test restore.
 4. Go-live checklist: opening float set, printer and scanner working, first bill printed and checked, backup verified, cheat sheet and runbook in place, support contact posted.
@@ -227,7 +229,7 @@ Everything here is a **Should** or **Could** in the SRS. If time is short, cut f
 **Risks.** Going live on the shop's busiest day, or without a verified backup. Pick a quiet day, and do not open the till until a restore has been proven on the live data.
 
 **Done when.**
-- [ ] All 20 acceptance criteria pass on the shop's actual hardware, each recorded
+- [ ] The `HW-T10` record shows all 20 acceptance criteria passing on the shop terminal, and the HW-track exit review is fully signed off
 - [ ] The handover package is delivered and the owner confirms they hold everything in NFR-M5
 - [ ] A restore of live data has been proven before the first real bill
 - [ ] The shop trades a full day on the system with the developer available but not intervening

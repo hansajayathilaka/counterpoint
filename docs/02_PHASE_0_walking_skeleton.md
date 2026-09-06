@@ -1,14 +1,16 @@
 # Phase 0 — Walking Skeleton
 
-**Duration:** 1 week · **Tasks:** 7 · **Exit:** one product, one sale, one printed receipt, one encrypted backup, one installer — end to end on the real hardware.
+**Duration:** 1 week · **Tasks:** 7 · **Exit:** one product, one sale, one receipt byte stream, one encrypted backup, one publish — end to end against the Linux device fakes.
 
 ## Why this phase exists
 
-The SRS phasing goes straight into core trading. That defers three risks — ESC/POS behaviour on the actual printer, SQLCipher packaging, and self-contained installer size and start time — to the point where they are most expensive to discover. This phase retires all three in week one with throwaway-thin functionality.
+The SRS phasing goes straight into core trading. That defers three risks — ESC/POS *rendering* correctness, SQLCipher packaging, and self-contained publish size — to the point where they are most expensive to discover. This phase retires the software side of all three in week one with throwaway-thin functionality.
+
+The **hardware** side of those risks — the actual printer honouring cut and drawer commands, SQLCipher's native asset on the real machine, cold start on the low-powered terminal — is retired in the HW track (`docs/09_HARDWARE_INTEGRATION.md`), on site, once the software is feature-complete. Do not block Phase 0 on a printer arriving.
 
 **Nothing here is production quality except the plumbing.** One hard-coded product, no catalogue screen, no auth beyond a stub. Resist the urge to build features.
 
-**Blocker:** Q-H (exact printer and scanner models). Buy them before this phase starts. A skeleton that prints to a simulator proves nothing.
+**Not a blocker for this phase:** Q-H (exact printer and scanner models). The skeleton renders to `FileReceiptPrinter` and its byte stream is snapshot-tested; `HW-T01` prints it on the real unit later. Still order the hardware early — it is on the critical path for the HW track and go-live.
 
 ---
 
@@ -122,28 +124,30 @@ The SRS phasing goes straight into core trading. That defers three risks — ESC
 
 ---
 
-### P0-T05 — ESC/POS renderer and one printed receipt
-**Depends on:** P0-T03 · **Est:** 1.5d · **SRS:** FR-7.1, FR-7.7, §10, §14.2
+### P0-T05 — ESC/POS renderer and one rendered receipt
+**Depends on:** P0-T03 · **Est:** 1.5d · **SRS:** FR-7.1, FR-7.7, §10, §14.2 · **Physical verification:** `HW-T01`
 
-**Context.** This is the highest-uncertainty external interface in the project. The goal is a real receipt out of the real printer, with a real drawer kick, this week.
+**Context.** The ESC/POS *rendering* is the highest-uncertainty piece we can build on Linux. The goal is a correct, snapshot-locked byte stream for the SRS §10.1 receipt, emitted through `FileReceiptPrinter`. Driving a real printer with it is `HW-T01`.
 
 **Do this.**
-1. `Devices/Printing/RawPrinter.cs` — P/Invoke `OpenPrinter` / `StartDocPrinter(datatype "RAW")` / `WritePrinter` / `EndDocPrinter`. Enumerate installed printers.
-2. `Devices/Printing/EscPos.cs` — command constants: init, align, bold, double height/width, feed, partial cut, drawer kick (`ESC p 0 25 250`), codepage select, `GS k` barcode, `GS v 0` raster.
-3. `Devices/Printing/ReceiptIr.cs` — intermediate representation: `TextLine(text, align, bold, doubleHeight)`, `Columns(left, right)`, `Divider`, `Barcode(data, symbology)`, `QrCode(data)`, `Feed(n)`, `Cut`, `Kick`. Design it so a `RasterText` node can be added later without touching the renderer's callers (Q-C).
-4. `Devices/Printing/EscPosRenderer.cs` — IR → `byte[]`. 80 mm = 48 characters at font A; wrap and truncate correctly; right-align amounts in a fixed money column.
-5. Hard-code one specimen receipt matching SRS §10.1 and print it.
+1. `Devices/Printing/EscPos.cs` — command constants: init, align, bold, double height/width, feed, partial cut, drawer kick (`ESC p 0 25 250`), codepage select, `GS k` barcode, `GS v 0` raster.
+2. `Devices/Printing/ReceiptIr.cs` — intermediate representation: `TextLine(text, align, bold, doubleHeight)`, `Columns(left, right)`, `Divider`, `Barcode(data, symbology)`, `QrCode(data)`, `Feed(n)`, `Cut`, `Kick`. Design it so a `RasterText` node can be added later without touching the renderer's callers (Q-C).
+3. `Devices/Printing/EscPosRenderer.cs` — IR → `byte[]`. 80 mm = 48 characters at font A; wrap and truncate correctly; right-align amounts in a fixed money column.
+4. `IReceiptPrinter` + `FileReceiptPrinter` — writes the rendered byte stream to `artifacts/receipts/*.bin`. This is the only implementation Phase 0–5 needs; `HW-T01` adds `WindowsRawPrinter` (P/Invoke `OpenPrinter` / `StartDocPrinter` datatype `RAW` / `WritePrinter` / `EndDocPrinter`).
+5. Hard-code one specimen receipt matching SRS §10.1 and render it through `FileReceiptPrinter`.
 
-**Deliverables.** Raw printer, ESC/POS command set, IR, renderer, one specimen receipt printed on the shop's actual printer.
+**Deliverables.** ESC/POS command set, IR, renderer, `IReceiptPrinter` + `FileReceiptPrinter`, one specimen receipt byte stream committed as a `.verified.txt`.
 
-**Risks.** The printer claims ESC/POS but differs on cut, codepage or barcode commands. Capability-flag anything the model gets wrong and record it in `docs/adr/printer-quirks.md`. If barcodes render badly with `GS k`, fall back to a ZXing raster — decide this now, not in Phase 3.
+**Risks.** The printer claims ESC/POS but differs on cut, codepage or barcode commands — that is discovered in `HW-T01` and recorded in `docs/adr/printer-quirks.md`. Keep every command a capability-flag so a quirk can be patched without touching the renderer. If barcodes need a ZXing raster fallback instead of `GS k`, wire the IR node now so `HW-T01` can switch it with a flag.
 
 **Done when.**
-- [ ] A receipt matching the §10.1 layout prints on the actual hardware, correctly aligned, and cuts
-- [ ] The cash drawer opens on the kick command
 - [ ] Snapshot test: the specimen receipt's byte stream matches a committed `.verified.txt`
-- [ ] Disconnecting the printer and printing produces a caught, logged error — not an unhandled exception
-- [ ] Printer quirks documented
+- [ ] The renderer wraps, truncates and right-aligns the money column correctly (covered by the snapshot and unit tests)
+- [ ] `FileReceiptPrinter` writes the stream to `artifacts/receipts/` and a configured failure mode produces a caught, logged error — not an unhandled exception
+- [ ] The IR carries a raster-barcode node even though `GS k` is the default
+- [ ] `HW-T01` checkbox list references this task
+
+> Printing the specimen on the real printer, the drawer kick, and documenting printer quirks move to **`HW-T01`**.
 
 ---
 
@@ -161,41 +165,43 @@ The SRS phasing goes straight into core trading. That defers three risks — ESC
 
 **Deliverables.** One working sale path, print outbox worker, minimal shell window.
 
-**Risks.** Calling the printer inside the transaction. Assert it: the sale transaction must complete with the printer physically unplugged.
+**Risks.** Calling the printer inside the transaction. Assert it: the sale transaction must complete with `FileReceiptPrinter` set to fail. (The equivalent test with a physically unplugged printer is `HW-T01`.)
 
 **Done when.**
-- [ ] Typing the seeded barcode adds a line; Pay produces a persisted sale and a printed receipt
-- [ ] The same flow completes successfully **with the printer unplugged**; the sale is saved and the job sits in `PENDING`/`FAILED` (AC-16 in miniature)
+- [ ] Typing the seeded barcode adds a line; Pay produces a persisted sale and a `print_job` row that `PrintWorker` renders through `FileReceiptPrinter`
+- [ ] The same flow completes successfully with `FileReceiptPrinter` configured to throw; the sale is saved and the job sits in `PENDING`/`FAILED` (AC-16 in miniature, fake)
 - [ ] `bill_no` is `INV-2026-000001`; a second sale is `…000002`
 - [ ] `stock_balance` decreased and one `stock_movement` row exists with correct `balance_after`
 - [ ] `sale.row_hash` verifies against `prev_hash`
-- [ ] Bill save measured under 2 s (NFR-P3)
+- [ ] Bill save runs under 2 s on the dev machine (indicative; NFR-P3 is measured on the terminal in `HW-T07`)
 
 ---
 
-### P0-T07 — Backup snapshot, encryption, installer
-**Depends on:** P0-T06 · **Est:** 1.5d · **SRS:** FR-11.1–11.4, NFR-M2, NFR-P6
+### P0-T07 — Backup snapshot, encryption, publish
+**Depends on:** P0-T06 · **Est:** 1.5d · **SRS:** FR-11.1–11.4, NFR-M2, NFR-P6 · **Physical verification:** `HW-T05`, `HW-T06`, `HW-T07`
 
-**Context.** Packaging is the other week-one risk: self-contained size, cold start, native SQLCipher assets, data directory permissions. Prove it before there is anything to lose.
+**Context.** Prove the snapshot/encrypt/restore pipeline and that a self-contained publish carries the native SQLCipher assets. The installer *script* is written here; running it on a clean Windows machine, measuring cold start on the terminal, and the DPAPI/Credential-Manager key path are the HW track.
 
 **Do this.**
 1. `Backup/SnapshotService`: `VACUUM INTO` a temp file, zstd compress, AES-256-GCM encrypt with a key from Argon2id over a passphrase, write a header (magic, version, salt, nonce, schema version, taken-at), SHA-256 the ciphertext, write to the local backup folder, insert `backup_record`.
 2. `Backup/RestoreService` (local only for now): decrypt, verify checksum, `PRAGMA integrity_check`, open and count rows.
-3. `dotnet publish -r win-x64 --self-contained -p:PublishReadyToRun=true`, trimming off.
-4. Inno Setup script: install to `%ProgramFiles%\Counterpoint`, create `%ProgramData%\Counterpoint\{db,backups,logs}` with appropriate ACLs, desktop shortcut, uninstaller.
-5. Measure and record cold start on the target hardware.
+3. `dotnet publish -r win-x64 --self-contained -p:PublishReadyToRun=true`, trimming off. Run the published binary on Linux where possible and in a Windows CI job to confirm the SQLCipher native asset is present.
+4. Write the Inno Setup script: install to `%ProgramFiles%\Counterpoint`, create `%ProgramData%\Counterpoint\{db,backups,logs}` with appropriate ACLs, desktop shortcut, uninstaller. (Running it on a clean machine is `HW-T06`.)
+5. Apply the EF compiled model (`dotnet ef dbcontext optimize`) and confirm it is wired into the composition root.
 
-**Deliverables.** Snapshot/restore services, publish profile, `installer/Counterpoint.iss`, a measured start-time figure.
+**Deliverables.** Snapshot/restore services, publish profile, `installer/Counterpoint.iss`, compiled model in use.
 
-**Risks.** Cold start over 10 s on the minimum spec. If so, apply the EF compiled model now (`dotnet ef dbcontext optimize`) rather than in Phase 3 — it is usually 1–2 s on its own.
+**Risks.** Cold start over 10 s on the minimum spec — not measurable here. The mitigation (compiled model) is applied now regardless; `HW-T07` measures the result on the terminal.
 
 **Done when.**
 - [ ] A backup file is produced, encrypted, checksummed and recorded
 - [ ] Restore into a scratch location reproduces the sale from P0-T06 exactly
 - [ ] A wrong passphrase fails cleanly with a plain-language message
-- [ ] The installer runs on a clean Windows machine with no .NET installed and the app starts
-- [ ] Cold start to the sales window is measured on the **actual shop hardware** and is under 10 s (record the number in `docs/perf-baseline.md`)
-- [ ] Installer size recorded
+- [ ] The self-contained publish runs with the SQLCipher native asset present (Windows CI job green)
+- [ ] `installer/Counterpoint.iss` exists and produces an installer artifact in CI
+- [ ] The EF compiled model is wired into the composition root
+
+> Clean-machine install and installer size move to **`HW-T06`**; cold start on the terminal to **`HW-T07`**; the DPAPI + Credential Manager key path and data-directory ACLs to **`HW-T05`**.
 
 ---
 
@@ -205,8 +211,9 @@ Before starting Phase 1, confirm and write down:
 
 | # | Question | Why it matters |
 |---|---|---|
-| 1 | Does the actual printer behave? Any quirks documented? | Rework cost rises steeply after Phase 1 |
-| 2 | Cold start figure on real hardware? | If >6 s now, it will exceed 10 s by Phase 3 |
-| 3 | Installer size and clean-machine install verified? | NFR-M2 |
+| 1 | Does the §10.1 receipt byte stream render correctly and is it snapshot-locked? | Rework cost rises steeply after Phase 1 (real-printer behaviour is `HW-T01`) |
+| 2 | Is the EF compiled model wired in? | It is the main cold-start lever; the figure itself is `HW-T07` |
+| 3 | Does `installer/Counterpoint.iss` build an artifact in CI? | NFR-M2 (clean-machine install is `HW-T06`) |
 | 4 | Is the team comfortable in C#/Avalonia after a week? | **Last cheap moment to switch to Tauri (SAD ADR-001 Option B)** |
 | 5 | Q-01, Q-02, Q-12, Q-16 answered? | Blocks Phase 1 pricing and numbering |
+| 6 | Is the hardware ordered against `Q-H`? | It must be on site before the HW track and go-live |

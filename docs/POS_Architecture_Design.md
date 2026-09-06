@@ -325,7 +325,11 @@ Every one is permissively licensed and source-available — NFR-M5 and NFR-S3 bo
 | NFR-P6 | Cold start ≤ 10 s | Self-contained + ReadyToRun publish; **EF Core compiled model** (`optionsBuilder.UseModel(CompiledModel.Instance)`) — this alone removes 1–2 s of first-query model building; defer report/settings module load until navigated to. Target ≈ 2 s. | Eager-loading the catalogue into memory at startup. Unnecessary — SQLite is already the cache. |
 | NFR-P7 | No degradation at 500k+ lines | Covering indexes on `(datetime)`, `(sale_id)`, `(product_variant_id, datetime)`; rollups; `ANALYZE` after bulk import; monthly `PRAGMA optimize`. | Missing index on `sale_line(product_variant_id)` — the return-history and product-history screens will crawl. |
 
-Run the seed generator (20,000 SKUs, 100,000 lines) from week one and make AC-18 a CI gate, not a Phase 6 discovery.
+Run the seed generator (20,000 SKUs, 100,000 lines) early and make it a CI gate as a
+**relative regression guard**, not a Phase 6 discovery. The absolute NFR-P1…P7
+pass/fail is measured once on the shop terminal in the hardware-integration track
+(`docs/09_HARDWARE_INTEGRATION.md`, `HW-T07`) — a budget figure taken on a dev
+machine or CI runner does not count.
 
 ---
 
@@ -469,18 +473,19 @@ Owner override actions (unlinked refunds FR-5, discounts above limit Q-12, non-r
 | Persistence | Integration tests on a real SQLite file per test. Verify triggers actually reject update/delete on append-only tables, foreign keys bite, and every migration applies cleanly to a seeded DB. |
 | Devices | Golden-byte tests: render a known bill, compare the ESC/POS byte stream to a committed snapshot (`Verify`). Catches template regressions without a printer on the desk. |
 | Acceptance | **One automated test named for each of AC-01 … AC-20.** AC-13 (network unplugged) and AC-15 (power cut) are partly manual; simulate AC-15 by killing the process mid-transaction in a loop and asserting integrity after each kill. |
-| Performance | The seed generator plus a benchmark suite asserting NFR-P1…P7 in CI, failing the build on regression. |
+| Performance | The seed generator plus a benchmark suite in CI as a regression guard (fail on >20% drift). Absolute NFR-P1…P7 pass/fail is measured on the shop terminal in `HW-T07` (`docs/09_HARDWARE_INTEGRATION.md`). |
 | Reconciliation | A generative test: simulate 500 random trading days of sales, returns, voids and shifts, then assert AC-12 — RPT-01 net sales == tenders in RPT-05 == sales minus returns in RPT-02 — exactly. This one test protects the system's credibility with the owner's accountant. |
 
 ---
 
 # 13. Build order
 
-The SRS phasing is sound. Two adjustments:
+The SRS phasing is sound. Three adjustments:
 
 | Phase | SRS content | Adjustment |
 |---|---|---|
-| **0.5 — Walking skeleton (1 wk)** | *new* | Solution scaffold, SQLite + migrations + SQLCipher, one product, one sale, one printed receipt, one backup, installer. End to end and thin. This retires the ESC/POS and packaging risks in week one instead of week fourteen. |
+| **0.5 — Walking skeleton (1 wk)** | *new* | Solution scaffold, SQLite + migrations + SQLCipher, one product, one sale, one **rendered** receipt (byte stream through `FileReceiptPrinter`, snapshot-locked), one backup, one publish. End to end and thin. This retires the ESC/POS *rendering* and packaging risks early; the real printer, real terminal and cold-start figure are retired on site in the hardware-integration track (`docs/09_HARDWARE_INTEGRATION.md`), after the software is feature-complete. |
+| **HW — Hardware integration (~1 wk on site)** | *new* | `HW-T01…HW-T10`: real-device drivers (`winspool`, `System.IO.Ports`, DPAPI), on-terminal performance gate, physical failure injection, offline trading-day rehearsal, and the AC-01…AC-20 run on the shop's own machine. Runs between "software-complete" and `P5-T09` go-live. Everything in phases 0–5 is built and accepted against the Linux fakes first. |
 | 1 — Core trading | Products, UOM, variants, barcodes, stock ledger, sales, cash, printing, users, local backup | Build `stock_balance`, `number_sequence` and the audit/hash-chain machinery here. They are far more expensive to retrofit than to include. |
 | 2 — Returns & inventory | Returns, exchanges, credit notes, GRN, adjustments, stock take, reorder | As specified. |
 | 3 — Reports & cash | Report suite, X/Z, shift & cash, audit, exceptions | Write rollup tables at the same time as the Z report. |

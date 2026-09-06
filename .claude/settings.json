@@ -22,6 +22,10 @@
       "Bash(git checkout:*)",
       "Bash(git switch:*)",
       "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
       "Bash(sqlite3:*)",
       "Bash(bash scripts/autopilot.sh:*)",
       "Bash(git rev-parse:*)",
@@ -37,14 +41,14 @@
       "Write(//workspaces/**)"
     ],
     "ask": [
-      "Bash(git push:*)",
-      "Bash(gh pr create:*)",
       "Bash(dotnet publish:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
       "Bash(git reset --hard:*)",
       "Bash(git push --force:*)",
+      "Bash(git push origin main:*)",
+      "Bash(gh pr merge:*)",
       "Read(./secrets/**)",
       "Read(./.env)",
       "Read(./artifacts/data/**)",
