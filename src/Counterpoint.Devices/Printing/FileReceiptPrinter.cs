@@ -29,6 +29,9 @@ namespace Counterpoint.Devices.Printing;
 /// </summary>
 public sealed partial class FileReceiptPrinter : IReceiptPrinter
 {
+    /// <summary>Stands in for the file name in a log line written before there was one.</summary>
+    private const string UnknownPath = "(no output path)";
+
     private readonly FileReceiptPrinterOptions _options;
     private readonly ILogger<FileReceiptPrinter> _logger;
 
@@ -52,10 +55,23 @@ public sealed partial class FileReceiptPrinter : IReceiptPrinter
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(jobName);
 
-        var path = Path.Combine(_options.OutputDirectory, FileNameFor(jobName));
+        // Only a placeholder until the path is known: everything that can fail, including
+        // working out where to write, happens inside the try.
+        var path = UnknownPath;
 
         try
         {
+            if (string.IsNullOrWhiteSpace(_options.OutputDirectory))
+            {
+                // Misconfiguration, but still only a printing problem. The bill is already
+                // committed, so this warns like any other printer fault rather than throwing.
+                throw new IOException(
+                    "FileReceiptPrinterOptions.OutputDirectory is not set, so there is nowhere "
+                    + "to write the receipt.");
+            }
+
+            path = Path.Combine(_options.OutputDirectory, FileNameFor(jobName));
+
             if (_options.FailureMode == PrinterFailureMode.FailEveryJob)
             {
                 throw new IOException(
@@ -73,7 +89,11 @@ public sealed partial class FileReceiptPrinter : IReceiptPrinter
             ex is IOException
                 or UnauthorizedAccessException
                 or NotSupportedException
-                or ArgumentException)
+                // A path the file system rejects - an embedded null, an empty component. Not
+                // ArgumentNullException or ArgumentOutOfRangeException: those are programming
+                // bugs, and telling the cashier the printer is unwell would hide them.
+                || (ex is ArgumentException
+                    and not (ArgumentNullException or ArgumentOutOfRangeException)))
         {
             // Warned about, not thrown: the bill is already saved and the cashier is mid-queue.
             PrintFailed(jobName, path, ex);

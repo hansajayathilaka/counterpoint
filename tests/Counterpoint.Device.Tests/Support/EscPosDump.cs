@@ -127,6 +127,8 @@ internal static class EscPosDump
                 + "      select code page"),
             'd' => (3, "ESC d " + At(bytes, offset + 2).ToString(CultureInfo.InvariantCulture)
                 + "      feed lines"),
+            'i' => (2, "ESC i        full cut"),
+            'm' => (2, "ESC m        partial cut"),
             'p' => (5, string.Create(
                 CultureInfo.InvariantCulture,
                 $"ESC p {At(bytes, offset + 2)} {At(bytes, offset + 3)} {At(bytes, offset + 4)}  "

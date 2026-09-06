@@ -172,6 +172,32 @@ public sealed class EscPosRendererTests
     }
 
     [Fact]
+    public void PRT_05_APrinterThatIgnoresGsVCutsWithTheEscCommandFamily()
+    {
+        var capabilities = PrinterCapabilities.Default with { CutMode = CutMode.EscPartialCut };
+
+        var bytes = new EscPosRenderer(capabilities).Render(ReceiptDocument.Of(new ReceiptNode.Cut()));
+
+        Contains(bytes, EscPos.Esc, (byte)'m').Should().BeTrue(
+            "a Star or Bixolon board cuts with ESC m and does nothing at all on GS V");
+        Contains(bytes, EscPos.Gs, (byte)'V').Should().BeFalse("that command family is not sent");
+        Contains(bytes, EscPos.Esc, (byte)'d', 4).Should().BeTrue(
+            "ESC m does not feed by itself, so the paper is still fed clear of the cutter");
+    }
+
+    [Fact]
+    public void PRT_05_TheEscFullCutModeIsEscI()
+    {
+        var capabilities = PrinterCapabilities.Default with { CutMode = CutMode.EscFullCut };
+
+        var bytes = new EscPosRenderer(capabilities).Render(ReceiptDocument.Of(new ReceiptNode.Cut()));
+
+        Contains(bytes, EscPos.Esc, (byte)'i').Should().BeTrue();
+        Contains(bytes, EscPos.Gs, (byte)'V').Should().BeFalse(
+            "switching the whole cut command is a settings change, not a renderer change");
+    }
+
+    [Fact]
     public void FR_7_7_TheDrawerKickIsEscPZeroTwentyFiveTwoFifty()
     {
         var bytes = Render(new ReceiptNode.Kick());

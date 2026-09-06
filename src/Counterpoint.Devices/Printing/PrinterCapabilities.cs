@@ -64,6 +64,20 @@ public sealed record PrinterCapabilities
     /// <summary>Which kick-out pin the drawer is wired to.</summary>
     public DrawerPin DrawerPin { get; init; } = DrawerPin.Pin2;
 
+    /// <summary>
+    /// How long the kick-out pulse is held on, in units of 2 ms. The conventional 25 (50 ms)
+    /// by default; a drawer with a heavy solenoid needs 50 to 100 and simply does not open at
+    /// 25 - the single most common cash-drawer quirk, and one <c>HW-T01</c> fixes here rather
+    /// than in <see cref="EscPosRenderer"/>.
+    /// </summary>
+    public byte DrawerPulseOnTime { get; init; } = 25;
+
+    /// <summary>
+    /// How long the pulse stays off afterwards, in units of 2 ms, before the printer will
+    /// honour another kick. 250 (500 ms) by default.
+    /// </summary>
+    public byte DrawerPulseOffTime { get; init; } = 250;
+
     /// <summary>Native <c>GS k</c> or a <c>GS v 0</c> raster (SRS PRT-04).</summary>
     public BarcodeMode BarcodeMode { get; init; } = BarcodeMode.Native;
 

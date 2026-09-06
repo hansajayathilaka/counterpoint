@@ -71,9 +71,14 @@ public static class EscPos
     }
 
     /// <summary>
-    /// <c>GS V</c> - cut the paper (SRS PRT-05). The two-argument forms feed
-    /// <paramref name="feedLines"/> first; the one-argument forms ignore it and expect the
-    /// caller to have fed already.
+    /// Cut the paper (SRS PRT-05), with whichever command family the printer answers to.
+    ///
+    /// <para>
+    /// <c>GS V</c> is the usual one; <c>ESC i</c> and <c>ESC m</c> are what a Star, a Bixolon
+    /// or a generic board that ignores <c>GS V</c> wants instead. The <c>GS V 65/66</c> forms
+    /// feed <paramref name="feedLines"/> themselves; every other form ignores it and expects
+    /// the caller to have fed already.
+    /// </para>
     /// </summary>
     public static byte[] Cut(CutMode mode, int feedLines)
     {
@@ -82,16 +87,21 @@ public static class EscPos
 
         return mode switch
         {
-            CutMode.Partial or CutMode.Full => [Gs, (byte)'V', (byte)mode],
-            CutMode.FeedAndPartial or CutMode.FeedAndFull =>
-                [Gs, (byte)'V', (byte)mode, (byte)feedLines],
+            CutMode.Partial => [Gs, (byte)'V', 1],
+            CutMode.Full => [Gs, (byte)'V', 0],
+            CutMode.FeedAndPartial => [Gs, (byte)'V', 66, (byte)feedLines],
+            CutMode.FeedAndFull => [Gs, (byte)'V', 65, (byte)feedLines],
+            CutMode.EscFullCut => [Esc, (byte)'i'],
+            CutMode.EscPartialCut => [Esc, (byte)'m'],
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown cut mode."),
         };
     }
 
     /// <summary>
-    /// <c>ESC p m t1 t2</c> - pulse the drawer kick-out port (SRS FR-7.7). The defaults are
-    /// the conventional 25 ms on, 250 ms off (each unit is 2 ms).
+    /// <c>ESC p m t1 t2</c> - pulse the drawer kick-out port (SRS FR-7.7). The times are in
+    /// units of 2 ms; the defaults are the conventional 25 on (50 ms) and 250 off (500 ms).
+    /// A drawer that needs a longer pulse is a
+    /// <see cref="PrinterCapabilities.DrawerPulseOnTime"/> change, not a renderer change.
     /// </summary>
     public static byte[] DrawerKick(DrawerPin pin, byte onTime = 25, byte offTime = 250) =>
         [Esc, (byte)'p', (byte)pin, onTime, offTime];

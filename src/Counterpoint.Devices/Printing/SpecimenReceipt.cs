@@ -200,11 +200,24 @@ public static class SpecimenReceipt
         + quantity.PadLeft(QuantityColumnWidth, ' ')
         + rate.PadLeft(RateColumnWidth, ' ');
 
-    /// <summary>Money as the customer reads it: fixed decimal places, invariant culture.</summary>
-    private static string FormatAmount(Money amount, IRoundingPolicy rounding) =>
-        rounding.Round(amount).Amount.ToString(
-            "0." + new string('0', rounding.DecimalPlaces),
-            CultureInfo.InvariantCulture);
+    /// <summary>
+    /// Money as the customer reads it: fixed decimal places, invariant culture.
+    ///
+    /// <para>
+    /// Formatting only. It does not round (CLAUDE.md invariant 2): the two rounding points are
+    /// <see cref="LineTotal"/> and the bill total, and every other amount printed here is
+    /// already exact. Rounding again here would be a third point, and on the real sale path
+    /// (P1-T11) it would silently mask an amount that arrived unrounded.
+    /// </para>
+    /// </summary>
+    private static string FormatAmount(Money amount, IRoundingPolicy rounding)
+    {
+        var format = rounding.DecimalPlaces > 0
+            ? "0." + new string('0', rounding.DecimalPlaces)
+            : "0";
+
+        return amount.Amount.ToString(format, CultureInfo.InvariantCulture);
+    }
 
     /// <summary>Quantity with its unit, trailing zeros trimmed: <c>20 pcs</c>, <c>2.75 m</c>.</summary>
     private static string FormatQuantity(Quantity quantity, string uomSymbol) =>

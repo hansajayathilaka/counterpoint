@@ -150,7 +150,10 @@ public sealed class EscPosRenderer
             case ReceiptNode.Kick:
                 if (_capabilities.SupportsDrawerKick)
                 {
-                    sink.AddRange(EscPos.DrawerKick(_capabilities.DrawerPin));
+                    sink.AddRange(EscPos.DrawerKick(
+                        _capabilities.DrawerPin,
+                        _capabilities.DrawerPulseOnTime,
+                        _capabilities.DrawerPulseOffTime));
                 }
 
                 break;
@@ -235,7 +238,23 @@ public sealed class EscPosRenderer
                 _capabilities.Layout.PrintWidthDots,
                 _capabilities.BarcodeHeightDots);
 
+            // A raster is only bars. The printer's own GS H cannot help here, so the digits
+            // are printed as text - the SRS §10.1 bill shows the bill number under its
+            // barcode, and reading it out is the cashier's fallback when a scan fails.
+            var hri = _capabilities.BarcodeHriPosition;
+
+            if (hri is HriPosition.Above or HriPosition.AboveAndBelow)
+            {
+                WriteHumanReadable(sink, state, barcode);
+            }
+
             WriteRaster(sink, state, image, barcode.Align);
+
+            if (hri is HriPosition.Below or HriPosition.AboveAndBelow)
+            {
+                WriteHumanReadable(sink, state, barcode);
+            }
+
             return;
         }
 
@@ -256,6 +275,20 @@ public sealed class EscPosRenderer
         sink.AddRange(EscPos.BarcodeHriFont(_capabilities.BarcodeHriFont));
         sink.AddRange(EscPos.Barcode(barcode.Symbology, _capabilities.TextEncoding.GetBytes(data)));
     }
+
+    /// <summary>
+    /// The barcode's own data as readable text, for the paths where the printer will not put
+    /// it there itself.
+    /// </summary>
+    private void WriteHumanReadable(List<byte> sink, RenderState state, ReceiptNode.Barcode barcode) =>
+        WriteText(
+            sink,
+            state,
+            barcode.Data,
+            barcode.Align,
+            bold: false,
+            doubleHeight: false,
+            doubleWidth: false);
 
     private void WriteQrCode(List<byte> sink, RenderState state, ReceiptNode.QrCode qr)
     {
