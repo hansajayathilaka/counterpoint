@@ -30,15 +30,15 @@ hands them back.
 | P0-T02 | Money and Quantity value objects | done | 2026-09-04 | 263b2a4 feat(P0-T02): money and quantity value objects |
 | P0-T03 | Database bootstrap, SQLCipher, connection factory | done | 2026-09-04 | a50cb5f: all automatable work complete and reviewed clean; self-contained Windows publish from %ProgramFiles% confirmed - CI's "Windows self-contained publish" job passed on windows-2022 after merge to main (run 33896159464). Every Done-when criterion is now proven. |
 | P0-T04 | Minimal schema, migrations, append-only triggers | done | 2026-09-04 | 0142082: 15 tables, 18 append-only triggers, MigrationRunner, all Done-when criteria proven; 261 tests; 2 review rounds + 1 fix round |
-| P0-T05 | ESC/POS renderer and one printed receipt | todo | | |
+| P0-T05 | ESC/POS renderer and one rendered receipt | todo | | Physical print verified in HW-T01 |
 | P0-T06 | One sale, end to end | todo | | |
-| P0-T07 | Backup snapshot, encryption, installer | todo | | |
+| P0-T07 | Backup snapshot, encryption, publish | todo | | Clean-machine install HW-T06; key store HW-T05 |
 
 ## Phase 1 — Core trading (0/16)
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
-| P1-T01 | Full schema migration | in-progress | | 0cc8724 feat(P1-T01): full schema migration - 3 of 4 Done-when proven (tables/indexes/triggers+integrity_check, enum CHECK round-trip, money/quantity storage class); NFR-P6 cold-start-vs-Phase-0-baseline not provable (no Phase 0 baseline was ever recorded, needs real target hardware via /perf-gate); 343 tests, 2 review rounds + 1 fix round |
+| P1-T01 | Full schema migration | in-progress | | 0cc8724 feat(P1-T01): full schema migration - 3 of 4 Done-when proven (tables/indexes/triggers+integrity_check, enum CHECK round-trip, money/quantity storage class); the 4th checkbox is now "compiled model generated and UseModel wired" (verifiable in CI) - the NFR-P6 cold-start figure moved to HW-T07 on the shop terminal per docs/09_HARDWARE_INTEGRATION.md; 343 tests, 2 review rounds + 1 fix round |
 | P1-T02 | Users, authentication, roles, authorisation | todo | | |
 | P1-T03 | Settings framework | todo | | |
 | P1-T04 | Catalogue reference data | todo | | |
@@ -48,12 +48,12 @@ hands them back.
 | P1-T08 | Pricing and discount engine | todo | | |
 | P1-T09 | Sales screen and bill building | todo | | |
 | P1-T10 | Tender, change and sale completion | todo | | |
-| P1-T11 | Receipt templates and printing | todo | | |
-| P1-T12 | Label printing | todo | | |
+| P1-T11 | Receipt templates and printing | todo | | Real printer verified in HW-T01 |
+| P1-T12 | Label printing | todo | | Real label verified in HW-T03 |
 | P1-T13 | Spreadsheet import | todo | | |
 | P1-T14 | Shift open (minimal) and dashboard | todo | | |
 | P1-T15 | Local and USB backup | todo | | |
-| P1-T16 | Phase 1 acceptance and performance gate | todo | | |
+| P1-T16 | Phase 1 acceptance and software performance harness | todo | | Absolute NFR budgets in HW-T07; offline trading day HW-T09 |
 
 ## Phase 2 — Returns and inventory control (0/12)
 
@@ -108,11 +108,30 @@ hands them back.
 | P5-T02 | Credit customers and accounts | todo | | |
 | P5-T03 | Quotations | todo | | |
 | P5-T04 | A4 invoice and document polish | todo | | |
-| P5-T05 | Weighing scale integration | todo | | |
+| P5-T05 | Weighing scale integration | todo | | Real serial scale verified in HW-T04 |
 | P5-T06 | Data migration | todo | | |
 | P5-T07 | Documentation | todo | | |
 | P5-T08 | Training | todo | | |
 | P5-T09 | Go-live and handover | todo | | |
+
+## Hardware integration track (0/10)
+
+Real-device drivers and on-site verification. Runs after the software is
+feature-complete (P1-T16, P2-T12, P3-T09, P4-T08 green in CI) and before P5-T09.
+All `mode=human`. Detail in `docs/09_HARDWARE_INTEGRATION.md`.
+
+| Task | Title | Status | Done | Commit / note |
+|---|---|---|---|---|
+| HW-T01 | Windows spooler receipt printing and cash drawer | todo | | |
+| HW-T02 | Barcode scanner bring-up | todo | | |
+| HW-T03 | Label printer driver and verification | todo | | |
+| HW-T04 | Serial weighing scale driver | todo | | |
+| HW-T05 | Windows key store and data-directory ACLs on the terminal | todo | | |
+| HW-T06 | Installer and clean-machine commissioning | todo | | |
+| HW-T07 | On-terminal performance gate (NFR-P1..P7) | todo | | Populates docs/perf-baseline.md |
+| HW-T08 | Failure injection on real peripherals | todo | | |
+| HW-T09 | Offline trading-day dress rehearsal | todo | | |
+| HW-T10 | Full AC-01..AC-20 run on the shop terminal | todo | | Feeds P5-T09 |
 
 ---
 
@@ -135,12 +154,12 @@ Update as tests land. `automated` means a passing test exists in
 | AC-10 | P2-T10 | not started |
 | AC-11 | P3-T03 | not started |
 | AC-12 | P3-T09 | not started |
-| AC-13 | P1-T16 | not started |
-| AC-14 | P4-T06 | not started |
-| AC-15 | P1-T16 | not started |
-| AC-16 | P1-T11 | not started |
+| AC-13 | P1-T16 (software), HW-T09 (on hardware) | not started |
+| AC-14 | P4-T06 (clean VM), HW-T08 (replacement hardware) | not started |
+| AC-15 | P1-T16 (software), HW-T09 (on terminal) | not started |
+| AC-16 | P1-T11 (fake), HW-T01 (real printer) | not started |
 | AC-17 | P1-T02 | not started |
-| AC-18 | P1-T16 | not started |
+| AC-18 | P1-T16 (regression guard), HW-T07 (absolute budgets) | not started |
 | AC-19 | P1-T16 | not started |
 | AC-20 | P5-T07 | not started |
 

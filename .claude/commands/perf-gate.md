@@ -6,6 +6,21 @@ model: opus
 
 Run the performance gate.
 
+## 0. Where this runs
+
+`/perf-gate` produces real NFR-P1…P7 pass/fail figures **only on the shop terminal**,
+as task `HW-T07` (`docs/09_HARDWARE_INTEGRATION.md`). A figure measured on a dev
+machine or a CI runner is not a figure — do not write one into
+`docs/perf-baseline.md`.
+
+- **On the shop terminal (HW-T07):** run every step below and populate
+  `docs/perf-baseline.md` with figures and the exact hardware.
+- **Anywhere else (dev, CI):** if the software perf harness from `P1-T16` exists,
+  run it as a *relative regression guard* only — report timings against
+  `docs/perf-baseline.md` and flag any >20% drift, but do not report pass/fail
+  against the budgets and do not edit the baseline. If the harness or the seeded
+  database does not exist yet, say exactly what is missing and stop.
+
 ## 1. Seed
 
 Ensure the seeded database exists: 20 000 SKUs and 100 000 historical bill lines (`tools/SeedGenerator`, or `bash scripts/seed.sh`). If it does not exist, generate it. AC-18 is measured against this volume, not against an empty database.
@@ -37,4 +52,8 @@ Diagnose before optimising. The usual causes, in the order worth checking:
 
 Do not fix by relaxing a budget. The budgets come from what a cashier can tolerate with a customer waiting.
 
-Update `docs/perf-baseline.md` with the new figures and the hardware they were measured on. **A figure measured on a dev machine is not a figure** — NFR-P6 is about the shop's actual low-powered terminal.
+**Only when running as HW-T07 on the shop terminal:** update `docs/perf-baseline.md`
+with the new figures and the exact hardware they were measured on. **A figure
+measured on a dev machine is not a figure** — NFR-P6 is about the shop's actual
+low-powered terminal. A dev or CI run leaves the baseline untouched and reports
+regression only.

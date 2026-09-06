@@ -19,6 +19,30 @@ Read `docs/Counterpoint_Requirements.md` (SRS) for what it must do and `docs/POS
 
 If a task appears to require any of the above, stop and raise it. It means the requirement was misread.
 
+### Development platform and the hardware boundary
+
+Development and CI run on **Linux**; the product ships on **Windows**. Windows-only
+surfaces — raw spooler printing (`winspool`), DPAPI, Windows Credential Manager,
+`System.IO.Ports` — sit behind interfaces in `Devices` and `Infrastructure` with a
+Linux development implementation: `IReceiptPrinter` → `FileReceiptPrinter` (writes
+the ESC/POS byte stream to `artifacts/receipts/*.bin`), `IDatabaseKeyStore` →
+`FileKeyStore` (development only, never shipped), `IScale` → `NullScale`. Guard real
+Windows implementations with `OperatingSystem.IsWindows()` and
+`[SupportedOSPlatform("windows")]`.
+
+**The software is built and accepted against these fakes first.** Real-device
+drivers and every physical verification are a separate **hardware-integration
+track**, `docs/09_HARDWARE_INTEGRATION.md` (`HW-T01…HW-T10`, all `mode=human`), run
+on site after the software is feature-complete and before `P5-T09` go-live. A task
+in phases 0–5 keeps only what a byte-stream snapshot or a fake-failure test can
+prove on Linux; anything needing a printer, scanner, scale, the terminal or a clean
+Windows machine is a checkbox on a named `HW-T*` task.
+
+**Software-complete milestone:** `dotnet test` green (architecture + every `AC*`
+class), `P1-T16` / `P2-T12` / `P3-T09` / `P4-T08` all passed in CI, and the app
+reaches the sales screen under the EF Core compiled model. The HW track starts
+there.
+
 ---
 
 ## 2. Stack
@@ -192,13 +216,17 @@ One long-lived **write** connection, serialised behind a `SemaphoreSlim`. A smal
 | `Infrastructure` | Integration tests against a **real SQLite file** per test (temp directory, deleted after). No in-memory provider — it does not enforce foreign keys or triggers, which is exactly what we are testing. |
 | `Devices` | Snapshot tests: render a known bill, compare the ESC/POS byte stream against a committed `.verified.txt`. |
 | `Acceptance` | One test class per AC-01…AC-20, named `AC03_PartialReturnRefundsAtOriginalPrice`. These are the contract. |
-| Performance | Benchmarks asserting NFR-P1…P7 against the seeded database, run in CI, failing the build on regression. |
+| Performance | A software perf harness runs against the seeded database in CI as a **relative regression guard** — it fails the build on a >20% drift from `docs/perf-baseline.md`, not on an absolute NFR budget. The absolute NFR-P1…P7 pass/fail is measured on the shop terminal in `HW-T07` (`docs/09_HARDWARE_INTEGRATION.md`). |
 
 **Definition of done for any task:**
-1. All `Done when` checkboxes pass.
-2. `dotnet test` green, including architecture and performance tests.
+1. All `Done when` checkboxes pass. Checkboxes that need a printer, scanner, scale,
+   the shop terminal or a clean Windows machine belong to an `HW-T*` task, not this
+   one — see `docs/09_HARDWARE_INTEGRATION.md`.
+2. `dotnet test` green, including the architecture tests. The software perf harness,
+   once it exists (`P1-T16`), must not regress >20% from `docs/perf-baseline.md`.
 3. `dotnet build` with zero warnings.
-4. The app still starts to the sales screen in under 10 seconds.
+4. The app still starts to the sales screen (on the dev machine this is indicative
+   only; NFR-P6 is measured on the terminal in `HW-T07`).
 5. Any new business rule has a test named after its SRS requirement id.
 6. Any new schema change has an EF migration **and** a migration test.
 
@@ -224,6 +252,11 @@ One long-lived **write** connection, serialised behind a `SemaphoreSlim`. A smal
 | Bill lookup by number | 1 s | Unique index |
 | Any 1-year report | 10 s | Rollup tables from Phase 3 |
 | Cold start to sales screen | 10 s | Use an **EF Core compiled model**; target 2 s |
+
+These budgets are verified on the shop terminal in `HW-T07`, against the seeded
+database (20 000 SKUs, 100 000 lines) — not per task, and not on a dev machine. In
+CI the software perf harness only guards against regression. `docs/perf-baseline.md`
+stays blank until `HW-T07` populates it.
 
 Performance work that matters, in order: compiled EF model, ReadyToRun publish, deferred module loading, covering indexes, rollups. Performance work that does not matter: caching the catalogue in memory (SQLite already is the cache).
 

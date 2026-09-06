@@ -1,6 +1,13 @@
 # Task Index
 
-62 tasks across six phases. Build in the order listed. Each task is one branch and one PR.
+62 software tasks across six phases, plus a 10-task **hardware-integration track**
+(`HW-T01…HW-T10`, `docs/09_HARDWARE_INTEGRATION.md`) run on site after the software
+is feature-complete. Build in the order listed. Each task is one branch and one PR.
+
+The software tasks are built and accepted against the Linux device fakes. Device
+tasks (`P0-T05`, `P0-T07`, `P1-T11`, `P1-T12`, `P5-T05`) keep only the checks a
+byte-stream snapshot or a fake-failure test can prove; their physical verification
+is a checkbox on a named `HW-T*` task.
 
 ---
 
@@ -71,7 +78,28 @@
 | **P5-T08** | Training | P5-T06, T07 | 1d | NFR-U1 |
 | **P5-T09** | Go-live and handover | all | 1d | §16 |
 
-**Total:** ~112 developer-days ≈ 17 weeks for one developer, matching the SRS's indicative 16–18 weeks.
+**Total:** ~112 developer-days ≈ 17 weeks for one developer, matching the SRS's indicative 16–18 weeks. The HW track adds ~1 week on site after that, once the hardware has arrived.
+
+---
+
+## Hardware-integration track (HW)
+
+Run on site after the software is feature-complete (`P1-T16`, `P2-T12`, `P3-T09`,
+`P4-T08` green in CI) and before `P5-T09` go-live. All `mode=human`. Full detail in
+[`09_HARDWARE_INTEGRATION.md`](09_HARDWARE_INTEGRATION.md).
+
+| Task | Title | Depends on | Picks up from |
+|---|---|---|---|
+| **HW-T01** | Windows spooler receipt printing and cash drawer | P0-T05, P1-T11 | P0-T05, P1-T11 physical checks; AC-16 hardware path |
+| **HW-T02** | Barcode scanner bring-up | P1-T09 | P1-T09 scan-path physical check |
+| **HW-T03** | Label printer driver and verification | P1-T12 | P1-T12 physical checks |
+| **HW-T04** | Serial weighing scale driver | P5-T05 | P5-T05 physical checks |
+| **HW-T05** | Windows key store and data-directory ACLs on the terminal | P0-T03, P0-T07 | P0-T03, P0-T07 key-store / ACL checks |
+| **HW-T06** | Installer and clean-machine commissioning | P0-T07 | P0-T07 installer / clean-machine checks |
+| **HW-T07** | On-terminal performance gate (NFR-P1…P7) | P1-T16, P3-T09, HW-T06 | NFR-P6 from P1-T01; perf items in P1-T16, P3-T09; AC-18 |
+| **HW-T08** | Failure injection on real peripherals | P4-T08, HW-T01/02/04 | P4-T08 physical failure paths |
+| **HW-T09** | Offline trading-day dress rehearsal | P1-T16, P4-T08, HW-T07, HW-T08 | AC-13, AC-15 hardware paths |
+| **HW-T10** | Full AC-01…AC-20 run on the shop terminal | P5-T08, HW-T01…T09, all phase gates | P5-T09's "on the shop's actual hardware" acceptance record |
 
 ---
 
@@ -79,10 +107,11 @@
 
 ```
 P0-T01 → P0-T03 → P0-T04 → P1-T01 → P1-T05 → P1-T07 → P1-T09 → P1-T10
-       → P2-T02 → P3-T03 → P3-T04 → P3-T09 → P4-T06 → P5-T09
+       → P2-T02 → P3-T03 → P3-T04 → P3-T09 → P4-T06 → [software-complete]
+       → HW-T01 → HW-T07 → HW-T09 → HW-T10 → P5-T09
 ```
 
-Anything on this path that slips slips the project. Notably: **P1-T05 (UOM and variants)** and **P1-T09 (sales screen)** are the two largest single tasks and the two most likely to overrun.
+Anything on this path that slips slips the project. Notably: **P1-T05 (UOM and variants)** and **P1-T09 (sales screen)** are the two largest single tasks and the two most likely to overrun. The HW tail cannot start until the hardware is on site (`Q-H`) — order it early even though it is not needed until then.
 
 ---
 
@@ -90,11 +119,12 @@ Anything on this path that slips slips the project. Notably: **P1-T05 (UOM and v
 
 | Track | Tasks |
 |---|---|
-| Devices | P0-T05, P1-T11, P1-T12, P5-T05 |
+| Devices (software: renderers, IR, templates, outbox, snapshot tests) | P0-T05, P1-T11, P1-T12, P5-T05 |
 | Backup & portal | P0-T07, P1-T15, P4-T01…T07 |
 | Reporting | P3-T04…T08 |
 | Import/export & migration | P1-T13, P3-T07, P5-T06 |
 | Documentation | P5-T07, ongoing from Phase 1 |
+| Hardware integration (on site, after software-complete) | HW-T01…HW-T10 |
 
 The catalogue → stock → sales chain (P1-T05 → T07 → T09 → T10) is inherently sequential and should stay with one developer.
 
@@ -118,16 +148,16 @@ Every SRS acceptance criterion, and where it is first proven.
 | AC-10 | Stock take variance report and batch correction | P2-T10 |
 | AC-11 | X and Z reports, variance, shift locks | P3-T03 |
 | AC-12 | Report totals reconcile to the cent | P3-T09 |
-| AC-13 | Full trading day offline, zero functional loss | P1-T16, hardened P4-T08 |
-| AC-14 | Backup uploaded, downloaded, verified, restored to clean machine | P4-T06 |
-| AC-15 | Power cut mid-bill leaves DB uncorrupted | P1-T16, hardened P4-T08 |
-| AC-16 | Printer disconnected mid-transaction, sale completes | P1-T11, hardened P4-T08 |
+| AC-13 | Full trading day offline, zero functional loss | P1-T16 (network-disabled test), hardened P4-T08; on hardware **HW-T09** |
+| AC-14 | Backup uploaded, downloaded, verified, restored to clean machine | P4-T06 (clean VM); replacement hardware in **HW-T08** |
+| AC-15 | Power cut mid-bill leaves DB uncorrupted | P1-T16 (process-kill on Linux), hardened P4-T08; on the terminal **HW-T09** |
+| AC-16 | Printer disconnected mid-transaction, sale completes | P1-T11 (fake-failure test), hardened P4-T08; real printer **HW-T01** |
 | AC-17 | Cashier cannot view cost, verified at business-logic layer | P1-T02 |
-| AC-18 | Performance targets with 20k SKUs, 100k lines | P1-T16, re-gated P3-T09 |
+| AC-18 | Performance targets with 20k SKUs, 100k lines | Software regression guard P1-T16 / P3-T09; absolute budgets on the terminal **HW-T07** |
 | AC-19 | Gapless numbering across 500 bills incl. cancellations | P1-T16 |
 | AC-20 | Manuals, cheat sheet, source, schema docs delivered | P5-T07 |
 
-**Every acceptance criterion has an owning task.** If a criterion has no test by the end of its owning phase, that phase is not done.
+**Every acceptance criterion has an owning task.** If a criterion has no test by the end of its owning phase, that phase is not done. AC-13, AC-15, AC-16 and AC-18 are proven in software against the fakes at the phase gate and **re-verified on the shop hardware** in the HW track (`HW-T07…HW-T10`); both are required before go-live.
 
 ---
 

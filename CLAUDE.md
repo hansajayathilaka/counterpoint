@@ -16,6 +16,7 @@ One machine, one till, one active session. The local SQLite database is the sing
 | Requirement ids (FR-*, NFR-*, AC-*) | `docs/Counterpoint_Requirements.md` |
 | Full conventions and definition of done | `docs/00_ENGINEERING_GUIDE.md` |
 | Task order and status | `docs/08_TASK_INDEX.md` and `.claude/state/PROGRESS.md` |
+| Any real-device driver or on-site verification | `docs/09_HARDWARE_INTEGRATION.md` (the HW track) |
 
 ## What this system is not, and must never become
 
@@ -74,7 +75,28 @@ Development and CI run on **Linux** (including Claude Code on the web); the prod
   - `IDatabaseKeyStore` -> `FileKeyStore` (development only, never shipped)
   - `IScale` -> `NullScale`
 - Guard real Windows implementations with `OperatingSystem.IsWindows()` and `[SupportedOSPlatform("windows")]`.
-- **Device snapshot tests must pass on Linux.** They compare byte streams, not hardware behaviour. Hardware verification is a manual step recorded in the task's "Done when".
+- **Device snapshot tests must pass on Linux.** They compare byte streams, not hardware behaviour.
+
+### Hardware boundary — build the software first
+
+The whole system is built and accepted **against the Linux fakes** (`FileReceiptPrinter`,
+`NullScale`, `FileKeyStore`, a temp-directory "USB" target). Real-device drivers
+(`winspool`, `System.IO.Ports`, DPAPI) and every physical verification live in a
+separate **hardware-integration track**, `docs/09_HARDWARE_INTEGRATION.md`
+(`HW-T01…HW-T10`, all `mode=human`), run on site after the software is
+feature-complete and before `P5-T09` go-live.
+
+- A software task in phases 0–5 keeps only the checks a byte-stream snapshot or a
+  fake-failure test can prove on Linux. Anything that needs a printer, scanner,
+  scale, the terminal, or a clean Windows machine is a checkbox on a named `HW-T*`
+  task, not a blocker for the software task.
+- **`/perf-gate` produces real NFR-P1…P7 figures only in `HW-T07`, on the shop
+  terminal.** Do not record dev-machine or CI numbers in `docs/perf-baseline.md` —
+  a figure without the shop's hardware behind it is not a figure. Its seven budget
+  rows stay blank until then, deliberately.
+- **Software-complete milestone:** `dotnet test` green (architecture + every `AC*`),
+  `P1-T16` / `P2-T12` / `P3-T09` / `P4-T08` passed, app reaches the sales screen
+  under the compiled model. The HW track starts there.
 
 ## Commands
 

@@ -19,6 +19,7 @@ Companion to `Counterpoint_Requirements.md` (SRS v1.0) and `POS_Architecture_Des
 | 06 | [`06_PHASE_4_backup_resilience.md`](06_PHASE_4_backup_resilience.md) | Cloud backup pipeline, encryption, portal, guided restore |
 | 07 | [`07_PHASE_5_extras_handover.md`](07_PHASE_5_extras_handover.md) | Trade pricing, credit accounts, A4 invoices, labels, migration, training |
 | 08 | [`08_TASK_INDEX.md`](08_TASK_INDEX.md) | Flat list of all tasks with dependencies and a suggested build order |
+| 09 | [`09_HARDWARE_INTEGRATION.md`](09_HARDWARE_INTEGRATION.md) | The HW track: real-device drivers and on-site verification, run after the software is feature-complete |
 
 ---
 
@@ -44,10 +45,13 @@ Companion to `Counterpoint_Requirements.md` (SRS v1.0) and `POS_Architecture_Des
 | **2** | Returns & inventory control | 12 | 4 wk | The shop can control stock and handle returns correctly |
 | **3** | Reports & cash discipline | 9 | 3 wk | The owner has visibility and the day closes cleanly |
 | **4** | Backup & resilience | 9 | 2 wk | The business is protected off-site and restore is proven |
-| **5** | Extras & handover | 9 | 2 wk | Go-live |
+| **5** | Extras & handover | 9 | 2 wk | Feature-complete software |
+| **HW** | [Hardware integration](09_HARDWARE_INTEGRATION.md) | 10 | ~1 wk on site | Every peripheral and the terminal verified; NFR-P1–P7 figures recorded |
 | **6** | Warranty | — | 3 mo | Stable operation |
 
-**Phases 0–2 are the minimum shippable system.** Phase 4 must not be deferred past go-live.
+**Phases 0–5 are built and accepted against the Linux device fakes.** The HW track
+runs on site once the software is feature-complete (all phase gates green in CI),
+before `P5-T09` go-live. Phase 4 must not be deferred past go-live.
 
 ---
 
@@ -81,7 +85,7 @@ These are carried from SAD §16 and must be answered before the phase noted.
 | Q-C | Second language on screen/receipt? | Phase 1 (print IR) | English only |
 | Q-D | Google Drive or operator-controlled bucket? | Phase 4 | S3-compatible with versioning |
 | Q-E | Owner signs the lost-passphrase acknowledgement | Phase 4 | Required before go-live |
-| Q-H | Exact printer + scanner models | Phase 0 | **Hard blocker — buy them in week 1** |
+| Q-H | Exact printer + scanner models | HW track (and Phase 5 packaging) | Software builds against the Linux fakes until then; order the hardware so it is on site before the HW track and go-live |
 | Q-01/02 | Currency, tax regime, legally required bill fields | Phase 1 | Configurable, tax-inclusive |
 | Q-03 | Return policy specifics | Phase 2 | 14 days, receipt required, cut goods non-returnable |
 | Q-12 | Cashier discount limits | Phase 1 | 5% line / 5% bill |

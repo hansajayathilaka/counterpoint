@@ -1,7 +1,7 @@
 ---
-description: Autonomously implement, test, review and commit the next N tasks. Orchestration only — all work is delegated to subagents.
+description: Autonomously implement, test, review, commit and push the next N tasks. Orchestration only — all work is delegated to subagents.
 argument-hint: "[count, default 2] [--phase P1] [--dry-run]"
-allowed-tools: Read, Grep, Glob, Task, TodoWrite, Bash(bash scripts/autopilot.sh:*), Bash(bash scripts/verify.sh), Bash(bash scripts/check-triggers.sh), Bash(bash scripts/seed.sh:*), Bash(dotnet build:*), Bash(dotnet test:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git switch:*), Bash(git checkout:*), Bash(git branch:*), Bash(git rev-parse:*)
+allowed-tools: Read, Grep, Glob, Task, TodoWrite, Bash(bash scripts/autopilot.sh:*), Bash(bash scripts/verify.sh), Bash(bash scripts/check-triggers.sh), Bash(bash scripts/seed.sh:*), Bash(dotnet build:*), Bash(dotnet test:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git switch:*), Bash(git checkout:*), Bash(git branch:*), Bash(git push:*), Bash(git rev-parse:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh pr list:*)
 model: opus
 ---
 
@@ -178,7 +178,37 @@ House format: `P1-T07: UOM conversion in base units (FR-2.4, FR-2.5)`.
 Body: what changed, which "Done when" criteria are proven, and any outstanding manual
 verification. Anyone reading `git log` should be able to tell what is and is not verified.
 
-**Do not push.** Pushing is the human's decision.
+## B9a. Push the branch
+
+```bash
+git push -u origin task/<TASK-lowercase>-<slug>
+```
+
+Push the **task branch only** — never `main`, never `--force`. If the push fails
+(no network, auth, non-fast-forward), log it, skip B9b, and carry on to B10 — a
+failed push is not a failed task.
+
+## B9b. Open the pull request
+
+```bash
+gh pr list --head task/<TASK-lowercase>-<slug> --json number   # skip if one already exists
+gh pr create --base main --head task/<TASK-lowercase>-<slug> \
+  --title "<TASK>: <what changed> (<SRS ids>)" \
+  --body "<body>"        # add --draft if the task is ending in-progress (see below)
+```
+
+- **Base is always `main`.** One PR per task, matching the branch.
+- **Body**: what changed · every "Done when" checkbox with the test or command that
+  proves it · outstanding manual/hardware verification, verbatim from B8 · the
+  review's Should-fix / Consider items not acted on. Someone reviewing the PR
+  should be able to tell exactly what is and is not verified without reading the
+  diff.
+- **Draft when not done.** If B8 left the task `in-progress` because of outstanding
+  hardware or human criteria, open it with `--draft`. A fully proven task gets a
+  normal PR.
+- **Never merge it.** `gh pr merge` is denied and a merge to `main` triggers an
+  automatic release — the merge is the human's call. Do not enable auto-merge.
+- If `gh` is unauthenticated or offline, log it and carry on to B10.
 
 ## B10. Close out
 
@@ -229,7 +259,7 @@ git log --oneline -n <count+1>
 
 Report to the human, in this order:
 
-1. **Completed** — task id, one line on what it does, commit sha, test count.
+1. **Completed** — task id, one line on what it does, commit sha, test count, PR URL (mark it *draft* if opened as one, or note if the push/PR step was skipped).
 2. **Not completed** — task id, exactly where it stopped, what you need from them.
 3. **Outstanding manual verification** — the hardware or human checks that no automated run
    can satisfy. Be specific: "print a receipt on the actual TM-T82 and confirm it cuts", not
@@ -248,6 +278,7 @@ went — the commit log and the ledger say that better than you can.
 - **Never weaken a test, an assertion or an invariant to get a green build.** If the invariant
   is genuinely wrong, that is a conversation, not a code change.
 - **Never edit a committed migration.** A hook blocks it; do not work around the hook.
-- **Never push, never force, never reset --hard.**
+- **Push the task branch only. Never push `main`, never force-push, never reset --hard.**
+- **Open the PR against `main`; never merge it.** A `main` merge auto-releases — that stays with the human.
 - **Prefer stopping early over finishing dirty.** One well-verified task is worth more than
   three that need unpicking. The user asked for autonomy, not for volume.

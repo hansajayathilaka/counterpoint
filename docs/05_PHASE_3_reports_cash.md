@@ -226,16 +226,17 @@ Full shift and cash management, X and Z reports, the complete report suite from 
    - RPT-01 net sales == sum of tenders in RPT-05 == sales minus returns in RPT-02
    - rollups == recomputation from raw tables
    - `sum(payment.amount)` == `sum(sale.total) − sum(sale_return.total_refund)`
-3. Performance run: every report over a one-year range with a database seeded to the Q-A target volume.
-4. Re-run all Phase 1 and 2 acceptance and performance tests.
+3. Extend the `P1-T16` performance harness with the report operations (NFR-P5) over a one-year range at the Q-A target volume; keep it a CI regression guard, not an absolute-budget gate.
+4. Re-run all Phase 1 and 2 acceptance tests and the regression guard.
 
-**Deliverables.** Reconciliation test suite, refreshed performance baseline.
+**Deliverables.** Reconciliation test suite, the report operations added to the performance harness.
 
 **Risks.** The generative test failing on one day in 500 and being dismissed as a rounding artefact. It is not. Every failure here is a real defect in discount allocation, tax rounding or the rollup boundary.
 
 **Done when.**
 - [ ] AC-12 holds to the cent across 500 simulated days
-- [ ] AC-18: all performance targets met with 20 000 SKUs and 100 000 lines
-- [ ] Every report over a one-year range renders in under 10 s
+- [ ] The performance harness covers every report over a one-year range and shows no >20% regression
 - [ ] Rollups match raw recomputation for every simulated month
 - [ ] Phase 1 and 2 gates still green
+
+> AC-18 as an absolute pass/fail — every NFR-P1…P7 budget met on the shop terminal — is proven in **`HW-T07`**, not here.
