@@ -22,6 +22,9 @@
   <ItemGroup Label="Hosting">
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <!-- Abstractions only: Counterpoint.Devices needs BackgroundService and IHostedService, never
+         a host implementation. The host is chosen once, in Counterpoint.App. See docs/adr/0006. -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
     <!-- Abstractions only: the device and infrastructure layers depend on ILogger, never on a
          logging implementation. Serilog is chosen once, in the composition root. See docs/adr/0005. -->

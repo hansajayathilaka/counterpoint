@@ -1,0 +1,352 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Counterpoint.Application.Abstractions.Devices;
+using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Domain.Services;
+using Counterpoint.Domain.ValueObjects;
+
+namespace Counterpoint.Application.Sales;
+
+/// <summary>
+/// The sale commit, in exactly the shape SAD §7 specifies:
+///
+/// <code>
+/// BEGIN IMMEDIATE
+///   allocate bill_no from number_sequence
+///   insert sale (+ prev_hash / row_hash)
+///   insert sale_line[]
+///   insert payment[]
+///   post stock movements (+ balance projection)
+///   insert audit_log
+///   insert print_job                        -- outbox, not a printer call
+/// COMMIT
+/// </code>
+///
+/// If anything in that block throws, nothing happened except a consumed bill number - which is
+/// correct and auditable (SRS FR-3.30).
+/// </summary>
+/// <remarks>
+/// <para>
+/// This is the walking skeleton's version. It sells whole base units at the catalogue price
+/// with no discount and no tender beyond the exact amount. Discounts (P1-T08), unit conversion
+/// (P1-T05), split tender and change (P1-T10) and negative-stock policy (P1-T09) all land in
+/// the same shape, because the shape is what this task exists to establish.
+/// </para>
+/// </remarks>
+public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
+{
+    /// <summary>The <c>number_sequence.doc_type</c> a bill is numbered from.</summary>
+    private const string SaleDocumentType = "SALE";
+
+    /// <summary>The <c>stock_movement.movement_type</c> and <c>ref_doc_type</c> a bill posts.</summary>
+    private const string SaleMovementType = "SALE";
+
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IDocumentNumberAllocator _numbers;
+    private readonly IProductLookup _catalogue;
+    private readonly ISaleWriter _sales;
+    private readonly IStockLedger _stock;
+    private readonly IAuditTrail _audit;
+    private readonly IPrintJobOutbox _printJobs;
+    private readonly ISaleReceiptRenderer _receipts;
+    private readonly IRoundingPolicy _rounding;
+
+    public CompleteSaleHandler(
+        IUnitOfWork unitOfWork,
+        IDocumentNumberAllocator numbers,
+        IProductLookup catalogue,
+        ISaleWriter sales,
+        IStockLedger stock,
+        IAuditTrail audit,
+        IPrintJobOutbox printJobs,
+        ISaleReceiptRenderer receipts,
+        IRoundingPolicy rounding)
+    {
+        ArgumentNullException.ThrowIfNull(unitOfWork);
+        ArgumentNullException.ThrowIfNull(numbers);
+        ArgumentNullException.ThrowIfNull(catalogue);
+        ArgumentNullException.ThrowIfNull(sales);
+        ArgumentNullException.ThrowIfNull(stock);
+        ArgumentNullException.ThrowIfNull(audit);
+        ArgumentNullException.ThrowIfNull(printJobs);
+        ArgumentNullException.ThrowIfNull(receipts);
+        ArgumentNullException.ThrowIfNull(rounding);
+
+        _unitOfWork = unitOfWork;
+        _numbers = numbers;
+        _catalogue = catalogue;
+        _sales = sales;
+        _stock = stock;
+        _audit = audit;
+        _printJobs = printJobs;
+        _receipts = receipts;
+        _rounding = rounding;
+    }
+
+    /// <inheritdoc />
+    public async Task<CompletedSale> CompleteAsync(
+        CompleteSaleCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        // Priced before the transaction opens. Catalogue reads are not part of the write, and
+        // the writer lock should be held for the writes and nothing else (NFR-P3).
+        var bill = await PriceAsync(
+            command.Lines,
+            DateOnly.FromDateTime(command.SoldAt.Date),
+            cancellationToken).ConfigureAwait(false);
+
+        RequireTendersMatch(command, bill.Total);
+
+        return await _unitOfWork.ExecuteInTransactionAsync(
+            async token =>
+            {
+                var billNo = await _numbers
+                    .AllocateAsync(SaleDocumentType, bill.BusinessDate, token)
+                    .ConfigureAwait(false);
+
+                var saleId = await _sales.InsertSaleAsync(
+                    new NewSale(
+                        billNo,
+                        command.SoldAt,
+                        bill.BusinessDate,
+                        command.UserId,
+                        command.ShiftId,
+                        bill.Subtotal,
+                        Money.Zero,
+                        Money.Zero,
+                        bill.Tax,
+                        bill.Rounding,
+                        bill.Total,
+                        bill.Cogs),
+                    token).ConfigureAwait(false);
+
+                foreach (var line in bill.Lines)
+                {
+                    await _sales.InsertSaleLineAsync(saleId, line.ToNewSaleLine(), token)
+                        .ConfigureAwait(false);
+                }
+
+                foreach (var tender in command.Tenders)
+                {
+                    await _sales.InsertPaymentAsync(
+                        saleId,
+                        new NewTender(tender.TenderType, tender.Amount, tender.Reference, command.SoldAt),
+                        token).ConfigureAwait(false);
+                }
+
+                foreach (var line in bill.Lines)
+                {
+                    // Every stock change goes through the ledger, which appends the movement and
+                    // advances the projection in this same transaction (CLAUDE.md invariant 3).
+                    await _stock.PostAsync(
+                        new StockPosting(
+                            line.ProductVariantId,
+                            SaleMovementType,
+                            line.QuantityBase.Negate(),
+                            line.UnitCost,
+                            SaleMovementType,
+                            saleId,
+                            command.UserId,
+                            command.SoldAt),
+                        token).ConfigureAwait(false);
+                }
+
+                await _audit.RecordAsync(
+                    new AuditEntry(
+                        command.SoldAt,
+                        command.UserId,
+                        "SALE_COMPLETED",
+                        "sale",
+                        saleId,
+                        AfterJson: AuditPayload(billNo, bill.Total)),
+                    token).ConfigureAwait(false);
+
+                // Rendered here, inside the transaction, because the bill number only exists
+                // once number_sequence has been read and the outbox row must carry the finished
+                // stream. This is a pure in-memory byte transform - no device, no I/O. The
+                // printer itself is only ever touched by PrintWorker, outside any transaction
+                // (CLAUDE.md invariant 7).
+                var payload = _receipts.Render(bill.ToReceipt(billNo, command));
+
+                var printJobId = await _printJobs
+                    .EnqueueAsync(new PrintJobRequest("SALE", saleId, payload), token)
+                    .ConfigureAwait(false);
+
+                return new CompletedSale(saleId, billNo, bill.Total, printJobId);
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<SaleQuote> QuoteAsync(
+        IReadOnlyList<SaleLineRequest> lines,
+        CancellationToken cancellationToken = default)
+    {
+        var bill = await PriceAsync(lines, DateOnly.MinValue, cancellationToken).ConfigureAwait(false);
+
+        return new SaleQuote(bill.ToQuotedLines(), bill.Subtotal, bill.Tax, bill.Total);
+    }
+
+    /// <summary>
+    /// Prices the bill, before a single row is written.
+    /// </summary>
+    /// <remarks>
+    /// The two rounding points, and only those two (CLAUDE.md invariant 2): the line total, and
+    /// the bill total. Everything between them is exact decimal arithmetic.
+    /// </remarks>
+    private async Task<PricedBill> PriceAsync(
+        IReadOnlyList<SaleLineRequest> requests,
+        DateOnly businessDate,
+        CancellationToken cancellationToken)
+    {
+        if (requests is null || requests.Count == 0)
+        {
+            throw new InvalidOperationException("A bill must have at least one line.");
+        }
+
+        var lines = new List<PricedLine>(requests.Count);
+        var subtotal = Money.Zero;
+        var tax = Money.Zero;
+        var cogs = Money.Zero;
+        var lineNo = 1;
+
+        foreach (var request in requests)
+        {
+            if (request.Quantity <= 0m)
+            {
+                throw new InvalidOperationException(
+                    "A bill line must have a positive quantity. Removing an item is not a negative line.");
+            }
+
+            var item = await _catalogue.FindByVariantIdAsync(request.ProductVariantId, cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new InvalidOperationException(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Product variant {request.ProductVariantId} is not in the catalogue, or is no longer sellable."));
+
+            var quantity = Quantity.FromDecimal(request.Quantity, item.BaseUomId);
+
+            // Rounding point one.
+            var lineTotal = _rounding.Round(item.UnitPrice * quantity.Value);
+            var lineTax = item.TaxRate.TaxOnNet(lineTotal);
+
+            lines.Add(new PricedLine(
+                lineNo++,
+                item,
+                quantity,
+                lineTotal,
+                lineTax));
+
+            subtotal += lineTotal;
+            tax += lineTax;
+            cogs += item.UnitCost * quantity.Value;
+        }
+
+        // Rounding point two. What it moved is recorded rather than absorbed (SRS FR-3.20).
+        var exact = subtotal + tax;
+        var total = _rounding.Round(exact);
+
+        return new PricedBill(businessDate, lines, subtotal, tax, total - exact, total, cogs);
+    }
+
+    /// <summary>
+    /// Asserts the money adds up before anything is written. It refuses; it never corrects
+    /// (engineering guide §4.1).
+    /// </summary>
+    private static void RequireTendersMatch(CompleteSaleCommand command, Money total)
+    {
+        if (command.Tenders is null || command.Tenders.Count == 0)
+        {
+            throw new InvalidOperationException("A completed bill must be tendered.");
+        }
+
+        var tendered = command.Tenders.Aggregate(Money.Zero, (running, tender) => running + tender.Amount);
+        if (tendered != total)
+        {
+            throw new InvalidOperationException(string.Create(
+                CultureInfo.InvariantCulture,
+                $"The tenders come to {tendered} but the bill total is {total}. They must match exactly before the bill can be completed."));
+        }
+    }
+
+    /// <summary>
+    /// The audit row's after-state. Written by hand rather than serialised so the text is
+    /// stable byte for byte - it is about to be hashed into a chain.
+    /// </summary>
+    private static string AuditPayload(string billNo, Money total) => string.Create(
+        CultureInfo.InvariantCulture,
+        $$"""{"bill_no":"{{billNo}}","total":{{total.ToScaled()}}}""");
+
+    /// <summary>A bill, priced and checked, ready to be written.</summary>
+    private sealed record PricedBill(
+        DateOnly BusinessDate,
+        IReadOnlyList<PricedLine> Lines,
+        Money Subtotal,
+        Money Tax,
+        Money Rounding,
+        Money Total,
+        Money Cogs)
+    {
+        internal SaleReceipt ToReceipt(string billNo, CompleteSaleCommand command) => new(
+            billNo,
+            command.SoldAt,
+            [.. Lines.Select(line => new SaleReceiptLine(
+                line.Item.Description,
+                line.Quantity,
+                line.Item.UomSymbol,
+                line.Item.UnitPrice,
+                line.LineTotal))],
+            Subtotal,
+            Tax,
+            Total,
+            [.. command.Tenders.Select(tender => new SaleReceiptTender(tender.TenderType, tender.Amount))]);
+
+        internal IReadOnlyList<QuotedLine> ToQuotedLines() =>
+            [.. Lines.Select(line => new QuotedLine(
+                line.ProductVariantId,
+                line.Item.Description,
+                line.Quantity.Value,
+                line.Item.UomSymbol,
+                line.Item.UnitPrice,
+                line.LineTotal))];
+    }
+
+    /// <summary>One priced bill line.</summary>
+    private sealed record PricedLine(
+        int LineNo,
+        CatalogueItem Item,
+        Quantity Quantity,
+        Money LineTotal,
+        Money Tax)
+    {
+        internal long ProductVariantId => Item.ProductVariantId;
+
+        /// <summary>
+        /// The skeleton sells in the product's base unit, so the sold quantity and the base
+        /// quantity are the same value. Unit conversion (SRS FR-2.4, FR-3.7) is P1-T05's, and
+        /// it changes this line and nothing else in the transaction.
+        /// </summary>
+        internal Quantity QuantityBase => Quantity;
+
+        internal Money UnitCost => Item.UnitCost;
+
+        internal NewSaleLine ToNewSaleLine() => new(
+            LineNo,
+            Item.ProductVariantId,
+            Item.Description,
+            Quantity,
+            QuantityBase,
+            Item.UnitPrice,
+            Money.Zero,
+            Item.TaxRate,
+            Tax,
+            LineTotal,
+            Item.UnitCost);
+    }
+}

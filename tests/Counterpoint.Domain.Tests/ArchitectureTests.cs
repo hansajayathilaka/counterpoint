@@ -31,6 +31,12 @@ public sealed class ArchitectureTests
         "Counterpoint.Backup",
     ];
 
+    /// <summary>
+    /// The one project allowed to see both the UI and the adapters behind it: the composition
+    /// root. Everything meets everything else exactly there, through interfaces.
+    /// </summary>
+    private const string CompositionRoot = "Counterpoint.App";
+
     /// <summary>Assemblies subject to invariant 1: money is decimal, never binary floating point.</summary>
     private static readonly string[] NoFloatingPointAssemblies =
     [
@@ -60,6 +66,50 @@ public sealed class ArchitectureTests
                 "Counterpoint.Ui must not reference {0}, directly or transitively",
                 forbidden);
         }
+    }
+
+    [Fact]
+    public void OnlyTheCompositionRootReachesBothTheUiAndTheAdaptersBehindIt()
+    {
+        var offenders = new List<string>();
+
+        foreach (var project in SrcProjects())
+        {
+            var name = Path.GetFileNameWithoutExtension(project.Name);
+            if (name.Equals(CompositionRoot, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var reachable = ReachableProjects(project);
+            if (!reachable.Contains("Counterpoint.Ui"))
+            {
+                continue;
+            }
+
+            offenders.AddRange(ProjectsUiMayNotReach
+                .Where(reachable.Contains)
+                .Select(adapter => $"{name} reaches both Counterpoint.Ui and {adapter}"));
+        }
+
+        offenders.Should().BeEmpty(
+            "{0} is the composition root and the only project that may see the UI and the "
+            + "adapters at the same time. Anywhere else, that combination is a route for "
+            + "business rules or authorisation to reach the screen without passing through "
+            + "the Application layer (CLAUDE.md \"Project boundaries\", SRS NFR-S2, AC-17). "
+            + "Offenders: {1}",
+            CompositionRoot,
+            string.Join("; ", offenders));
+
+        // And the composition root really is one: it has to reach both, or the rule above is
+        // vacuously true because nothing reaches the UI at all.
+        var root = ReachableProjects(SrcProject(CompositionRoot));
+
+        root.Should().Contain("Counterpoint.Ui")
+            .And.Contain("Counterpoint.Infrastructure")
+            .And.Contain("Counterpoint.Devices",
+                "{0} is where the screen is handed its Application services and where those "
+                + "services are handed their adapters", CompositionRoot);
     }
 
     [Fact]
@@ -223,6 +273,16 @@ public sealed class ArchitectureTests
             + "be checkable; expected it at {1}", simpleName, path);
 
         return Assembly.LoadFrom(path);
+    }
+
+    /// <summary>Every project under <c>src/</c>, found on disk rather than listed here.</summary>
+    private static FileInfo[] SrcProjects()
+    {
+        var source = new DirectoryInfo(Path.Combine(RepositoryRoot().FullName, "src"));
+
+        source.Exists.Should().BeTrue("the src directory must exist at {0}", source.FullName);
+
+        return source.GetFiles("*.csproj", SearchOption.AllDirectories);
     }
 
     private static FileInfo SrcProject(string projectName)

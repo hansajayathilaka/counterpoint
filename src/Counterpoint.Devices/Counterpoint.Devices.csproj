@@ -4,6 +4,11 @@
        ILogger only - never a logging implementation. See docs/adr/0005. -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- BackgroundService and IHostedService for the print outbox worker, and the service
+         collection it registers itself into. Abstractions only - no host, no logger, no
+         configuration provider. See docs/adr/0005 and docs/adr/0006. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
   <ItemGroup>
