@@ -62,3 +62,5 @@ it stopped.
 
 - `2026-09-06T09:59:47Z` **P1-T01** done — closed out: 4th Done-when (compiled model + UseModel) verified present and tested
 - `2026-09-06T09:59:49Z` **P0-T05** start — ESC/POS renderer and one rendered receipt
+- `2026-09-06T10:27:58Z` **P0-T05** note — task-implementer done, 374 tests passing, verify.sh green; checked out into checkpoint commit 3749cbf; code-reviewer + device-integrator review in flight
+- `2026-09-06T10:28:03Z` **P0-T05** note — task-implementer done, 374 tests passing, verify.sh green; checkpoint commit 3749cbf pushed; code-reviewer + device-integrator review in flight
