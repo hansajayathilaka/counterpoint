@@ -76,3 +76,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-06T17:28:34Z` **P0-T06** start — One sale, end to end
+- `2026-09-06T18:23:45Z` **P0-T06** fix-attempt — 1: rounding-residual quantisation, missing pre-persist assertions + zero-tax test gap, shift_no via COUNT(*)+1, opening stock_balance seeded without a stock_movement
