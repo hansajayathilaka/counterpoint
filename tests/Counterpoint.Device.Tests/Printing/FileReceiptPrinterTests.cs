@@ -105,6 +105,47 @@ public sealed class FileReceiptPrinterTests : IDisposable
         logger.Entries.Should().ContainSingle().Which.Level.Should().Be(LogLevel.Warning);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task FR_7_8_AnUnsetOutputDirectoryIsCaughtAndLoggedNotThrown(string? directory)
+    {
+        var logger = new RecordingLogger<FileReceiptPrinter>();
+        var printer = new FileReceiptPrinter(
+            new FileReceiptPrinterOptions { OutputDirectory = directory! },
+            logger);
+
+        var print = async () => await printer.PrintAsync(Document, "INV-2026-004312");
+
+        var outcome = (await print.Should().NotThrowAsync(
+            "a misconfigured output folder is still only a printing problem: nothing may "
+            + "escape this method to the sale that queued the job")).Subject;
+
+        outcome.Succeeded.Should().BeFalse();
+        outcome.Target.Should().BeNull();
+
+        var warning = logger.Entries.Should().ContainSingle().Which;
+        warning.Level.Should().Be(LogLevel.Warning);
+        warning.Exception.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task FR_7_8_APathTheFileSystemRejectsIsCaughtAndLoggedToo()
+    {
+        var logger = new RecordingLogger<FileReceiptPrinter>();
+        var printer = new FileReceiptPrinter(
+            new FileReceiptPrinterOptions { OutputDirectory = _outputDirectory + "\0broken" },
+            logger);
+
+        var print = async () => await printer.PrintAsync(Document, "INV-2026-004312");
+
+        var outcome = (await print.Should().NotThrowAsync()).Subject;
+
+        outcome.Succeeded.Should().BeFalse();
+        logger.Entries.Should().ContainSingle().Which.Level.Should().Be(LogLevel.Warning);
+    }
+
     [Fact]
     public async Task ASuccessfulPrintIsLoggedAtInformation()
     {

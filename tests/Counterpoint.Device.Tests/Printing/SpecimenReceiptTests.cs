@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Counterpoint.Device.Tests.Support;
 using Counterpoint.Devices.Printing;
+using Counterpoint.Domain.Services;
+using Counterpoint.Domain.ValueObjects;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using VerifyXunit;
@@ -20,6 +22,9 @@ namespace Counterpoint.Device.Tests.Printing;
 /// </summary>
 public sealed class SpecimenReceiptTests : IDisposable
 {
+    /// <summary>The money column on 80 mm paper, in characters.</summary>
+    private const int MoneyColumnWidth = 11;
+
     private readonly string _outputDirectory = Path.Combine(
         Path.GetTempPath(),
         "counterpoint-specimen-" + Guid.NewGuid().ToString("N"));
@@ -71,6 +76,26 @@ public sealed class SpecimenReceiptTests : IDisposable
     }
 
     [Fact]
+    public void Invariant_2_TheSpecimenRoundsAtTheLineTotalAndTheBillTotalAndNowhereElse()
+    {
+        // A rounding policy nobody could miss: whatever it touches comes back as zero. Every
+        // amount that still prints its own value is an amount that was never rounded.
+        var lines = EscPosDump.PrintedLines(
+            new EscPosRenderer().Render(SpecimenReceipt.Build(new ZeroingRounding())));
+
+        Amount(lines, "Sub total").Should().Be(
+            "0.00",
+            "it is the sum of the line totals, and the line total is one of the two rounding points");
+        Amount(lines, "TOTAL").Should().Be("0.00", "the bill total is the other");
+
+        Amount(lines, "Discount").Should().Be(
+            "-65.00",
+            "the discount is not a rounding point - if formatting rounded, this would be 0.00");
+        Amount(lines, "Cash").Should().Be("2500.00", "nor is the cash tendered");
+        Amount(lines, "CHANGE").Should().Be("2500.00", "nor the change given back");
+    }
+
+    [Fact]
     public async Task Srs_10_1_TheSpecimenPrintsThroughTheFileReceiptPrinter()
     {
         var bytes = new EscPosRenderer().Render(SpecimenReceipt.Build());
@@ -85,5 +110,22 @@ public sealed class SpecimenReceiptTests : IDisposable
         (await File.ReadAllBytesAsync(outcome.Target!)).Should().Equal(
             bytes,
             "what the printer receives is exactly what the renderer produced");
+    }
+
+    /// <summary>The amount printed in the money column of the row carrying a given label.</summary>
+    private static string Amount(List<string> lines, string label) =>
+        lines.Single(line => line.StartsWith(label + " ", StringComparison.Ordinal))
+            [^MoneyColumnWidth..]
+            .Trim();
+
+    /// <summary>
+    /// A rounding policy that returns zero for everything. Not a plausible shop setting - a
+    /// dye: every amount that still prints its own value went nowhere near it.
+    /// </summary>
+    private sealed class ZeroingRounding : IRoundingPolicy
+    {
+        public int DecimalPlaces => 2;
+
+        public Money Round(Money amount) => Money.Zero;
     }
 }

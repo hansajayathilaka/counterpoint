@@ -206,6 +206,24 @@ public sealed class EscPosRendererTests
     }
 
     [Fact]
+    public void FR_7_7_ADrawerThatNeedsALongerPulseIsACapabilityNotARendererChange()
+    {
+        var capabilities = PrinterCapabilities.Default with
+        {
+            DrawerPin = DrawerPin.Pin5,
+            DrawerPulseOnTime = 100,
+            DrawerPulseOffTime = 200,
+        };
+
+        var bytes = new EscPosRenderer(capabilities).Render(ReceiptDocument.Of(new ReceiptNode.Kick()));
+
+        Contains(bytes, EscPos.Esc, (byte)'p', 1, 100, 200).Should().BeTrue(
+            "a heavy-solenoid drawer does not open on a 25-unit pulse, and HW-T01 must be able "
+            + "to lengthen it without editing the renderer");
+        Contains(bytes, EscPos.Esc, (byte)'p', 0, 25, 250).Should().BeFalse();
+    }
+
+    [Fact]
     public void FR_7_7_APrinterWithNoDrawerPortSkipsTheKick()
     {
         var capabilities = PrinterCapabilities.Default with { SupportsDrawerKick = false };
@@ -237,6 +255,55 @@ public sealed class EscPosRendererTests
 
         Contains(bytes, EscPos.Gs, (byte)'k').Should().BeFalse("GS k is exactly what the fallback avoids");
         Contains(bytes, EscPos.Gs, (byte)'v', (byte)'0').Should().BeTrue("the bars go out as a raster");
+    }
+
+    [Fact]
+    public void PRT_04_TheRasterBarcodeStillPrintsTheBillNumberAsReadableText()
+    {
+        var document = ReceiptDocument.Of(new ReceiptNode.Barcode("INV-2026-004312"));
+        var capabilities = PrinterCapabilities.Default with { BarcodeMode = BarcodeMode.Raster };
+
+        var bytes = new EscPosRenderer(capabilities, new StubRasteriser()).Render(document);
+
+        EscPosDump.PrintedLines(bytes).Should().ContainSingle()
+            .Which.Should().Be(
+                "INV-2026-004312",
+                "a raster is only bars, so the renderer prints the digits the printer's own "
+                + "GS H would have printed - the cashier's fallback when a scan fails");
+    }
+
+    [Fact]
+    public void PRT_04_ARasterBarcodePrintsNoDigitsWhenTheReceiptAsksForNone()
+    {
+        var document = ReceiptDocument.Of(new ReceiptNode.Barcode("INV-2026-004312"));
+        var capabilities = PrinterCapabilities.Default with
+        {
+            BarcodeMode = BarcodeMode.Raster,
+            BarcodeHriPosition = HriPosition.None,
+        };
+
+        var bytes = new EscPosRenderer(capabilities, new StubRasteriser()).Render(document);
+
+        EscPosDump.PrintedLines(bytes).Should().BeEmpty("HRI position None means no digits");
+        Contains(bytes, EscPos.Gs, (byte)'v', (byte)'0').Should().BeTrue();
+    }
+
+    [Fact]
+    public void PRT_04_TheDigitsFollowTheConfiguredHriPosition()
+    {
+        var document = ReceiptDocument.Of(new ReceiptNode.Barcode("INV-2026-004312"));
+        var capabilities = PrinterCapabilities.Default with
+        {
+            BarcodeMode = BarcodeMode.Raster,
+            BarcodeHriPosition = HriPosition.Above,
+        };
+
+        var bytes = new EscPosRenderer(capabilities, new StubRasteriser()).Render(document);
+
+        var text = IndexesOf(bytes, "INV-2026-004312"u8.ToArray()).First();
+        var raster = IndexesOf(bytes, [EscPos.Gs, (byte)'v', (byte)'0']).First();
+
+        text.Should().BeLessThan(raster, "Above means above");
     }
 
     [Fact]

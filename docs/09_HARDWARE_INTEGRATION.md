@@ -97,7 +97,10 @@ photos of the printed specimen and sale receipts in the commissioning record.
 - [ ] The cash drawer opens on a cash tender and does not on a card tender
 - [ ] Physically disconnecting the printer mid-sale: the sale still completes and the
       job sits `PENDING`/`FAILED` (AC-16 on hardware)
-- [ ] The `.verified.txt` snapshot from `P1-T11` is unchanged by this work
+- [ ] The `.verified.txt` snapshots from `P0-T05`
+      (`SpecimenReceiptTests.Srs_10_1_TheSpecimenBillRendersToTheCommittedByteStream.verified.txt`)
+      and from `P1-T11` are unchanged by this work — a quirk is fixed with a
+      `PrinterCapabilities` flag, never by editing the renderer
 - [ ] Printer quirks documented
 
 ---
