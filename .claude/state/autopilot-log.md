@@ -68,3 +68,11 @@ it stopped.
 - `2026-09-06T10:46:18Z` **P0-T05** done — 42 device tests (+8 in fix round), 385 total, 2 review rounds clean after 1 fix round
 
 **Run ended 2026-09-06T10:47:07Z** — 2 completed, 0 halted
+
+## Run 2026-09-06T17:28:29Z
+
+- branch: `claude/autopilot-vw0cgr`
+- head: `64440f8`
+- budget: 2 task(s)
+
+- `2026-09-06T17:28:34Z` **P0-T06** start — One sale, end to end
