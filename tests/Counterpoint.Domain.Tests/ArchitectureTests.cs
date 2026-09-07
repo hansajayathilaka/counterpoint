@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Xml.Linq;
+using Counterpoint.Application.Security;
 using FluentAssertions;
 
 namespace Counterpoint.Domain.Tests;
@@ -30,6 +31,12 @@ public sealed class ArchitectureTests
         "Counterpoint.Reporting",
         "Counterpoint.Backup",
     ];
+
+    /// <summary>
+    /// The one project allowed to see both the UI and the adapters behind it: the composition
+    /// root. Everything meets everything else exactly there, through interfaces.
+    /// </summary>
+    private const string CompositionRoot = "Counterpoint.App";
 
     /// <summary>Assemblies subject to invariant 1: money is decimal, never binary floating point.</summary>
     private static readonly string[] NoFloatingPointAssemblies =
@@ -63,6 +70,50 @@ public sealed class ArchitectureTests
     }
 
     [Fact]
+    public void OnlyTheCompositionRootReachesBothTheUiAndTheAdaptersBehindIt()
+    {
+        var offenders = new List<string>();
+
+        foreach (var project in SrcProjects())
+        {
+            var name = Path.GetFileNameWithoutExtension(project.Name);
+            if (name.Equals(CompositionRoot, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var reachable = ReachableProjects(project);
+            if (!reachable.Contains("Counterpoint.Ui"))
+            {
+                continue;
+            }
+
+            offenders.AddRange(ProjectsUiMayNotReach
+                .Where(reachable.Contains)
+                .Select(adapter => $"{name} reaches both Counterpoint.Ui and {adapter}"));
+        }
+
+        offenders.Should().BeEmpty(
+            "{0} is the composition root and the only project that may see the UI and the "
+            + "adapters at the same time. Anywhere else, that combination is a route for "
+            + "business rules or authorisation to reach the screen without passing through "
+            + "the Application layer (CLAUDE.md \"Project boundaries\", SRS NFR-S2, AC-17). "
+            + "Offenders: {1}",
+            CompositionRoot,
+            string.Join("; ", offenders));
+
+        // And the composition root really is one: it has to reach both, or the rule above is
+        // vacuously true because nothing reaches the UI at all.
+        var root = ReachableProjects(SrcProject(CompositionRoot));
+
+        root.Should().Contain("Counterpoint.Ui")
+            .And.Contain("Counterpoint.Infrastructure")
+            .And.Contain("Counterpoint.Devices",
+                "{0} is where the screen is handed its Application services and where those "
+                + "services are handed their adapters", CompositionRoot);
+    }
+
+    [Fact]
     public void Domain_ReferencesNoNuGetPackage()
     {
         var domainProject = SrcProject("Counterpoint.Domain");
@@ -91,6 +142,55 @@ public sealed class ArchitectureTests
         nonFrameworkReferences.Should().BeEmpty(
             "the built Counterpoint.Domain assembly must bind to nothing but the base class library");
     }
+
+    /// <summary>
+    /// Every concrete Application service sitting behind an interface that carries
+    /// <see cref="RequiresRoleAttribute"/> must be invisible outside its own assembly
+    /// (SRS NFR-S2, AC-17, CLAUDE.md invariant 8).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="RequiresRoleAttribute"/>'s own remarks say the attribute "has no effect on a
+    /// class nobody wrapped … an architecture-style test would be the way to keep that true as
+    /// services multiply". This is that test.
+    /// </para>
+    /// <para>
+    /// A public class with a public constructor can be registered in the container by its
+    /// concrete type, resolved by anything holding an <c>IServiceProvider</c>, or simply
+    /// <c>new</c>ed up from its individually registered dependencies - each of those reaches the
+    /// service with no <see cref="RoleAuthorisation"/> in front of it, and none of them is a
+    /// compile error. Keeping the implementation internal leaves the decorated interface the
+    /// composition root registers as the only way in.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void ConcreteOwnerOnlyApplicationServicesAreNotPublic()
+    {
+        // The assembly is taken from the attribute's own type so that the attribute instances
+        // found on it compare equal to typeof(RequiresRoleAttribute) - a second copy loaded by
+        // path would not.
+        var application = typeof(RequiresRoleAttribute).Assembly;
+
+        var offenders = GetLoadableTypes(application)
+            .Where(type => type is { IsClass: true, IsAbstract: false } && type.IsVisible)
+            .Where(type => type.GetInterfaces().Any(RequiresARole))
+            .Select(Describe)
+            .ToArray();
+
+        offenders.Should().BeEmpty(
+            "a service behind an interface carrying [RequiresRole] must be internal, so that the "
+            + "role-decorated interface the composition root registers is the only way to reach "
+            + "it (SRS NFR-S2, AC-17). Offenders: " + string.Join("; ", offenders));
+    }
+
+    /// <summary>
+    /// True when <paramref name="contract"/> declares a role requirement, on the interface itself
+    /// or on any one of its members - the two places
+    /// <see cref="RoleAuthorisation.RequiredRole"/> looks that an interface can carry.
+    /// </summary>
+    private static bool RequiresARole(Type contract) =>
+        contract.IsDefined(typeof(RequiresRoleAttribute), inherit: true) ||
+        contract.GetMembers().Any(member => member.IsDefined(typeof(RequiresRoleAttribute), inherit: true));
 
     [Fact]
     public void NoDoubleOrFloatInDomainApplicationOrInfrastructure()
@@ -223,6 +323,16 @@ public sealed class ArchitectureTests
             + "be checkable; expected it at {1}", simpleName, path);
 
         return Assembly.LoadFrom(path);
+    }
+
+    /// <summary>Every project under <c>src/</c>, found on disk rather than listed here.</summary>
+    private static FileInfo[] SrcProjects()
+    {
+        var source = new DirectoryInfo(Path.Combine(RepositoryRoot().FullName, "src"));
+
+        source.Exists.Should().BeTrue("the src directory must exist at {0}", source.FullName);
+
+        return source.GetFiles("*.csproj", SearchOption.AllDirectories);
     }
 
     private static FileInfo SrcProject(string projectName)

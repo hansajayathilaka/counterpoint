@@ -52,7 +52,14 @@ Devices         -> Application, Domain
 Reporting       -> Application, Domain
 Backup          -> Application, Domain
 Ui              -> Application, Domain   (never Infrastructure/Devices/Reporting/Backup)
+App             -> everything            (the composition root, and the only project that may
+                                          see both Ui and the adapters behind it)
 ```
+
+`Counterpoint.App` is the `WinExe`: `Program.Main`, `BuildAvaloniaApp`, the DI and `IHost`
+wiring, `app.manifest`. `Counterpoint.Ui` is a class library of views and viewmodels — it cannot
+be the composition root, because it may not reference the assemblies a composition root has to
+wire together. Put wiring in `App`; put nothing else there.
 
 Enforced by `tests/Counterpoint.Domain.Tests/ArchitectureTests.cs`. Do not work around it.
 

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The composition root, and the only project in the solution allowed to reference both
+    Counterpoint.Ui and the adapters behind it. Counterpoint.Ui may reference Application and
+    Domain only (CLAUDE.md "Project boundaries"), so the wiring cannot live there - it lives
+    here, in a project that contains nothing but wiring.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>Counterpoint</AssemblyName>
+    <RootNamespace>Counterpoint.App</RootNamespace>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+  </PropertyGroup>
+
+  <!-- Versions come from Directory.Packages.props. -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Counterpoint.Application\Counterpoint.Application.csproj" />
+    <ProjectReference Include="..\Counterpoint.Devices\Counterpoint.Devices.csproj" />
+    <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />
+    <ProjectReference Include="..\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj" />
+    <ProjectReference Include="..\Counterpoint.Ui\Counterpoint.Ui.csproj" />
+  </ItemGroup>
+
+</Project>

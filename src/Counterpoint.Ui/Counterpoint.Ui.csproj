@@ -1,8 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    A class library, not the executable. The composition root lives in Counterpoint.App,
+    which is the only project allowed to reference both this and Infrastructure/Devices:
+    Counterpoint.Ui itself may reference Application and Domain ONLY (CLAUDE.md
+    "Project boundaries"), so it cannot be the project that wires them together.
+  -->
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
   </PropertyGroup>

@@ -31,7 +31,7 @@ hands them back.
 | P0-T03 | Database bootstrap, SQLCipher, connection factory | done | 2026-09-04 | a50cb5f: all automatable work complete and reviewed clean; self-contained Windows publish from %ProgramFiles% confirmed - CI's "Windows self-contained publish" job passed on windows-2022 after merge to main (run 33896159464). Every Done-when criterion is now proven. |
 | P0-T04 | Minimal schema, migrations, append-only triggers | done | 2026-09-04 | 0142082: 15 tables, 18 append-only triggers, MigrationRunner, all Done-when criteria proven; 261 tests; 2 review rounds + 1 fix round |
 | P0-T05 | ESC/POS renderer and one rendered receipt | done | 2026-09-06 | 3749cbf..d5a62f6 feat+fix(P0-T05): ESC/POS renderer and one rendered receipt - all 5 Done-when proven; 42 device tests, 385 total; 2 review rounds (code-reviewer, device-integrator), 1 fix round closing 6 must-fix items |
-| P0-T06 | One sale, end to end | todo | | |
+| P0-T06 | One sale, end to end | done | 2026-09-07 | b14f161 fix(P0-T06): close review findings on money identity, shift numbering and ledger seeding |
 | P0-T07 | Backup snapshot, encryption, publish | todo | | Clean-machine install HW-T06; key store HW-T05 |
 
 ## Phase 1 — Core trading (0/16)
@@ -39,7 +39,7 @@ hands them back.
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
 | P1-T01 | Full schema migration | done | 2026-09-06 | 0cc8724 feat(P1-T01): full schema migration - 4/4 Done-when proven; compiled model + UseModel verified by NFR_P6_TheContextUsesTheCompiledModel and NFR_P6_TheCompiledModelMatchesTheDatabaseTheMigrationsBuilt |
-| P1-T02 | Users, authentication, roles, authorisation | todo | | |
+| P1-T02 | Users, authentication, roles, authorisation | done | 2026-09-07 | e8a59b2 feat(P1-T02): users, authentication, roles and authorisation (FR-1, NFR-S1, NFR-S2, NFR-S9, AC-17) |
 | P1-T03 | Settings framework | todo | | |
 | P1-T04 | Catalogue reference data | todo | | |
 | P1-T05 | Product, variant and UOM conversion domain | todo | | |
@@ -158,7 +158,7 @@ Update as tests land. `automated` means a passing test exists in
 | AC-14 | P4-T06 (clean VM), HW-T08 (replacement hardware) | not started |
 | AC-15 | P1-T16 (software), HW-T09 (on terminal) | not started |
 | AC-16 | P1-T11 (fake), HW-T01 (real printer) | not started |
-| AC-17 | P1-T02 | not started |
+| AC-17 | P1-T02 | automated (authorisation half; cost/margin projections land with P3-T04/P3-T05) |
 | AC-18 | P1-T16 (regression guard), HW-T07 (absolute budgets) | not started |
 | AC-19 | P1-T16 | not started |
 | AC-20 | P5-T07 | not started |

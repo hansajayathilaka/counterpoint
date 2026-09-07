@@ -78,7 +78,8 @@ Counterpoint.sln
 │  ├─ Counterpoint.Devices/         ESC/POS, drawer, label printer, serial scale, scanner filter
 │  ├─ Counterpoint.Reporting/       PDF / XLSX / CSV renderers
 │  ├─ Counterpoint.Backup/          snapshot, compress, encrypt, targets
-│  └─ Counterpoint.Ui/              Avalonia views + viewmodels + composition root
+│  ├─ Counterpoint.Ui/              Avalonia views + viewmodels (class library)
+│  └─ Counterpoint.App/             the executable: composition root and nothing else
 ├─ tests/
 │  ├─ Counterpoint.Domain.Tests/
 │  ├─ Counterpoint.Integration.Tests/
@@ -103,10 +104,13 @@ Counterpoint.sln
 | `Reporting` | `Application`, `Domain` |
 | `Backup` | `Application`, `Domain` |
 | `Ui` | `Application`, `Domain` **only** |
+| `App` | everything — it is the composition root |
 
 `Ui` must never reference `Infrastructure`, `Devices`, `Reporting` or `Backup` directly — it gets them through interfaces registered in the composition root. This is what makes NFR-S2 and AC-17 ("authorisation verified at the business-logic layer, not just the UI") structurally true.
 
-Write this as a test in `Counterpoint.Domain.Tests/ArchitectureTests.cs` in Phase 0. It fails the build if violated.
+**The composition root is therefore `Counterpoint.App`, not `Counterpoint.Ui`.** A project cannot wire up assemblies it is forbidden to reference, so the wiring lives one level out: `Counterpoint.App` is the `WinExe` (`Program.Main`, `BuildAvaloniaApp`, the `IHost` and `IServiceCollection` setup, `app.manifest`), `Counterpoint.Ui` is a class library of views and viewmodels, and `App` is the **only** project in the solution allowed to see both the UI and the adapters behind it. It contains wiring and nothing else — no rule, no query, no layout.
+
+Write both rules as tests in `Counterpoint.Domain.Tests/ArchitectureTests.cs` in Phase 0. They fail the build if violated.
 
 ---
 

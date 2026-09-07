@@ -1,0 +1,67 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Counterpoint.Ui.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="520"
+        x:Class="Counterpoint.Ui.Views.UserAdminWindow"
+        x:DataType="vm:UserAdminViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="720" Height="520"
+        WindowStartupLocation="CenterOwner"
+        Title="Counterpoint - users">
+
+  <!-- No styling, on purpose. Owner-only, and the Application layer is what makes that true. -->
+  <DockPanel Margin="12">
+
+    <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding Status}" />
+
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="6">
+
+      <TextBlock Text="Selected user" FontSize="16" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Turn on / off"
+                Command="{Binding ToggleActiveCommand}"
+                IsEnabled="{Binding !Busy}" />
+        <TextBox Width="160"
+                 PasswordChar="•"
+                 Watermark="New password"
+                 Text="{Binding ReplacementPassword}">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding ResetPasswordCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+        <Button Content="Reset password"
+                Command="{Binding ResetPasswordCommand}"
+                IsEnabled="{Binding !Busy}" />
+      </StackPanel>
+
+      <TextBlock Margin="0,8,0,0" Text="Add a user" FontSize="16" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBox Width="140" Watermark="Username" Text="{Binding NewUsername}" />
+        <TextBox Width="180" Watermark="Name on screen" Text="{Binding NewDisplayName}" />
+        <TextBox Width="140" PasswordChar="•" Watermark="Password" Text="{Binding NewPassword}" />
+        <CheckBox Content="Owner" IsChecked="{Binding NewUserIsOwner}" />
+        <Button Content="Create" Command="{Binding CreateCommand}" IsEnabled="{Binding !Busy}" />
+      </StackPanel>
+
+    </StackPanel>
+
+    <ListBox ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:UserRowViewModel">
+          <Grid ColumnDefinitions="140,*,90,70,Auto,Auto">
+            <TextBlock Grid.Column="0" Text="{Binding Username}" />
+            <TextBlock Grid.Column="1" Text="{Binding DisplayName}" />
+            <TextBlock Grid.Column="2" Text="{Binding RoleText}" />
+            <TextBlock Grid.Column="3" Text="{Binding StateText}" />
+            <TextBlock Grid.Column="4" Margin="12,0,0,0" Text="{Binding LastLoginText}" />
+            <TextBlock Grid.Column="5" Margin="12,0,0,0" Text="{Binding LockedText}" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+  </DockPanel>
+
+</Window>

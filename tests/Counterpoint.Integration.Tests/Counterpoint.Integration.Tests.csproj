@@ -9,6 +9,10 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
+    <!-- The sale fixture composes the same container Counterpoint.App does. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,7 +22,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Counterpoint.Domain\Counterpoint.Domain.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Application\Counterpoint.Application.csproj" />
+    <ProjectReference Include="..\..\src\Counterpoint.Devices\Counterpoint.Devices.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj" />
+    <!-- The viewmodel, so the scan-to-Pay loop can be driven end to end without a display.
+         Counterpoint.Ui references Application and Domain only, so this pulls no adapter in. -->
+    <ProjectReference Include="..\..\src\Counterpoint.Ui\Counterpoint.Ui.csproj" />
   </ItemGroup>
 
 </Project>

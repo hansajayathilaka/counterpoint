@@ -1,5 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Argon2id is pure computation over byte arrays - no I/O, no platform surface, no floating
+    point - so the password hasher is a use case like any other and lives here rather than in an
+    adapter. Version comes from Directory.Packages.props. See docs/adr/0007.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />
   </ItemGroup>

@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Counterpoint.Ui.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="480"
+        x:Class="Counterpoint.Ui.Views.SalesWindow"
+        x:DataType="vm:SalesViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Counterpoint">
+
+  <!-- No styling, on purpose. The sales screen proper is P1-T09. -->
+  <DockPanel Margin="12">
+
+    <TextBox DockPanel.Dock="Top"
+             Name="ScanBox"
+             Watermark="Scan or type a barcode, then press Enter"
+             Text="{Binding Barcode}">
+      <TextBox.KeyBindings>
+        <KeyBinding Gesture="Enter" Command="{Binding ScanCommand}" />
+      </TextBox.KeyBindings>
+    </TextBox>
+
+    <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Text="{Binding Status}" />
+
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0" Spacing="12">
+      <TextBlock Text="TOTAL" VerticalAlignment="Center" />
+      <TextBlock Text="{Binding Total}" FontSize="28" VerticalAlignment="Center" />
+      <Button Content="Pay (cash)" Command="{Binding PayCommand}" IsEnabled="{Binding !Busy}" />
+      <Button Content="Users"
+              Command="{Binding ManageUsersCommand}"
+              IsVisible="{Binding CanManageUsers}" />
+    </StackPanel>
+
+    <ListBox ItemsSource="{Binding Lines}" Margin="0,8,0,0">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:SaleLineViewModel">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+            <TextBlock Grid.Column="0" Text="{Binding Description}" />
+            <TextBlock Grid.Column="1" Margin="12,0,0,0" Text="{Binding QuantityText}" />
+            <TextBlock Grid.Column="2" Margin="12,0,0,0" Text="{Binding UnitPriceText}" />
+            <TextBlock Grid.Column="3" Margin="12,0,0,0" Text="{Binding LineTotalText}" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+  </DockPanel>
+
+</Window>

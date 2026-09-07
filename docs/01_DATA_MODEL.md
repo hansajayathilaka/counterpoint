@@ -991,6 +991,64 @@ CREATE TABLE schema_version (
 );
 ```
 
+### The hash chain on `sale` and `audit_log`
+
+Append-only triggers stop the application editing history. They do not stop somebody with the
+file and a copy of `sqlite3`. The chain is what makes that visible afterwards (CLAUDE.md
+invariant 6, NFR-S8), and because a hash written today has to verify in five years, its input is
+a **published format**, not an implementation detail:
+
+```
+row_hash = lowercase_hex( SHA256( UTF8( prev_hash ‖ canonical_json(row) ) ) )
+```
+
+`‖` is plain string concatenation. `prev_hash` is the 64 hex characters of the previous row's
+`row_hash` **in the same table**, ordered by `id`. Implemented once, for both chains, in
+`Infrastructure/Data/HashChain.cs` and `CanonicalJson.cs`; the per-table field order lives in
+`SaleHashChain.cs` and `AuditLogHashChain.cs`.
+
+**Genesis.** The first row of an empty chain uses sixty-four `0` characters. A real hash there
+could not be told apart from a chain whose front rows had been deleted; a value no SHA-256 output
+can take can.
+
+**`canonical_json`.** An object, no whitespace anywhere, invariant culture throughout, and:
+
+| Rule | Why |
+|---|---|
+| Fields in an **explicitly declared** order — the table's DDL column order — never reflection order | Moving a property would otherwise silently invalidate every hash already written |
+| Money, quantities and rates as the **scaled integers** the column stores (`250000`, not `25.00`) | The hash can be recomputed from a raw SQL dump, by anything, without knowing about `Money` |
+| Timestamps as the fixed-width ISO-8601 text the column holds, character for character | Same reason: what is hashed is what is stored |
+| `null` written out explicitly | A missing field and a null field must not produce the same bytes |
+| Strings JSON-escaped: `"`, `\`, and everything below U+0020 | So no `note` or `reason` value can forge the structure around it |
+
+**Columns are excluded, each for a reason.** `id` is assigned by the very insert the hash is part
+of, so it cannot be known while the hash is being computed — the chain's order comes from
+`prev_hash`, not from the column. `row_hash` is the output. `prev_hash` is already the
+concatenation's prefix, so hashing it inside the JSON as well would add nothing.
+
+`sale` excludes three more: `status`, `cancelled_by` and `cancelled_at`. Those are exactly the
+columns a cancellation is allowed to change (§8 above), and a hash taken over a column that may
+legitimately change would fail to verify on every cancelled bill — making the chain worthless
+precisely where it is most wanted. What is chained is the bill's immutable content: who sold
+what, for how much, under which number. That a bill was cancelled is evidence in its own right,
+and it is carried by the `audit_log` chain, which has no mutable column at all.
+
+So for `sale` the hashed fields are, in this order:
+`bill_no`, `sold_at`, `business_date`, `customer_id`, `user_id`, `shift_id`, `subtotal`,
+`line_discount`, `bill_discount`, `tax`, `rounding`, `total`, `cogs`, `note`.
+
+And for `audit_log`:
+`occurred_at`, `user_id`, `action`, `entity_type`, `entity_id`, `before_json`, `after_json`,
+`reason`.
+
+**A column added to either table by a later migration is appended to that list, never inserted
+into the middle of it**, and even that needs a plan for the rows already chained.
+
+The hash is computed **inside the business transaction**, reading the current head of the chain
+on the same connection and the same transaction. The single-writer gate already makes a fork
+impossible; reading the head inside the transaction means the chain does not depend on the gate
+being correct. `VerifyChainCommand`, which walks a chain and reports the first break, is P3-T08's.
+
 ### Append-only triggers
 
 The complete set, as created by migrations `Skeleton0001` and `FullSchema0002`. These are the
@@ -1390,6 +1448,38 @@ Mirror these exactly as C# enums in `Domain/Enums/`. The `CHECK` constraints abo
 | `app_user` | One `OWNER` account created in the wizard. No default password, ever. |
 | `app_setting` | Full defaults per FR-10.1–10.8 (see `Application/Settings/SettingDefaults.cs`) |
 | `category` | Plumbing, Electrical, Fasteners, Tools, Paint, Adhesives, Garden, Building — editable |
+
+The wizard itself is P1-T02 and P1-T03. Until then `Infrastructure/Data/FirstRunSeeder.cs`
+(P0-T06) writes the smallest subset that lets one bill be rung up — one `uom`, one zero-rated
+`tax_class`, one product with a variant and a barcode, an `OWNER` account, an open `shift`, an
+opening `stock_balance` and the `SALE` sequence — guarded row by row on its natural key, so it is
+safe to run on every start. The account it seeds carries a `password_hash` that is not an
+Argon2id string, so nothing can authenticate as it: there is no default password here either.
+
+Because that account cannot be signed in as, P1-T02 adds one bounded step to open a brand new
+database: `Application/Security/InitialOwnerSetupService.cs` sets the first owner password, and
+only while no account in the file has a hash any password could verify against. Once one does, it
+refuses for good and a password change is the owner's, through `IUserAdministration`.
+
+### `app_setting` keys written by P1-T02
+
+Seven `INT` rows, upserted on every start by `Application/Security/SecurityPolicyRecorder.cs` so
+that what the shop's hashes were made with is on record rather than inferred from the build:
+
+| Key | Meaning |
+|---|---|
+| `security.password.argon2.memory_kib` | Argon2id memory cost, in KiB |
+| `security.password.argon2.iterations` | Argon2id passes |
+| `security.password.argon2.parallelism` | Argon2id lanes |
+| `security.password.minimum_length` | Shortest password or PIN allowed |
+| `security.login.max_failed_attempts` | Failures that lock an account (NFR-S9) |
+| `security.login.lockout_base_seconds` | The first lockout's length |
+| `security.login.lockout_max_seconds` | The ceiling the exponential backoff is held at |
+
+Today the code is the source of these and the rows are the record. P1-T03's settings framework
+(`ISettings`, `SettingDefaults`) inverts that: the rows become the source and these values their
+defaults. `HW-T07` retunes the three Argon2 rows against the shop terminal — a stored hash is
+self-describing, so retuning them does not invalidate an existing account.
 
 ---
 

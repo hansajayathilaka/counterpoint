@@ -1,10 +1,15 @@
 using System;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Abstractions.Security;
+using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Data;
+using Counterpoint.Infrastructure.Inventory;
+using Counterpoint.Infrastructure.Printing;
+using Counterpoint.Infrastructure.Sales;
 using Counterpoint.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Counterpoint.Infrastructure.DependencyInjection;
 
@@ -49,10 +54,24 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IPosDbContextFactory>(provider =>
             provider.GetRequiredService<SqliteUnitOfWork>());
 
-        // Registered, not invoked. Calling ApplyPendingMigrationsAsync at start-up belongs to
-        // P0-T06, which builds the composition root - Counterpoint.Ui has no DI container yet.
-        // Until then the runner is driven by the integration tests.
         services.AddSingleton<MigrationRunner>();
+        services.AddSingleton<FirstRunSeeder>();
+
+        // The ports the Application layer states it needs. Every one of them is stateless and
+        // reaches the database only through the unit of work above, so a singleton each.
+        services.AddSingleton<IDocumentNumberAllocator, SqliteDocumentNumberAllocator>();
+        services.AddSingleton<IProductLookup, SqliteProductLookup>();
+        services.AddSingleton<ITillSessionProvider, SqliteTillSessionProvider>();
+        services.AddSingleton<ISaleWriter, SqliteSaleWriter>();
+        services.AddSingleton<IStockLedger, SqliteStockLedger>();
+        services.AddSingleton<IAuditTrail, SqliteAuditTrail>();
+        services.AddSingleton<IPrintJobOutbox, SqlitePrintJobOutbox>();
+        services.AddSingleton<IUserStore, SqliteUserStore>();
+        services.AddSingleton<ISecurityPolicyStore, SqliteSecurityPolicyStore>();
+
+        // A clock, not DateTimeOffset.Now: created-at and printed-at stamps have to be
+        // controllable from a test, and TimeProvider is the framework's answer.
+        services.TryAddSingleton(TimeProvider.System);
 
         return services;
     }

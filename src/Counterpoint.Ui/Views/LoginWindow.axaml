@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Counterpoint.Ui.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="320"
+        x:Class="Counterpoint.Ui.Views.LoginWindow"
+        x:DataType="vm:LoginViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="420" Height="320"
+        WindowStartupLocation="CenterScreen"
+        Title="Counterpoint - sign in">
+
+  <!-- No styling, on purpose, and keyboard first: Enter signs in from either box (C-04). -->
+  <StackPanel Margin="16" Spacing="8">
+
+    <TextBlock Text="Counterpoint" FontSize="24" />
+
+    <TextBlock Text="Username" />
+    <TextBox Name="UsernameBox" Text="{Binding Username}">
+      <TextBox.KeyBindings>
+        <KeyBinding Gesture="Enter" Command="{Binding SignInCommand}" />
+      </TextBox.KeyBindings>
+    </TextBox>
+
+    <TextBlock Text="Password or PIN" />
+    <TextBox Name="PasswordBox" PasswordChar="•" Text="{Binding Password}">
+      <TextBox.KeyBindings>
+        <KeyBinding Gesture="Enter" Command="{Binding SignInCommand}" />
+        <KeyBinding Gesture="Ctrl+Enter" Command="{Binding SetOwnerPasswordCommand}" />
+      </TextBox.KeyBindings>
+    </TextBox>
+
+    <!-- Only on a database that has no usable credential yet. See LoginViewModel. -->
+    <StackPanel Spacing="8" IsVisible="{Binding SetupRequired}">
+      <TextBlock Text="Type the password again" />
+      <TextBox Name="ConfirmPasswordBox" PasswordChar="•" Text="{Binding ConfirmPassword}">
+        <TextBox.KeyBindings>
+          <KeyBinding Gesture="Enter" Command="{Binding SetOwnerPasswordCommand}" />
+        </TextBox.KeyBindings>
+      </TextBox>
+      <Button Content="Set owner password"
+              Command="{Binding SetOwnerPasswordCommand}"
+              IsEnabled="{Binding !Busy}" />
+    </StackPanel>
+
+    <Button Content="Sign in"
+            IsDefault="True"
+            Command="{Binding SignInCommand}"
+            IsVisible="{Binding !SetupRequired}"
+            IsEnabled="{Binding !Busy}" />
+
+    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding Status}" />
+
+  </StackPanel>
+
+</Window>
