@@ -2,7 +2,7 @@
 description: Autonomously implement, test, review, commit and push the next N tasks. Orchestration only — all work is delegated to subagents.
 argument-hint: "[count, default 2] [--phase P1] [--dry-run]"
 allowed-tools: Read, Grep, Glob, Task, TodoWrite, Bash(bash scripts/autopilot.sh:*), Bash(bash scripts/verify.sh), Bash(bash scripts/check-triggers.sh), Bash(bash scripts/seed.sh:*), Bash(dotnet build:*), Bash(dotnet test:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git switch:*), Bash(git checkout:*), Bash(git branch:*), Bash(git push:*), Bash(git rev-parse:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh pr list:*)
-model: opus
+model: sonnet
 ---
 
 Run the autopilot. Arguments: **$ARGUMENTS** (default: 2 tasks, no phase filter, not a dry run)

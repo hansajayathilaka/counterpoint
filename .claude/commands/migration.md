@@ -2,7 +2,7 @@
 description: Create a schema migration correctly, with triggers and tests intact
 argument-hint: "<what the schema change is>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
-model: opus
+model: sonnet
 ---
 
 Schema change: **$ARGUMENTS**

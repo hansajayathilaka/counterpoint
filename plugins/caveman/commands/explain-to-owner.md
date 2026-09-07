@@ -1,7 +1,7 @@
 ---
 description: Explain a technical decision or failure to the shop owner, not to a developer
 argument-hint: "<the decision, bug, delay or risk to explain>"
-model: opus
+model: sonnet
 allowed-tools: Read, Grep, Glob
 ---
 

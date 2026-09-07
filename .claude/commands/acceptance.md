@@ -2,7 +2,7 @@
 description: Write or run the automated test for a specific acceptance criterion
 argument-hint: "<AC id, e.g. AC-12 — or 'all'>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
-model: opus
+model: sonnet
 ---
 
 Acceptance criterion: **$ARGUMENTS**

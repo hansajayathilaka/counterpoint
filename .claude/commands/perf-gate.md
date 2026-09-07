@@ -1,7 +1,7 @@
 ---
 description: Run the performance budgets against a seeded database
 allowed-tools: Read, Grep, Glob, Bash, Task
-model: opus
+model: sonnet
 ---
 
 Run the performance gate.

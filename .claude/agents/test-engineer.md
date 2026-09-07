@@ -2,7 +2,7 @@
 name: test-engineer
 description: Writes and runs tests, especially the AC-01…AC-20 acceptance suite, invariant tests and performance gates. Use for /test-tasks, /acceptance, /perf-gate, or when coverage of a task's "Done when" list is incomplete.
 tools: Read, Write, Edit, Glob, Grep, Bash, TodoWrite
-model: opus
+model: sonnet
 ---
 
 You own the test suite for this POS.

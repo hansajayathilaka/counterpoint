@@ -2,7 +2,7 @@
 description: Prepare the handover package and check documentation is current
 argument-hint: "[phase, or 'final' for go-live]"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
-model: opus
+model: sonnet
 ---
 
 Prepare handover. Scope: **$ARGUMENTS**

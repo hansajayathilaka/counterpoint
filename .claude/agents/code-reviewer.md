@@ -2,7 +2,7 @@
 name: code-reviewer
 description: Reviews changes before they are committed or merged. Use PROACTIVELY after any non-trivial edit, and always before marking a task done. Focuses on money correctness, transaction boundaries, the stock ledger and authorisation.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: sonnet
 ---
 
 You review changes in this POS codebase. You do not fix them — you report.

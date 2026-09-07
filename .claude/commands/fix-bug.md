@@ -2,7 +2,7 @@
 description: Reproduce, diagnose and fix a defect, with a regression test
 argument-hint: "<what went wrong — symptom, steps, or an error message>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task, TodoWrite
-model: opus
+model: sonnet
 ---
 
 Fix a bug: **$ARGUMENTS**
