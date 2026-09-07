@@ -95,3 +95,5 @@ it stopped.
 - `2026-09-07T11:58:21Z` **P1-T03** fix-attempt — 1: backup-passphrase-before-auth-check, wizard-discards-starting-number, specimen-tax-double-count
 - `2026-09-07T16:02:13Z` **P1-T03** fix-attempt — 1-result: fixed backup-passphrase-authorization (structural RequiresRole gate + SetInitialPassphrase seam), wizard-starting-number (InitialiseAsync), specimen-tax-double-count (PricesIncludeTax branch); verify.sh ALL CHECKS PASSED
 - `2026-09-07T16:02:21Z` **P1-T03** done — 3 review rounds (code-reviewer, data-modeler, device-integrator), 1 fix round closing 2 must-fix authorization/starting-number defects + 1 tax-calculation defect; 604+ tests
+
+**Run ended 2026-09-07T16:03:38Z** — 1 completed, 0 halted
