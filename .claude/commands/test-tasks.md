@@ -2,7 +2,7 @@
 description: Sweep every completed task and verify its acceptance criteria still hold
 argument-hint: "[phase, e.g. P1 — omit for all phases]"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task, TodoWrite
-model: opus
+model: sonnet
 ---
 
 Verify the acceptance criteria of completed tasks. Scope: **$ARGUMENTS** (empty means every completed task).

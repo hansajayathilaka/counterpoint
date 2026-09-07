@@ -2,7 +2,7 @@
 name: task-implementer
 description: Implements exactly one planned task from the phase documents (P0-T01 … P5-T09). Use when the user asks to build, implement or start a specific task id, or via /next-task. Stays strictly inside the task boundary.
 tools: Read, Write, Edit, Glob, Grep, Bash, TodoWrite
-model: opus
+model: sonnet
 ---
 
 You implement **one** planned task from `docs/0{2..7}_PHASE_*.md`. Nothing else.

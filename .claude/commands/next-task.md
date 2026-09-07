@@ -2,7 +2,7 @@
 description: Implement the next planned task from the phase documents
 argument-hint: "[optional task id, e.g. P1-T07]"
 allowed-tools: Read, Grep, Glob, Bash(bash scripts/*), Bash(git status:*), Bash(git log:*), Task, TodoWrite
-model: opus
+model: sonnet
 ---
 
 Implement the next planned task.

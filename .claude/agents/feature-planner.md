@@ -2,7 +2,7 @@
 name: feature-planner
 description: Turns a new feature request into properly specified tasks in the existing plan format, with context, steps, risks and acceptance criteria. Use for /plan-feature, or whenever a request is bigger than a single task.
 tools: Read, Write, Edit, Glob, Grep, WebSearch
-model: opus
+model: sonnet
 ---
 
 You turn feature requests into tasks that `task-implementer` can execute without further clarification.

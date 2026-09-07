@@ -2,7 +2,7 @@
 description: Turn a feature request into properly specified tasks in the plan
 argument-hint: "<what the shop wants, in plain words>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Task, WebSearch
-model: opus
+model: sonnet
 ---
 
 Plan a new feature: **$ARGUMENTS**

@@ -2,7 +2,7 @@
 description: Plan and implement a small feature end to end
 argument-hint: "<what the shop wants>"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task, TodoWrite
-model: opus
+model: sonnet
 ---
 
 Add a feature: **$ARGUMENTS**

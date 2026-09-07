@@ -2,7 +2,7 @@
 description: Run the review agents over the current changes or the whole codebase
 argument-hint: "[diff | staged | phase P1 | all]"
 allowed-tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git status:*), Bash(dotnet build:*), Bash(dotnet test:*), Task
-model: opus
+model: sonnet
 ---
 
 Run review. Scope: **$ARGUMENTS** (default: uncommitted changes).
