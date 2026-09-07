@@ -82,3 +82,5 @@ it stopped.
 - `2026-09-07T01:57:18Z` **P1-T02** fix-attempt — 1: sale.user_id stamped from the shift's owner rather than the signed-in cashier (live misattribution into an append-only hash-chained table); UserAdministrationService resolvable undecorated, bypassing the AC-17 role guard
 - `2026-09-07T02:10:54Z` **P1-T02** fix-round — closed 2 must-fix review findings: CompleteSaleHandler refuses a bill whose command.UserId is not the signed-in user (FR-1.1, FR-1.6); UserAdministrationService made internal and built inside the IUserAdministration factory, guarded by ArchitectureTests.ConcreteOwnerOnlyApplicationServicesAreNotPublic (AC-17). 536 tests green, verify.sh ALL CHECKS PASSED.
 - `2026-09-07T02:15:30Z` **P1-T02** done — 75 files, 536 tests, 2 review rounds (code-reviewer, data-modeler), 1 fix round closing 2 must-fix items (sale.user_id misattribution, undecorated-service DI bypass)
+
+**Run ended 2026-09-07T02:16:11Z** — 2 completed, 0 halted
