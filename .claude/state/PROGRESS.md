@@ -39,7 +39,7 @@ hands them back.
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
 | P1-T01 | Full schema migration | done | 2026-09-06 | 0cc8724 feat(P1-T01): full schema migration - 4/4 Done-when proven; compiled model + UseModel verified by NFR_P6_TheContextUsesTheCompiledModel and NFR_P6_TheCompiledModelMatchesTheDatabaseTheMigrationsBuilt |
-| P1-T02 | Users, authentication, roles, authorisation | todo | | |
+| P1-T02 | Users, authentication, roles, authorisation | in-progress | | |
 | P1-T03 | Settings framework | todo | | |
 | P1-T04 | Catalogue reference data | todo | | |
 | P1-T05 | Product, variant and UOM conversion domain | todo | | |

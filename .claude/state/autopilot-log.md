@@ -78,3 +78,4 @@ it stopped.
 - `2026-09-06T17:28:34Z` **P0-T06** start — One sale, end to end
 - `2026-09-06T18:23:45Z` **P0-T06** fix-attempt — 1: rounding-residual quantisation, missing pre-persist assertions + zero-tax test gap, shift_no via COUNT(*)+1, opening stock_balance seeded without a stock_movement
 - `2026-09-07T00:58:30Z` **P0-T06** done — 5 files, 288+ tests total (279 integration), 2 review rounds (code-reviewer, data-modeler), 1 fix round closing 4 must-fix items
+- `2026-09-07T00:59:07Z` **P1-T02** start — Users, authentication, roles, authorisation
