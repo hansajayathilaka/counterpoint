@@ -27,9 +27,12 @@
       <TextBlock Text="TOTAL" VerticalAlignment="Center" />
       <TextBlock Text="{Binding Total}" FontSize="28" VerticalAlignment="Center" />
       <Button Content="Pay (cash)" Command="{Binding PayCommand}" IsEnabled="{Binding !Busy}" />
-      <Button Content="Users"
+      <Button Content="_Users"
               Command="{Binding ManageUsersCommand}"
               IsVisible="{Binding CanManageUsers}" />
+      <Button Content="_Settings"
+              Command="{Binding OpenSettingsCommand}"
+              IsVisible="{Binding CanChangeSettings}" />
     </StackPanel>
 
     <ListBox ItemsSource="{Binding Lines}" Margin="0,8,0,0">

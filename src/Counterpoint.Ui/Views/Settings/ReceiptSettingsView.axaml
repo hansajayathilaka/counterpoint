@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Settings.ReceiptSettingsView"
+             x:DataType="vm:ReceiptSettingsViewModel">
+
+  <!-- FR-10.8. The policy paragraph is wrapped to the paper width by the renderer, not here. -->
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="6">
+
+      <TextBlock TextWrapping="Wrap"
+                 Text="The words the shop puts on a bill, and which optional fields print." />
+
+      <TextBlock Text="Header line, under the shop's address" />
+      <TextBox Text="{Binding HeaderText}" />
+
+      <TextBlock Text="Footer line" />
+      <TextBox Text="{Binding FooterText}" />
+
+      <TextBlock Text="Return policy paragraph" />
+      <TextBox Height="80" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding PolicyText}" />
+
+      <TextBlock Margin="0,8,0,0" FontSize="16" Text="What prints on the bill" />
+
+      <CheckBox Content="The shop's logo" IsChecked="{Binding ShowLogo}" />
+      <CheckBox Content="The bill number as a barcode" IsChecked="{Binding ShowBillBarcode}" />
+      <CheckBox Content="The cashier's name" IsChecked="{Binding ShowCashierName}" />
+      <CheckBox Content="The customer's name" IsChecked="{Binding ShowCustomerName}" />
+      <CheckBox Content="The items and units tally" IsChecked="{Binding ShowItemAndUnitCount}" />
+      <CheckBox Content="The tax summary" IsChecked="{Binding ShowTaxSummary}" />
+      <CheckBox Content="The taxable value" IsChecked="{Binding ShowTaxableValue}" />
+      <CheckBox Content="The shop's tax registration number"
+                IsChecked="{Binding ShowTaxRegistrationNumber}" />
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

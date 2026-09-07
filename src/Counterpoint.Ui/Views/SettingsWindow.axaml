@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+        xmlns:views="using:Counterpoint.Ui.Views.Settings"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+        x:Class="Counterpoint.Ui.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="900" Height="640"
+        WindowStartupLocation="CenterOwner"
+        Title="Counterpoint - settings">
+
+  <!--
+    The eight groups FR-10 names, edited together and saved as one. Keyboard first (UI-01):
+    Ctrl+S saves, Ctrl+R throws the edits away, Escape closes - and Escape asks first when
+    there are changes that have not been saved. The tab strip walks with the arrow keys.
+  -->
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+    <KeyBinding Gesture="Ctrl+R" Command="{Binding RevertCommand}" />
+    <KeyBinding Gesture="Escape" Command="{Binding RequestCloseCommand}" />
+  </Window.KeyBindings>
+
+  <DockPanel Margin="12">
+
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="6">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="_Save (Ctrl+S)" Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
+        <Button Content="_Undo my changes" Command="{Binding RevertCommand}" IsEnabled="{Binding !Busy}" />
+        <Button Content="_Close" Command="{Binding RequestCloseCommand}" />
+        <TextBlock VerticalAlignment="Center"
+                   IsVisible="{Binding HasUnsavedChanges}"
+                   Text="Not saved yet" />
+      </StackPanel>
+      <TextBlock TextWrapping="Wrap" Text="{Binding Status}" />
+    </StackPanel>
+
+    <TabControl>
+      <TabItem Header="Shop profile">
+        <views:ShopProfileSettingsView DataContext="{Binding Shop}" />
+      </TabItem>
+      <TabItem Header="Financial">
+        <views:FinancialSettingsView DataContext="{Binding Financial}" />
+      </TabItem>
+      <TabItem Header="Tax">
+        <views:TaxSettingsView DataContext="{Binding Tax}" />
+      </TabItem>
+      <TabItem Header="Numbering">
+        <views:NumberingSettingsView DataContext="{Binding Numbering}" />
+      </TabItem>
+      <TabItem Header="Policy">
+        <views:PolicySettingsView DataContext="{Binding Policy}" />
+      </TabItem>
+      <TabItem Header="Peripherals">
+        <views:PeripheralSettingsView DataContext="{Binding Peripherals}" />
+      </TabItem>
+      <TabItem Header="Backup">
+        <views:BackupSettingsView DataContext="{Binding Backup}" />
+      </TabItem>
+      <TabItem Header="Receipt">
+        <views:ReceiptSettingsView DataContext="{Binding Receipt}" />
+      </TabItem>
+    </TabControl>
+
+  </DockPanel>
+
+</Window>

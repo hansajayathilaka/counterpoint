@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Counterpoint.Application.Settings;
 using Counterpoint.Domain.Services;
 using Counterpoint.Domain.ValueObjects;
 
@@ -18,9 +19,19 @@ namespace Counterpoint.Devices.Printing;
 /// </para>
 ///
 /// <para>
-/// It is a specimen, not a template. Turning a real sale into an IR - with the shop's own
-/// header, footer and return policy out of settings (FR-7.3) - is P1-T11. Nothing here is
-/// reachable from the sale path.
+/// It is a specimen, not a template. Turning a real sale into an IR is P1-T11; nothing here is
+/// reachable from the sale path. What it does share with the real thing is its settings: the
+/// decimal places, the rounding rule, the tax rate and label, the return-policy paragraph and
+/// the footer all come from <see cref="SettingsSnapshot"/> (FR-10.2, FR-10.3, FR-10.8), so
+/// there is no rate, no limit and no currency symbol written into this file.
+/// </para>
+///
+/// <para>
+/// The shop identity in the header - name, address, telephone, tax registration number - is
+/// specimen data, exactly like the four product lines and the cashier's name. It is the SRS
+/// §10.1 example bill, not a default: a real shop's header comes from
+/// <c>settings.Shop</c> in P1-T11, and printing a placeholder shop name on a real bill would be
+/// worse than printing none.
 /// </para>
 ///
 /// <para>
@@ -52,19 +63,38 @@ public static class SpecimenReceipt
     private const long Services = 3;
 
     /// <summary>
-    /// Builds the specimen for 80 mm paper, rounding to two decimal places half away from
-    /// zero - the shop's default (FR-10.2, Q-01: LKR).
+    /// Builds the specimen for 80 mm paper on the shop's default settings.
     /// </summary>
-    public static ReceiptDocument Build() => Build(new HalfAwayFromZeroRounding(decimalPlaces: 2));
+    public static ReceiptDocument Build() => Build(SettingDefaults.Snapshot);
 
     /// <summary>
-    /// Builds the specimen for 80 mm paper under a given rounding policy.
+    /// Builds the specimen for 80 mm paper under a given set of settings.
+    /// </summary>
+    /// <param name="settings">
+    /// The shop's settings. The decimal places, the rounding rule, the tax rate and label, the
+    /// return-policy paragraph and the footer all come from here - nothing about the money or the
+    /// shop's wording is written into this file (SRS FR-10.2, FR-10.3, FR-10.8).
+    /// </param>
+    public static ReceiptDocument Build(SettingsSnapshot settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        return Build(
+            RoundingPolicyFactory.Create(settings.Financial.RoundingRule, settings.Financial.DecimalPlaces),
+            settings);
+    }
+
+    /// <summary>
+    /// Builds the specimen for 80 mm paper under a given rounding policy, on default settings.
     /// </summary>
     /// <param name="rounding">
     /// The shop's rounding rule. Line totals and the bill total are the only two places it is
     /// applied (CLAUDE.md invariant 2).
     /// </param>
-    public static ReceiptDocument Build(IRoundingPolicy rounding)
+    public static ReceiptDocument Build(IRoundingPolicy rounding) =>
+        Build(rounding, SettingDefaults.Snapshot);
+
+    private static ReceiptDocument Build(IRoundingPolicy rounding, SettingsSnapshot settings)
     {
         ArgumentNullException.ThrowIfNull(rounding);
 
@@ -110,8 +140,22 @@ public static class SpecimenReceipt
         }
 
         var discount = Money.FromDecimal(65.00m);
-        var taxableValue = subTotal - discount;
-        var tax = Money.Zero;
+        var valueOnTheBill = subTotal - discount;
+
+        // From the shop's default tax class, not from a rate written into this file. A rate in
+        // code is a wrong number printed on a bill the day the shop's regime changes (Q-02).
+        //
+        // Which way round the rate is applied is also the shop's, not this file's (FR-10.3). Under
+        // tax-inclusive pricing - which is what the shipped defaults say - the line prices already
+        // contain their tax, so it is carved out of the amount on the bill; adding it on top would
+        // charge it twice. The net is taken as gross minus the tax rather than by dividing again,
+        // so that the "Taxable value" and tax rows always add up to the total exactly.
+        var taxRate = settings.Tax.DefaultTaxRate;
+        var tax = settings.Tax.PricesIncludeTax
+            ? taxRate.TaxWithinGross(valueOnTheBill)
+            : taxRate.TaxOnNet(valueOnTheBill);
+
+        var taxableValue = settings.Tax.PricesIncludeTax ? valueOnTheBill - tax : valueOnTheBill;
         var total = rounding.Round(taxableValue + tax);
         var cash = Money.FromDecimal(2500.00m);
         var change = cash - total;
@@ -153,7 +197,7 @@ public static class SpecimenReceipt
             new ReceiptNode.Columns("Sub total", FormatAmount(subTotal, rounding)),
             new ReceiptNode.Columns("Discount", FormatAmount(discount.Negate(), rounding)),
             new ReceiptNode.Columns("Taxable value", FormatAmount(taxableValue, rounding)),
-            new ReceiptNode.Columns("Tax @ 0%", FormatAmount(tax, rounding)),
+            new ReceiptNode.Columns(TaxLabel(settings), FormatAmount(tax, rounding)),
             new ReceiptNode.Divider(),
             new ReceiptNode.Columns(
                 "TOTAL",
@@ -171,10 +215,10 @@ public static class SpecimenReceipt
             new ReceiptNode.Feed(1),
             new ReceiptNode.Barcode(BillNumber),
             new ReceiptNode.Feed(1),
-            new ReceiptNode.TextLine(
-                "Returns accepted within 14 days with this bill. Cut goods & mixed paint are "
-                + "non-returnable."),
-            new ReceiptNode.TextLine("Thank you - please come again", TextAlign.Centre),
+
+            // The shop's own words, out of the receipt template (FR-10.8).
+            new ReceiptNode.TextLine(settings.Receipt.PolicyText),
+            new ReceiptNode.TextLine(settings.Receipt.FooterText, TextAlign.Centre),
             new ReceiptNode.Divider(),
 
             // Cash tender: the drawer opens. A card tender would not carry this node.
@@ -184,6 +228,16 @@ public static class SpecimenReceipt
 
         return new ReceiptDocument(nodes);
     }
+
+    /// <summary>
+    /// The tax row's label: the shop's word for tax and the rate it is charged at, both out of
+    /// settings (FR-10.3). <c>Tax @ 0%</c> on the defaults, because the default class is exempt.
+    /// </summary>
+    private static string TaxLabel(SettingsSnapshot settings) => string.Concat(
+        settings.Tax.TaxLabel,
+        " @ ",
+        settings.Tax.DefaultTaxRate.AsPercent.ToString("0.####", CultureInfo.InvariantCulture),
+        "%");
 
     /// <summary>
     /// The line total: the one rounding point on a line (CLAUDE.md invariant 2).

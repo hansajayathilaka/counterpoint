@@ -1443,23 +1443,29 @@ Mirror these exactly as C# enums in `Domain/Enums/`. The `CHECK` constraints abo
 | Table | Rows |
 |---|---|
 | `uom` | Piece (pc, 0dp), Metre (m, 3dp), Kilogram (kg, 3dp), Litre (L, 3dp), Box, Coil, Packet, Roll, Bundle |
-| `tax_class` | From Q-01. Default: `Standard` at the shop's rate, `Zero rated` at 0. |
+| `tax_class` | Whatever the wizard is given. Default: one `Exempt` class at 0 — Q-02 defers the regime, and a rate this build invented would be a wrong number printed on a bill. |
 | `number_sequence` | `SALE` → `INV-{yyyy}-{n:000000}`, `RETURN` → `RTN-…`, `CREDIT_NOTE` → `CN-…`, `GRN` → `GRN-…`, `PO` → `PO-…`, `SHIFT` → `SH-…`, all `next_val = 1` (Q-16) |
 | `app_user` | One `OWNER` account created in the wizard. No default password, ever. |
 | `app_setting` | Full defaults per FR-10.1–10.8 (see `Application/Settings/SettingDefaults.cs`) |
 | `category` | Plumbing, Electrical, Fasteners, Tools, Paint, Adhesives, Garden, Building — editable |
 
-The wizard itself is P1-T02 and P1-T03. Until then `Infrastructure/Data/FirstRunSeeder.cs`
-(P0-T06) writes the smallest subset that lets one bill be rung up — one `uom`, one zero-rated
-`tax_class`, one product with a variant and a barcode, an `OWNER` account, an open `shift`, an
-opening `stock_balance` and the `SALE` sequence — guarded row by row on its natural key, so it is
-safe to run on every start. The account it seeds carries a `password_hash` that is not an
-Argon2id string, so nothing can authenticate as it: there is no default password here either.
+The wizard's headless half is `Application/Settings/FirstRun/FirstRunSetupService.cs` (P1-T03):
+one transaction, idempotent, taking the shop profile, currency and decimals, tax classes,
+document number formats, the owner's first password and the backup destination and passphrase.
+Its screens are separate; nothing it does to the database lives in a viewmodel. It does not
+replace `Infrastructure/Data/FirstRunSeeder.cs`, which still writes the smallest subset that lets
+one bill be rung up — one `uom`, one zero-rated `tax_class`, one product with a variant and a
+barcode, an `OWNER` account, an open `shift`, an opening `stock_balance` and the `SALE` and
+`SHIFT` sequences — guarded row by row on its natural key, so it is safe to run on every start.
+
+The account the seeder creates carries a `password_hash` that is not an Argon2id string, so
+nothing can authenticate as it: there is no default password here either.
 
 Because that account cannot be signed in as, P1-T02 adds one bounded step to open a brand new
 database: `Application/Security/InitialOwnerSetupService.cs` sets the first owner password, and
 only while no account in the file has a hash any password could verify against. Once one does, it
 refuses for good and a password change is the owner's, through `IUserAdministration`.
+`FirstRunSetupService` composes that step rather than reimplementing it.
 
 ### `app_setting` keys written by P1-T02
 
@@ -1476,10 +1482,78 @@ that what the shop's hashes were made with is on record rather than inferred fro
 | `security.login.lockout_base_seconds` | The first lockout's length |
 | `security.login.lockout_max_seconds` | The ceiling the exponential backoff is held at |
 
-Today the code is the source of these and the rows are the record. P1-T03's settings framework
-(`ISettings`, `SettingDefaults`) inverts that: the rows become the source and these values their
-defaults. `HW-T07` retunes the three Argon2 rows against the shop terminal — a stored hash is
-self-describing, so retuning them does not invalidate an existing account.
+Today the code is the source of these and the rows are the record. `HW-T07` retunes the three
+Argon2 rows against the shop terminal — a stored hash is self-describing, so retuning them does
+not invalidate an existing account.
+
+**P1-T03's settings framework does not touch these keys.** It owns the `FR-10` keys below and
+writes only the ones it owns, so both sets share `app_setting` without either erasing the other.
+Inverting `SecurityPolicyRecorder` — making the rows the source of the Argon2 and lockout
+parameters rather than the record of them — changes what a password verifies against and how an
+account locks, which is P1-T02's territory, not a settings-framework change. It is still worth
+doing; it needs its own task.
+
+### `app_setting` keys written by P1-T03
+
+Owned by `Application/Settings/SettingKeys.cs`, defaulted in
+`Application/Settings/SettingDefaults.cs` and mapped to and from typed groups in
+`Application/Settings/SettingsSerializer.cs`. **No caller outside that folder ever names a key**:
+a screen or a service reads `settings.Financial.DecimalPlaces` and gets an `int`.
+
+`value_type` follows the column's CHECK constraint. `MONEY` holds the scaled 64-bit integer
+`Money.ToScaled()` produces (amount × 10 000); a rate is `INT` holding the fraction scaled the
+same way, which is the convention every rate column in this schema uses — `10000` is 100%.
+`JSON` is deliberately unused: a setting stored as a blob is one nothing can diff, audit or
+migrate a field at a time.
+
+| Group (SRS) | Keys | `value_type` |
+|---|---|---|
+| Shop profile (FR-10.1) | `shop.name`, `shop.address_line1`, `shop.address_line2`, `shop.phone`, `shop.email`, `shop.tax_registration_number`, `shop.logo_path` | `STRING` |
+| Financial (FR-10.2) | `financial.currency_code` (`LKR`), `financial.currency_symbol`, `financial.currency_symbol_position` (`BEFORE`/`AFTER`), `financial.rounding_rule` (`HALF_AWAY_FROM_ZERO`/`HALF_TO_EVEN`) | `STRING` |
+| | `financial.decimal_places` (2), `financial.quantity_decimal_places` (3) | `INT` |
+| Tax (FR-10.3) | `tax.default_class_name` (`Exempt`), `tax.label` (`Tax`) | `STRING` |
+| | `tax.prices_include_tax` (true) | `BOOL` |
+| | `tax.default_rate` (0 — Q-02 defers the regime) | `INT` (scaled) |
+| Numbering (FR-10.4) | `numbering.{bill,return,credit_note,goods_receipt,purchase_order,shift}.{prefix,pattern}` | `STRING` |
+| | `numbering.….starting_number` (all 1) | `INT` |
+| Policy (FR-10.5) | `policy.default_refund_method` (`CASH`), `policy.negative_stock` (`ALLOW` — Q-11) | `STRING` |
+| | `policy.return_window_days` (14) | `INT` |
+| | `policy.allow_unlinked_returns` (false — Q-03) | `BOOL` |
+| | `policy.cash_refund_limit` (0 = no limit) | `MONEY` |
+| | `policy.max_line_discount_rate`, `policy.max_bill_discount_rate` (both 10000 = 100%, i.e. no restriction — Q-12), `policy.restocking_fee_rate` (0) | `INT` (scaled) |
+| Peripherals (FR-10.6) | `peripheral.receipt_printer_name`, `peripheral.label_printer_name`, `peripheral.scale_port`, `peripheral.scanner_suffix` (`ENTER`/`TAB`/`NONE`) | `STRING` |
+| | `peripheral.paper_width_mm` (80), `peripheral.receipt_copies` (1), `peripheral.drawer_kick_pin` (2), `peripheral.scanner_minimum_length` (4), `peripheral.scale_baud_rate` (9600) | `INT` |
+| | `peripheral.open_drawer_on_cash_sale` (true), `peripheral.scale_enabled` (false) | `BOOL` |
+| Backup (FR-10.7) | `backup.daily_time` (`20:00`), `backup.local_path`, `backup.usb_path`, `backup.cloud_target` (`GOOGLE_DRIVE` — Q-D), `backup.cloud_account` | `STRING` |
+| | `backup.retention_days` (30), `backup.retention_copies` (14) | `INT` |
+| | `backup.on_shift_close` (true) | `BOOL` |
+| Receipt template (FR-10.8) | `receipt.header_text`, `receipt.footer_text`, `receipt.policy_text` | `STRING` |
+| | `receipt.show_logo`, `receipt.show_bill_barcode`, `receipt.show_cashier_name`, `receipt.show_customer_name`, `receipt.show_item_and_unit_count`, `receipt.show_tax_summary`, `receipt.show_taxable_value`, `receipt.show_tax_registration_number` | `BOOL` |
+| First run | `setup.completed_at` — ISO-8601. Its absence is how `IFirstRunSetup.IsRequiredAsync` knows the wizard has never run. | `STRING` |
+
+**Two things are deliberately not rows.**
+
+- **The backup encryption passphrase.** `app_setting` lives inside the database the backup is a
+  copy of, so a passphrase there protects nothing. It goes to the OS protected store through
+  `IBackupPassphraseStore` — Windows Credential Manager under DPAPI on the terminal, a
+  development file store on Linux, the same split as `IDatabaseKeyStore` (NFR-S6). The settings
+  screen only ever sees `BackupSettings.PassphraseIsSet`.
+- **`number_sequence.next_val`.** The numbering settings say what a series' prefix, pattern and
+  starting number are; `next_val` is set once, when the row is created, and after that belongs to
+  the allocator alone. Editing the prefix updates `number_sequence.prefix` in the same
+  transaction; nothing ever moves the counter, which is what keeps the series gapless
+  (invariant 4, AC-19).
+
+**Q-16 is still unanswered**, so the FR-10.4 defaults reproduce exactly the series
+`FirstRunSeeder` already seeds — `SALE` → `INV-{yyyy}-{n:000000}` and `SHIFT` →
+`SH-{n:000000}`, both starting at 1. Taking the series over therefore changes no existing
+document number and no existing test. When the shop answers Q-16, the answer changes those
+defaults and the rows they seed, not any code.
+
+Every change to one of these keys writes one `audit_log` row per changed key — action
+`SETTING_CHANGED`, `entity_type` `app_setting`, `before_json` / `after_json` of
+`{"key":…,"value":…}`, and the acting user — inside the same transaction as the setting itself
+(FR-10.9). `entity_id` is null because `app_setting` is keyed on its key, not on an integer id.
 
 ---
 

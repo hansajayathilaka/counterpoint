@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Settings.FinancialSettingsView"
+             x:DataType="vm:FinancialSettingsViewModel">
+
+  <!--
+    FR-10.2. Changing the decimal places changes every displayed and printed amount as soon as
+    this saves - no restart. The number boxes drop anything that is not a digit, silently (UI-10).
+  -->
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="6">
+
+      <TextBlock Text="The currency the shop trades in, and how amounts are rounded."
+                 TextWrapping="Wrap" />
+
+      <TextBlock Text="Currency code" />
+      <TextBox Width="140" HorizontalAlignment="Left" Text="{Binding CurrencyCode}" />
+
+      <TextBlock Text="Currency symbol" />
+      <TextBox Width="140" HorizontalAlignment="Left" Text="{Binding CurrencySymbol}" />
+
+      <TextBlock Text="Where the symbol goes" />
+      <ComboBox Width="280" HorizontalAlignment="Left"
+                ItemsSource="{Binding SymbolPositionChoices}"
+                SelectedItem="{Binding SymbolPositionChoice}" />
+
+      <TextBlock Text="Decimal places on an amount" />
+      <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding DecimalPlaces}" />
+
+      <TextBlock Text="Rounding rule" />
+      <ComboBox Width="440" HorizontalAlignment="Left"
+                ItemsSource="{Binding RoundingRuleChoices}"
+                SelectedItem="{Binding RoundingRuleChoice}" />
+
+      <TextBlock Text="Decimal places on a quantity" />
+      <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding QuantityDecimalPlaces}" />
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

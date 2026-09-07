@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Settings.TaxSettingsView"
+             x:DataType="vm:TaxSettingsViewModel">
+
+  <!-- FR-10.3. No rate is written into this file; the shop's regime is data, not code (Q-02). -->
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="6">
+
+      <TextBlock TextWrapping="Wrap"
+                 Text="How the shop charges tax, and what tax is called on the bill." />
+
+      <CheckBox Content="Catalogue prices already include tax"
+                IsChecked="{Binding PricesIncludeTax}" />
+
+      <TextBlock Text="Default tax class for a new product" />
+      <TextBox Width="240" HorizontalAlignment="Left" Text="{Binding DefaultTaxClassName}" />
+
+      <TextBlock Text="Its rate, in percent" />
+      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding DefaultTaxRate}" />
+
+      <TextBlock Text="What tax is called on the bill" />
+      <TextBox Width="240" HorizontalAlignment="Left" Text="{Binding TaxLabel}" />
+
+      <TextBlock Margin="0,12,0,0" TextWrapping="Wrap"
+                 Text="Further tax classes are created during first-run setup. Renaming and adding to them from here arrives with the reference-data screens." />
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

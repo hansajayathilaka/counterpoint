@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Settings.BackupSettingsView"
+             x:DataType="vm:BackupSettingsViewModel">
+
+  <!--
+    FR-10.7. The passphrase is never shown and never stored in the database it protects a copy
+    of - only whether one exists, and the chance to replace it.
+  -->
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="6">
+
+      <TextBlock TextWrapping="Wrap"
+                 Text="When a backup is taken, where it goes, and how long it is kept." />
+
+      <TextBlock Text="Daily backup time (24 hour, as 20:00)" />
+      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding DailyBackupTime}" />
+
+      <CheckBox Content="Also take one when a shift closes" IsChecked="{Binding BackupOnShiftClose}" />
+
+      <TextBlock Text="Local folder (empty = the backups folder beside the database)" />
+      <TextBox Text="{Binding LocalPath}" />
+
+      <TextBlock Text="USB folder (empty = no USB copy)" />
+      <TextBox Text="{Binding UsbPath}" />
+
+      <TextBlock Text="Off-site copy" />
+      <ComboBox Width="240" HorizontalAlignment="Left"
+                ItemsSource="{Binding CloudTargetChoices}"
+                SelectedItem="{Binding CloudTargetChoice}" />
+
+      <TextBlock Text="Account the off-site copy is uploaded as" />
+      <TextBox Text="{Binding CloudAccount}" />
+
+      <TextBlock Text="Days of backups kept" />
+      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding RetentionDays}" />
+
+      <TextBlock Text="Copies kept regardless of age" />
+      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding RetentionCopies}" />
+
+      <TextBlock Margin="0,12,0,0" FontSize="16" Text="Backup passphrase" />
+      <TextBlock TextWrapping="Wrap" Text="{Binding PassphraseStatus}" />
+
+      <TextBlock Text="New passphrase" />
+      <TextBox Width="320" HorizontalAlignment="Left"
+               PasswordChar="•" Text="{Binding NewPassphrase}" />
+
+      <TextBlock Text="Type it again" />
+      <TextBox Width="320" HorizontalAlignment="Left"
+               PasswordChar="•" Text="{Binding ConfirmPassphrase}" />
+
+      <TextBlock TextWrapping="Wrap" FontSize="12"
+                 Text="Nobody can recover this passphrase for you. Without it a backup cannot be restored." />
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

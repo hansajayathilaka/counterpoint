@@ -80,6 +80,12 @@ public sealed partial class SalesViewModel : ViewModelBase
     /// </summary>
     public event EventHandler? ManageUsersRequested;
 
+    /// <summary>
+    /// Raised when the cashier asks for the settings screen (SRS FR-10). Same arrangement as
+    /// <see cref="ManageUsersRequested"/>: the composition root opens the window.
+    /// </summary>
+    public event EventHandler? SettingsRequested;
+
     /// <summary>The lines on the bill, in the order they were scanned.</summary>
     public ObservableCollection<SaleLineViewModel> Lines { get; } = [];
 
@@ -93,9 +99,23 @@ public sealed partial class SalesViewModel : ViewModelBase
     /// </remarks>
     public bool CanManageUsers => _session.CurrentUser?.Role == Role.Owner;
 
+    /// <summary>
+    /// Whether to show the settings button.
+    /// </summary>
+    /// <remarks>
+    /// A courtesy, as <see cref="CanManageUsers"/> is. Unlike <c>IUserAdministration</c>,
+    /// <c>ISettings</c> carries no role check of its own yet, so this hides the button rather
+    /// than being the thing that stops a cashier - see the note on P1-T03 in the progress ledger.
+    /// </remarks>
+    public bool CanChangeSettings => _session.CurrentUser?.Role == Role.Owner;
+
     /// <summary>Asks for the user-management screen.</summary>
     [RelayCommand]
     public void ManageUsers() => ManageUsersRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Asks for the settings screen.</summary>
+    [RelayCommand]
+    public void OpenSettings() => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
     /// Adds the scanned symbol to the bill, then asks the Application layer to re-price it.

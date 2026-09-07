@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:views="using:Counterpoint.Ui.Views.Settings"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Settings.NumberingSettingsView"
+             x:DataType="vm:NumberingSettingsViewModel">
+
+  <!--
+    FR-10.4. The starting number applies to a series that has not issued anything yet: a number,
+    once issued, is never reissued and a cancelled document keeps it (AC-19).
+  -->
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="12">
+
+      <TextBlock TextWrapping="Wrap"
+                 Text="How each document is numbered. {prefix} is the prefix box, {yyyy} the year, {n:000000} the counter." />
+
+      <ItemsControl ItemsSource="{Binding Series}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:DocumentNumberingViewModel">
+            <views:DocumentNumberingView Margin="0,0,0,10" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>
