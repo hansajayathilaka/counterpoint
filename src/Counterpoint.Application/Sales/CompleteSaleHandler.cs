@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Application.Security;
 using Counterpoint.Domain.Services;
 using Counterpoint.Domain.ValueObjects;
 
@@ -54,6 +55,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     private readonly IPrintJobOutbox _printJobs;
     private readonly ISaleReceiptRenderer _receipts;
     private readonly IRoundingPolicy _rounding;
+    private readonly ISession _session;
 
     public CompleteSaleHandler(
         IUnitOfWork unitOfWork,
@@ -64,7 +66,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         IAuditTrail audit,
         IPrintJobOutbox printJobs,
         ISaleReceiptRenderer receipts,
-        IRoundingPolicy rounding)
+        IRoundingPolicy rounding,
+        ISession session)
     {
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(numbers);
@@ -75,6 +78,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         ArgumentNullException.ThrowIfNull(printJobs);
         ArgumentNullException.ThrowIfNull(receipts);
         ArgumentNullException.ThrowIfNull(rounding);
+        ArgumentNullException.ThrowIfNull(session);
 
         _unitOfWork = unitOfWork;
         _numbers = numbers;
@@ -85,6 +89,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         _printJobs = printJobs;
         _receipts = receipts;
         _rounding = rounding;
+        _session = session;
     }
 
     /// <inheritdoc />
@@ -93,6 +98,9 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
+
+        // First, before the catalogue is even read: a bill nobody can be held to is not a bill.
+        RequireTheSellerIsSignedIn(command);
 
         // Priced before the transaction opens. Catalogue reads are not part of the write, and
         // the writer lock should be held for the writes and nothing else (NFR-P3).
@@ -310,6 +318,44 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             throw new InvalidOperationException(string.Create(
                 CultureInfo.InvariantCulture,
                 $"The subtotal, discount, tax and rounding come to {Money.FromScaled(parts)} but the bill total is {Money.FromScaled(total)}. They must match exactly before the bill can be completed."));
+        }
+    }
+
+    /// <summary>
+    /// Asserts that the person completing the bill is the person the bill will be stamped with
+    /// (SRS FR-1.1, FR-1.6).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>sale.user_id</c> goes into an append-only, hash-chained row (CLAUDE.md invariants 5
+    /// and 6). Once it is committed there is no correcting it, and every cashier report and
+    /// every audit trail afterwards reads it as the truth about who sold what. So the one thing
+    /// that must never happen is a bill committed under somebody else's name.
+    /// </para>
+    /// <para>
+    /// It can happen today because the command's user id comes from the open shift - from
+    /// whoever opened it - rather than from the session. One person per shift made that
+    /// accidentally correct while there was one account in the whole shop; a second person
+    /// signing in and trading would have their bills filed under the shift opener.
+    /// </para>
+    /// <para>
+    /// <b>This is the guard, not the cure.</b> Stamping the bill with the cashier who is
+    /// actually signed in - and letting a till change hands without closing the shift - is the
+    /// sale path's own work in P1-T09 and P1-T10. Until then the shop trades one person to a
+    /// shift, and this makes that a rule the Application layer enforces rather than an
+    /// assumption the UI happens to satisfy.
+    /// </para>
+    /// </remarks>
+    private void RequireTheSellerIsSignedIn(CompleteSaleCommand command)
+    {
+        var seller = _session.CurrentUser ?? throw new InvalidOperationException(
+            "Nobody is signed in. A bill records who sold it, so sign in before completing one.");
+
+        if (seller.Id != command.UserId)
+        {
+            throw new InvalidOperationException(
+                "This shift was opened by someone else. Close it and open a new one, so the bill "
+                + "records who actually sold it.");
         }
     }
 

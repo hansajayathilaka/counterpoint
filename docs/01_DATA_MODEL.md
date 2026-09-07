@@ -1456,6 +1456,31 @@ opening `stock_balance` and the `SALE` sequence — guarded row by row on its na
 safe to run on every start. The account it seeds carries a `password_hash` that is not an
 Argon2id string, so nothing can authenticate as it: there is no default password here either.
 
+Because that account cannot be signed in as, P1-T02 adds one bounded step to open a brand new
+database: `Application/Security/InitialOwnerSetupService.cs` sets the first owner password, and
+only while no account in the file has a hash any password could verify against. Once one does, it
+refuses for good and a password change is the owner's, through `IUserAdministration`.
+
+### `app_setting` keys written by P1-T02
+
+Seven `INT` rows, upserted on every start by `Application/Security/SecurityPolicyRecorder.cs` so
+that what the shop's hashes were made with is on record rather than inferred from the build:
+
+| Key | Meaning |
+|---|---|
+| `security.password.argon2.memory_kib` | Argon2id memory cost, in KiB |
+| `security.password.argon2.iterations` | Argon2id passes |
+| `security.password.argon2.parallelism` | Argon2id lanes |
+| `security.password.minimum_length` | Shortest password or PIN allowed |
+| `security.login.max_failed_attempts` | Failures that lock an account (NFR-S9) |
+| `security.login.lockout_base_seconds` | The first lockout's length |
+| `security.login.lockout_max_seconds` | The ceiling the exponential backoff is held at |
+
+Today the code is the source of these and the rows are the record. P1-T03's settings framework
+(`ISettings`, `SettingDefaults`) inverts that: the rows become the source and these values their
+defaults. `HW-T07` retunes the three Argon2 rows against the shop terminal — a stored hash is
+self-describing, so retuning them does not invalidate an existing account.
+
 ---
 
 ## 12. Index rationale

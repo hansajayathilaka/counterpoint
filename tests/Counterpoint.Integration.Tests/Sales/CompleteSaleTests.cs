@@ -6,7 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Counterpoint.Application.Sales;
+using Counterpoint.Application.Security;
 using Counterpoint.Devices.Printing;
+using Counterpoint.Domain.Security;
 using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Data.Schema;
@@ -33,7 +35,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task FR_3_2_ScanningTheSeededBarcodeAddsALineWithAPriceAndNoCost()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var item = await fixture.Resolve<IScanItem>().ScanAsync(FirstRunSeeder.SeededBarcode);
 
@@ -53,7 +55,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task FR_3_29_TheFirstBillIsNumberedFromTheSequenceAndTheSecondFollowsIt()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var first = await CompleteOneAsync(fixture);
         var second = await CompleteOneAsync(fixture);
@@ -68,7 +70,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task FR_3_28_CompletingABillWritesEveryTableOfTheTransactionAndNothingElse()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var completed = await CompleteOneAsync(fixture, quantity: 2m);
 
@@ -95,7 +97,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task DM_03_ASaleLineSnapshotsTheDescriptionThePriceAndTheCost()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var completed = await CompleteOneAsync(fixture, quantity: 2m);
 
@@ -110,7 +112,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task FR_3_12_TheLedgerRecordsTheMovementAndTheProjectionFollowsIt()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var openingQty = await fixture.ScalarAsync("SELECT qty_base FROM stock_balance;");
         openingQty.Should().Be("1000000", "the seeder opens with 100 pieces");
@@ -139,7 +141,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task NFR_S8_TheBillAndItsAuditRowAreChainedFromGenesis()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         await CompleteOneAsync(fixture);
         await CompleteOneAsync(fixture);
@@ -161,16 +163,27 @@ public sealed class CompleteSaleTests
             fixture,
             context => context.Set<AuditLog>().OrderBy(row => row.Id).ToListAsync());
 
-        entries.Should().HaveCount(2);
+        // Signing in wrote audit rows of its own before either bill did. There is one chain over
+        // the whole log, not one per kind of row, so the rule is asserted over every row in it -
+        // including the two SALE_COMPLETED entries the bills added.
+        entries.Should().HaveCountGreaterThan(2);
         entries[0].PrevHash.Should().Be(HashChain.GenesisHash);
-        entries[1].PrevHash.Should().Be(entries[0].RowHash);
+
+        for (var i = 1; i < entries.Count; i++)
+        {
+            entries[i].PrevHash.Should().Be(
+                entries[i - 1].RowHash,
+                "audit row {0} links to the one before it", entries[i].Id);
+        }
+
         entries.Should().OnlyContain(entry => AuditLogHashChain.Verify(entry));
+        entries.Where(entry => entry.Action == "SALE_COMPLETED").Should().HaveCount(2);
     }
 
     [Fact]
     public async Task NFR_S8_EditingAStoredBillBreaksItsHash()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var completed = await CompleteOneAsync(fixture);
         var sale = await ReadAsync(
@@ -187,7 +200,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task FR_7_8_TheReceiptIsQueuedInsideTheTransactionAndPrintedAfterIt()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var completed = await CompleteOneAsync(fixture);
 
@@ -211,7 +224,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task AC_16_ABrokenPrinterDoesNotStopASaleOrRetryForEver()
     {
-        await using var fixture = await SaleFixture.CreateAsync(PrinterFailureMode.FailEveryJob);
+        await using var fixture = await SaleFixture.CreateSignedInAsync(PrinterFailureMode.FailEveryJob);
 
         // The sale itself must not notice.
         var completed = await CompleteOneAsync(fixture);
@@ -242,7 +255,7 @@ public sealed class CompleteSaleTests
     [Fact]
     public async Task FR_3_30_TendersThatDoNotMatchTheTotalWriteNothingAtAll()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var variantId = await SeededVariantIdAsync(fixture);
 
@@ -266,9 +279,94 @@ public sealed class CompleteSaleTests
     }
 
     [Fact]
-    public async Task NFR_P3_ABillSavesWellInsideTwoSeconds()
+    public async Task FR_1_6_TheBillIsStampedWithTheUserWhoIsSignedInAndCompletingIt()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+
+        var signedIn = fixture.Resolve<ISession>().CurrentUser!.Id;
+        var completed = await CompleteOneAsync(fixture);
+
+        (await fixture.ScalarAsync("SELECT user_id FROM sale WHERE id = " + completed.SaleId + ";"))
+            .Should().Be(
+                signedIn.ToString(CultureInfo.InvariantCulture),
+                "the seeded owner opened the shift and is the one at the till, so the bill is "
+                + "theirs and completes normally (SRS FR-1.6)");
+    }
+
+    [Fact]
+    public async Task FR_1_6_ABillForAnyoneOtherThanTheSignedInUserIsRefusedBeforeAnythingIsWritten()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+
+        // The owner opened the shift and is signed in. Create a cashier and hand the till over
+        // the way a second person actually would - sign in as them, with the owner's shift still
+        // the open one.
+        await fixture.Resolve<IUserAdministration>().CreateAsync(
+            new CreateUserCommand("priya", "Priya", "counter1", Role.Cashier));
+
+        var authentication = fixture.Resolve<IAuthenticationService>();
+        await authentication.LogOutAsync();
+        (await authentication.LogInAsync("priya", "counter1")).Succeeded.Should().BeTrue();
+
+        var shiftOpener = await SeededUserIdAsync(fixture);
+        fixture.Resolve<ISession>().CurrentUser!.Id.Should().NotBe(shiftOpener);
+
+        var lines = new List<SaleLineRequest> { new(await SeededVariantIdAsync(fixture), 1m) };
+        var quote = await fixture.Resolve<IQuoteSale>().QuoteAsync(lines);
+
+        // Exactly what the sales screen builds today: the user id comes off the open shift.
+        var act = async () => await fixture.Resolve<ICompleteSale>().CompleteAsync(
+            new CompleteSaleCommand(
+                shiftOpener,
+                await SeededShiftIdAsync(fixture),
+                SoldAt,
+                lines,
+                [new TenderRequest(TenderTypes.Cash, quote.Total)]));
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*opened by someone else*");
+
+        // sale is append-only and hash-chained: a bill stamped with the wrong user could never
+        // be corrected, so the refusal has to land before the transaction, not inside it
+        // (CLAUDE.md invariants 5 and 6).
+        (await fixture.CountAsync("SELECT COUNT(*) FROM sale;")).Should().Be(0);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM sale_line;")).Should().Be(0);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM payment;")).Should().Be(0);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_movement WHERE movement_type = 'SALE';"))
+            .Should().Be(0, "the seeded OPENING count is the only movement that should exist");
+        (await fixture.CountAsync("SELECT COUNT(*) FROM audit_log WHERE action = 'SALE_COMPLETED';"))
+            .Should().Be(0);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM print_job;")).Should().Be(0);
+        (await fixture.ScalarAsync("SELECT next_val FROM number_sequence WHERE doc_type = 'SALE';"))
+            .Should().Be("1", "the bill was refused before the number was allocated");
+    }
+
+    [Fact]
+    public async Task FR_1_1_ABillCompletedWithNobodySignedInIsRefused()
     {
         await using var fixture = await SaleFixture.CreateAsync();
+
+        var lines = new List<SaleLineRequest> { new(await SeededVariantIdAsync(fixture), 1m) };
+        var quote = await fixture.Resolve<IQuoteSale>().QuoteAsync(lines);
+
+        var act = async () => await fixture.Resolve<ICompleteSale>().CompleteAsync(
+            new CompleteSaleCommand(
+                await SeededUserIdAsync(fixture),
+                await SeededShiftIdAsync(fixture),
+                SoldAt,
+                lines,
+                [new TenderRequest(TenderTypes.Cash, quote.Total)]));
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Nobody is signed in*");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM sale;")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task NFR_P3_ABillSavesWellInsideTwoSeconds()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         // Warm the connection, the model and the JIT: NFR-P3 is about saving a bill, not about
         // the first thing the process ever does. The absolute figure is HW-T07's, on the shop

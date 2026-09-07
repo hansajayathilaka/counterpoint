@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Sales;
+using Counterpoint.Application.Security;
 using Counterpoint.Devices.Printing;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Ui.ViewModels;
@@ -25,7 +26,7 @@ public sealed class SalesScreenTests
     [Fact]
     public async Task FR_3_28_TypingTheSeededBarcodeAddsALineAndPaySavesTheBillAndQueuesTheReceipt()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var screen = BuildScreen(fixture);
 
@@ -57,7 +58,7 @@ public sealed class SalesScreenTests
     [Fact]
     public async Task UI_06_AnUnknownBarcodeIsASentenceOnTheScreenNotAnError()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var screen = BuildScreen(fixture);
 
@@ -71,7 +72,7 @@ public sealed class SalesScreenTests
     [Fact]
     public async Task AC_16_ABrokenPrinterIsInvisibleToTheCashierCompletingTheBill()
     {
-        await using var fixture = await SaleFixture.CreateAsync(PrinterFailureMode.FailEveryJob);
+        await using var fixture = await SaleFixture.CreateSignedInAsync(PrinterFailureMode.FailEveryJob);
 
         var screen = BuildScreen(fixture);
 
@@ -88,5 +89,6 @@ public sealed class SalesScreenTests
         fixture.Resolve<IQuoteSale>(),
         fixture.Resolve<ICompleteSale>(),
         fixture.Resolve<ITillSessionProvider>(),
+        fixture.Resolve<ISession>(),
         fixture.Resolve<TimeProvider>());
 }

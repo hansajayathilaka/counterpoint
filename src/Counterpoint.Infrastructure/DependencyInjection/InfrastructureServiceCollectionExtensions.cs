@@ -66,6 +66,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IStockLedger, SqliteStockLedger>();
         services.AddSingleton<IAuditTrail, SqliteAuditTrail>();
         services.AddSingleton<IPrintJobOutbox, SqlitePrintJobOutbox>();
+        services.AddSingleton<IUserStore, SqliteUserStore>();
+        services.AddSingleton<ISecurityPolicyStore, SqliteSecurityPolicyStore>();
 
         // A clock, not DateTimeOffset.Now: created-at and printed-at stamps have to be
         // controllable from a test, and TimeProvider is the framework's answer.

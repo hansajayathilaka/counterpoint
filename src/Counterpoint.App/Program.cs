@@ -2,7 +2,9 @@ using System;
 using System.Threading.Tasks;
 using Avalonia;
 using Counterpoint.App.DependencyInjection;
+using Counterpoint.Application.Security;
 using Counterpoint.Infrastructure.Data;
+using Counterpoint.Infrastructure.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -15,18 +17,27 @@ namespace Counterpoint.App;
 internal static class Program
 {
     /// <summary>
-    /// Brings the database up to date, seeds a first run, starts the background workers, and
-    /// only then opens the window.
+    /// Refuses to be a second till, brings the database up to date, seeds a first run, starts the
+    /// background workers, and only then opens the window.
     /// </summary>
     /// <remarks>
-    /// The order is the point. Migrating before the host starts means the print worker never
-    /// polls a table that does not exist yet, and migrating before the window opens means a
-    /// cashier is never looking at a sales screen backed by a schema this build cannot use
-    /// (SRS NFR-M3, SAD §11).
+    /// The order is the point. The single-instance lock comes before anything opens the database,
+    /// because two writers on one SQLite file is the failure this whole design exists to rule out
+    /// (C-01). Migrating before the host starts means the print worker never polls a table that
+    /// does not exist yet, and migrating before the window opens means a cashier is never looking
+    /// at a sales screen backed by a schema this build cannot use (SRS NFR-M3, SAD §11).
     /// </remarks>
     [STAThread]
     public static int Main(string[] args)
     {
+        // Before the host, before the connection factory, before anything touches the file.
+        using var singleInstance = SingleInstanceLock.TryAcquire();
+        if (singleInstance is null)
+        {
+            Console.Error.WriteLine(SingleInstanceLock.AlreadyRunningMessage);
+            return 4;
+        }
+
         try
         {
             using var host = Host.CreateApplicationBuilder(args)
@@ -71,9 +82,12 @@ internal static class Program
             .UsePlatformDetect()
             .LogToTrace();
 
-    /// <summary>Avalonia configuration for the real application, with its viewmodel injected.</summary>
+    /// <summary>Avalonia configuration for the real application, with its viewmodels injected.</summary>
     private static AppBuilder BuildAvaloniaApp(IServiceProvider services) =>
-        AppBuilder.Configure(() => new Ui.App(services.GetRequiredService<Ui.ViewModels.SalesViewModel>()))
+        AppBuilder.Configure(() => new Ui.App(
+                services.GetRequiredService<Ui.ViewModels.LoginViewModel>(),
+                services.GetRequiredService<Ui.ViewModels.SalesViewModel>(),
+                services.GetRequiredService<Ui.ViewModels.UserAdminViewModel>()))
             .UsePlatformDetect()
             .LogToTrace();
 
@@ -85,6 +99,12 @@ internal static class Program
 
         await services.GetRequiredService<FirstRunSeeder>()
             .EnsureSeededAsync()
+            .ConfigureAwait(false);
+
+        // What this build hashes with, written down where the owner can see it. P1-T03's settings
+        // framework takes this over.
+        await services.GetRequiredService<SecurityPolicyRecorder>()
+            .EnsureRecordedAsync()
             .ConfigureAwait(false);
     }
 }

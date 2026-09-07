@@ -47,7 +47,7 @@ public sealed class TaxedSaleTests
     [Fact]
     public async Task FR_3_20_ATaxedBillIsStoredWithTheExactColumnsItsArithmeticProduces()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
         var variantId = await SeedTaxedVariantAsync(fixture);
 
         var completed = await CompleteAsync(fixture, variantId, quantity: 1m);
@@ -71,7 +71,7 @@ public sealed class TaxedSaleTests
     [Fact]
     public async Task FR_3_20_TheStoredBillReconcilesToItsStoredLinesAndTotal()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
         var variantId = await SeedTaxedVariantAsync(fixture);
 
         var completed = await CompleteAsync(fixture, variantId, quantity: 1m);
@@ -82,7 +82,7 @@ public sealed class TaxedSaleTests
     [Fact]
     public async Task FR_3_20_TaxRoundingOnSeveralLinesDoesNotAccumulateIntoTheHeader()
     {
-        await using var fixture = await SaleFixture.CreateAsync();
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
         var variantId = await SeedTaxedVariantAsync(fixture);
 
         // Three lines whose tax each lands on the same half-unit boundary. Summed unrounded and

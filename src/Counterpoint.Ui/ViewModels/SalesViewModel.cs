@@ -8,6 +8,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Sales;
+using Counterpoint.Application.Security;
+using Counterpoint.Domain.Security;
 
 namespace Counterpoint.Ui.ViewModels;
 
@@ -33,6 +35,7 @@ public sealed partial class SalesViewModel : ViewModelBase
     private readonly IQuoteSale _quoter;
     private readonly ICompleteSale _sales;
     private readonly ITillSessionProvider _sessions;
+    private readonly ISession _session;
     private readonly TimeProvider _timeProvider;
     private readonly List<SaleLineRequest> _bill = [];
 
@@ -53,23 +56,46 @@ public sealed partial class SalesViewModel : ViewModelBase
         IQuoteSale quoter,
         ICompleteSale sales,
         ITillSessionProvider sessions,
+        ISession session,
         TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(scanner);
         ArgumentNullException.ThrowIfNull(quoter);
         ArgumentNullException.ThrowIfNull(sales);
         ArgumentNullException.ThrowIfNull(sessions);
+        ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         _scanner = scanner;
         _quoter = quoter;
         _sales = sales;
         _sessions = sessions;
+        _session = session;
         _timeProvider = timeProvider;
     }
 
+    /// <summary>
+    /// Raised when the cashier asks for the user-management screen. The composition root opens
+    /// the window; the viewmodel does not know what a window is.
+    /// </summary>
+    public event EventHandler? ManageUsersRequested;
+
     /// <summary>The lines on the bill, in the order they were scanned.</summary>
     public ObservableCollection<SaleLineViewModel> Lines { get; } = [];
+
+    /// <summary>
+    /// Whether to show the users button.
+    /// </summary>
+    /// <remarks>
+    /// A courtesy, not a control. <c>IUserAdministration</c> is owner-only in the Application
+    /// layer, so a cashier who reached that screen anyway would be refused by every button on it
+    /// (SRS NFR-S2, AC-17). This only spares them a button that would always say no.
+    /// </remarks>
+    public bool CanManageUsers => _session.CurrentUser?.Role == Role.Owner;
+
+    /// <summary>Asks for the user-management screen.</summary>
+    [RelayCommand]
+    public void ManageUsers() => ManageUsersRequested?.Invoke(this, EventArgs.Empty);
 
     /// <summary>
     /// Adds the scanned symbol to the bill, then asks the Application layer to re-price it.
