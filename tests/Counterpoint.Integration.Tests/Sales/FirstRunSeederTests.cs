@@ -33,6 +33,43 @@ public sealed class FirstRunSeederTests
     }
 
     [Fact]
+    public async Task DM_04_TheSeededShiftIsNumberedFromTheSequenceAndNotFromARowCount()
+    {
+        await using var fixture = await SaleFixture.CreateAsync();
+
+        (await fixture.ScalarAsync("SELECT shift_no FROM shift WHERE status = 'OPEN';"))
+            .Should().Be("SH-000001");
+
+        (await fixture.ScalarAsync("SELECT next_val FROM number_sequence WHERE doc_type = 'SHIFT';"))
+            .Should().Be(
+                "2",
+                "the seeded shift consumed SH-000001 through number_sequence, so the next shift "
+                + "opened by any later code cannot collide with it on shift_no UNIQUE "
+                + "(CLAUDE.md invariant 4)");
+    }
+
+    [Fact]
+    public async Task DM_04_TheOpeningStockIsALedgerMovementAndNotABareBalance()
+    {
+        await using var fixture = await SaleFixture.CreateAsync();
+
+        var opening = await fixture.ScalarAsync(
+            "SELECT movement_type || '|' || qty_base || '|' || balance_after || '|' "
+            + "|| ref_doc_type || '|' || (ref_doc_id IS NULL) FROM stock_movement;");
+
+        opening.Should().Be(
+            "OPENING|1000000|1000000|OPENING|1",
+            "100 pieces posted through IStockLedger, answering to no document");
+
+        // Nothing in the projection that the ledger cannot account for: a rebuild has to be able
+        // to reproduce it exactly (CLAUDE.md invariant 3, docs/01_DATA_MODEL.md).
+        var balance = await fixture.ScalarAsync("SELECT qty_base FROM stock_balance;");
+        var replayed = await fixture.ScalarAsync("SELECT SUM(qty_base) FROM stock_movement;");
+
+        replayed.Should().Be(balance);
+    }
+
+    [Fact]
     public async Task DM_04_SeedingTwiceChangesNothingAndDoesNotFail()
     {
         await using var fixture = await SaleFixture.CreateAsync();
@@ -50,7 +87,13 @@ public sealed class FirstRunSeederTests
         (await fixture.CountAsync("SELECT COUNT(*) FROM barcode;")).Should().Be(1);
         (await fixture.CountAsync("SELECT COUNT(*) FROM app_user;")).Should().Be(1);
         (await fixture.CountAsync("SELECT COUNT(*) FROM shift;")).Should().Be(1);
-        (await fixture.CountAsync("SELECT COUNT(*) FROM number_sequence;")).Should().Be(1);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM number_sequence;"))
+            .Should().Be(2, "SALE and SHIFT (docs/01_DATA_MODEL.md §11)");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_movement;"))
+            .Should().Be(1, "a second run must not post a second opening count");
+        (await fixture.ScalarAsync("SELECT next_val FROM number_sequence WHERE doc_type = 'SHIFT';"))
+            .Should().Be("2", "and it must not burn a second shift number either");
     }
 
     [Fact]

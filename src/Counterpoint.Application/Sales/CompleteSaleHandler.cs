@@ -101,6 +101,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             DateOnly.FromDateTime(command.SoldAt.Date),
             cancellationToken).ConfigureAwait(false);
 
+        RequireBillBalances(bill);
         RequireTendersMatch(command, bill.Total);
 
         return await _unitOfWork.ExecuteInTransactionAsync(
@@ -119,7 +120,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                         command.ShiftId,
                         bill.Subtotal,
                         Money.Zero,
-                        Money.Zero,
+                        bill.BillDiscount,
                         bill.Tax,
                         bill.Rounding,
                         bill.Total,
@@ -197,8 +198,20 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     /// Prices the bill, before a single row is written.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The two rounding points, and only those two (CLAUDE.md invariant 2): the line total, and
     /// the bill total. Everything between them is exact decimal arithmetic.
+    /// </para>
+    /// <para>
+    /// Line tax is quantised to the <em>storage</em> scale as it is accumulated. That is not a
+    /// third rounding-policy decision - <see cref="Money.ToScaled"/> applies exactly this
+    /// quantisation on the way to disk anyway, for every line and for the header alike. Doing it
+    /// here rather than letting it happen twice independently is what makes
+    /// <c>sum(sale_line.tax) == sale.tax</c> hold over the rows as stored instead of only over
+    /// the decimals in memory. The bill's rounding is then derived from the scaled quantities
+    /// for the same reason, so the reconciliation identity is true by construction rather than
+    /// by the line errors happening to cancel.
+    /// </para>
     /// </remarks>
     private async Task<PricedBill> PriceAsync(
         IReadOnlyList<SaleLineRequest> requests,
@@ -234,7 +247,10 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
 
             // Rounding point one.
             var lineTotal = _rounding.Round(item.UnitPrice * quantity.Value);
-            var lineTax = item.TaxRate.TaxOnNet(lineTotal);
+
+            // Quantised to the storage scale here, once, so the value this line carries is the
+            // value sale_line.tax will hold - and the bill's tax is the sum of exactly those.
+            var lineTax = Money.FromScaled(item.TaxRate.TaxOnNet(lineTotal).ToScaled());
 
             lines.Add(new PricedLine(
                 lineNo++,
@@ -249,10 +265,52 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         }
 
         // Rounding point two. What it moved is recorded rather than absorbed (SRS FR-3.20).
-        var exact = subtotal + tax;
-        var total = _rounding.Round(exact);
+        // The skeleton has no whole-bill discount yet (P1-T08); it is named rather than
+        // inlined so the identity below is the real one and not a special case of it.
+        var billDiscount = Money.Zero;
+        var total = _rounding.Round(subtotal - billDiscount + tax);
 
-        return new PricedBill(businessDate, lines, subtotal, tax, total - exact, total, cogs);
+        // Derived from the scaled quantities, not from a decimal subtraction: rounding is the
+        // column that has to make subtotal - bill_discount + tax + rounding = total add up in
+        // the row as stored, so it is computed in the arithmetic the row is stored in.
+        var rounding = Money.FromScaled(
+            total.ToScaled() - subtotal.ToScaled() + billDiscount.ToScaled() - tax.ToScaled());
+
+        return new PricedBill(businessDate, lines, subtotal, billDiscount, tax, rounding, total, cogs);
+    }
+
+    /// <summary>
+    /// Asserts the two bill identities of engineering guide §4.1 before anything is written:
+    /// <c>sum(line_total) == subtotal</c> and
+    /// <c>subtotal - bill_discount + tax + rounding == total</c>. It refuses; it never corrects.
+    /// </summary>
+    /// <remarks>
+    /// Compared as scaled integers, over the values <em>as they will be stored</em>. A decimal
+    /// comparison can pass on a bill whose stored row is out by one scaled unit, and it is the
+    /// stored row that a Z report reconciles and a hash chain seals - so the stored row is what
+    /// gets checked.
+    /// </remarks>
+    private static void RequireBillBalances(PricedBill bill)
+    {
+        var subtotal = bill.Subtotal.ToScaled();
+        var lineTotals = bill.Lines.Aggregate(0L, (running, line) => running + line.LineTotal.ToScaled());
+
+        if (lineTotals != subtotal)
+        {
+            throw new InvalidOperationException(string.Create(
+                CultureInfo.InvariantCulture,
+                $"The bill lines come to {Money.FromScaled(lineTotals)} but the subtotal is {Money.FromScaled(subtotal)}. They must match exactly before the bill can be completed."));
+        }
+
+        var parts = subtotal - bill.BillDiscount.ToScaled() + bill.Tax.ToScaled() + bill.Rounding.ToScaled();
+        var total = bill.Total.ToScaled();
+
+        if (parts != total)
+        {
+            throw new InvalidOperationException(string.Create(
+                CultureInfo.InvariantCulture,
+                $"The subtotal, discount, tax and rounding come to {Money.FromScaled(parts)} but the bill total is {Money.FromScaled(total)}. They must match exactly before the bill can be completed."));
+        }
     }
 
     /// <summary>
@@ -288,6 +346,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         DateOnly BusinessDate,
         IReadOnlyList<PricedLine> Lines,
         Money Subtotal,
+        Money BillDiscount,
         Money Tax,
         Money Rounding,
         Money Total,

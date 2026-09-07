@@ -119,7 +119,7 @@ public sealed class CompleteSaleTests
 
         var movement = await fixture.ScalarAsync(
             "SELECT movement_type || '|' || qty_base || '|' || balance_after || '|' || ref_doc_type "
-            + "|| '|' || ref_doc_id FROM stock_movement;");
+            + "|| '|' || ref_doc_id FROM stock_movement WHERE movement_type = 'SALE';");
 
         movement.Should().Be(
             "SALE|-20000|980000|SALE|" + completed.SaleId.ToString(CultureInfo.InvariantCulture),
@@ -128,6 +128,12 @@ public sealed class CompleteSaleTests
 
         var closingQty = await fixture.ScalarAsync("SELECT qty_base FROM stock_balance;");
         closingQty.Should().Be("980000", "the projection is written in the same transaction as the movement");
+
+        // The projection is a cache. Everything in it - including the opening count - has to be
+        // reachable by replaying the ledger, or a rebuild would destroy the shop's stock
+        // (CLAUDE.md invariant 3). This is the only place a test may sum the ledger.
+        var replayed = await fixture.ScalarAsync("SELECT SUM(qty_base) FROM stock_movement;");
+        replayed.Should().Be(closingQty, "stock_balance must be rebuildable from stock_movement alone");
     }
 
     [Fact]
@@ -253,7 +259,8 @@ public sealed class CompleteSaleTests
             .WithMessage("*must match exactly*");
 
         (await fixture.CountAsync("SELECT COUNT(*) FROM sale;")).Should().Be(0);
-        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_movement;")).Should().Be(0);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_movement WHERE movement_type = 'SALE';"))
+            .Should().Be(0, "the seeded OPENING count is the only movement that should exist");
         (await fixture.ScalarAsync("SELECT next_val FROM number_sequence WHERE doc_type = 'SALE';"))
             .Should().Be("1", "the bill was refused before the number was allocated");
     }

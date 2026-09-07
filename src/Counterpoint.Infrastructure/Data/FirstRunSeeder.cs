@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data.Schema;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,8 @@ namespace Counterpoint.Infrastructure.Data;
 /// <summary>
 /// Puts the minimum a till needs in order to ring up one bill into an empty database: a unit, a
 /// tax class, one product with a variant and a barcode, an owner, an open shift, an opening
-/// stock balance, and the <c>SALE</c> number sequence (docs/01_DATA_MODEL.md §11).
+/// stock movement, and the <c>SALE</c> and <c>SHIFT</c> number sequences
+/// (docs/01_DATA_MODEL.md §11).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -34,14 +36,24 @@ public sealed class FirstRunSeeder
     /// <summary>The document type whose sequence a bill is numbered from.</summary>
     private const string SaleDocumentType = "SALE";
 
+    /// <summary>The document type whose sequence a shift is numbered from.</summary>
+    private const string ShiftDocumentType = "SHIFT";
+
     /// <summary>Q-16's documented default: <c>INV-2026-000001</c>.</summary>
     private const string SaleNumberPattern = "{prefix}{yyyy}-{n:000000}";
 
+    /// <summary>Q-16's documented default: <c>SH-000001</c>. A shift is not numbered by year.</summary>
+    private const string ShiftNumberPattern = "{prefix}{n:000000}";
+
     private const string SaleNumberPrefix = "INV-";
+    private const string ShiftNumberPrefix = "SH-";
     private const string OwnerUsername = "owner";
     private const string ProductCode = "SKEL-001";
     private const string VariantSku = "SKEL-001-A";
     private const string OpenStatus = "OPEN";
+
+    /// <summary>The <c>stock_movement.movement_type</c> and <c>ref_doc_type</c> an opening count posts.</summary>
+    private const string OpeningMovementType = "OPENING";
 
     /// <summary>
     /// Not an Argon2id encoded string, so nothing can authenticate as this account. The owner's
@@ -51,14 +63,24 @@ public sealed class FirstRunSeeder
 
     private readonly SqliteUnitOfWork _unitOfWork;
     private readonly TimeProvider _timeProvider;
+    private readonly IDocumentNumberAllocator _numbers;
+    private readonly IStockLedger _stock;
 
-    public FirstRunSeeder(SqliteUnitOfWork unitOfWork, TimeProvider timeProvider)
+    public FirstRunSeeder(
+        SqliteUnitOfWork unitOfWork,
+        TimeProvider timeProvider,
+        IDocumentNumberAllocator numbers,
+        IStockLedger stock)
     {
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(numbers);
+        ArgumentNullException.ThrowIfNull(stock);
 
         _unitOfWork = unitOfWork;
         _timeProvider = timeProvider;
+        _numbers = numbers;
+        _stock = stock;
     }
 
     /// <summary>The barcode printed on the seeded product's packet.</summary>
@@ -84,17 +106,39 @@ public sealed class FirstRunSeeder
                 var variantId = await SeedProductAsync(context, uomId, taxClassId, now, token).ConfigureAwait(false);
 
                 wrote |= await SeedBarcodeAsync(context, variantId, token).ConfigureAwait(false);
-                wrote |= await SeedStockBalanceAsync(context, variantId, uomId, now, token).ConfigureAwait(false);
+                wrote |= await SeedOpeningStockAsync(context, variantId, uomId, userId, now, token)
+                    .ConfigureAwait(false);
                 wrote |= await SeedShiftAsync(context, userId, now, token).ConfigureAwait(false);
 
                 return wrote;
             },
             cancellationToken);
 
+    /// <summary>
+    /// Seeds every sequence a document number is drawn from on the skeleton's paths: the bill,
+    /// and the shift the bill is rung up inside (docs/01_DATA_MODEL.md §11). Nothing may number
+    /// a document any other way (CLAUDE.md invariant 4).
+    /// </summary>
     private static async Task<bool> SeedNumberSequenceAsync(PosDbContext context, CancellationToken token)
     {
+        var wrote = await SeedSequenceAsync(context, SaleDocumentType, SaleNumberPrefix, SaleNumberPattern, token)
+            .ConfigureAwait(false);
+
+        wrote |= await SeedSequenceAsync(context, ShiftDocumentType, ShiftNumberPrefix, ShiftNumberPattern, token)
+            .ConfigureAwait(false);
+
+        return wrote;
+    }
+
+    private static async Task<bool> SeedSequenceAsync(
+        PosDbContext context,
+        string docType,
+        string prefix,
+        string pattern,
+        CancellationToken token)
+    {
         if (await context.Set<NumberSequence>()
-                .AnyAsync(row => row.DocType == SaleDocumentType, token)
+                .AnyAsync(row => row.DocType == docType, token)
                 .ConfigureAwait(false))
         {
             return false;
@@ -102,11 +146,11 @@ public sealed class FirstRunSeeder
 
         context.Add(new NumberSequence
         {
-            DocType = SaleDocumentType,
-            Prefix = SaleNumberPrefix,
-            Pattern = SaleNumberPattern,
+            DocType = docType,
+            Prefix = prefix,
+            Pattern = pattern,
 
-            // The first bill is number 1, and the allocator returns the value before the
+            // The first document is number 1, and the allocator returns the value before the
             // increment - so this is 1, not 0 (CLAUDE.md invariant 4).
             NextVal = 1,
         });
@@ -274,10 +318,21 @@ public sealed class FirstRunSeeder
         return true;
     }
 
-    private static async Task<bool> SeedStockBalanceAsync(
+    /// <summary>
+    /// Posts the opening count through the ledger, never straight into the projection.
+    /// </summary>
+    /// <remarks>
+    /// The balance table is a projection and has to be rebuildable from <c>stock_movement</c>
+    /// (CLAUDE.md invariant 3). A balance written directly would be a number the ledger cannot
+    /// account for, and a rebuild - P1-T07's <c>RebuildStockBalanceCommand</c> - would silently
+    /// erase the shop's opening stock. So the opening count is an <c>OPENING</c> movement like
+    /// any other, and <see cref="IStockLedger"/> creates the projection row behind it.
+    /// </remarks>
+    private async Task<bool> SeedOpeningStockAsync(
         PosDbContext context,
         long variantId,
         long uomId,
+        long userId,
         DateTimeOffset now,
         CancellationToken token)
     {
@@ -288,22 +343,26 @@ public sealed class FirstRunSeeder
             return false;
         }
 
-        // An opening balance with no movement behind it, which is the one honest exception: it
-        // is the count the shop started from, not something the ledger produced. P1-T07 replaces
-        // it with an OPENING movement posted through the ledger like everything else.
-        context.Add(new StockBalance
-        {
-            ProductVariantId = variantId,
-            QtyBase = Quantity.FromDecimal(100m, uomId).ToScaled(),
-            CostAvg = Money.FromDecimal(9.00m),
-            UpdatedAt = now,
-        });
+        await _stock.PostAsync(
+            new StockPosting(
+                variantId,
+                OpeningMovementType,
+                Quantity.FromDecimal(100m, uomId),
+                Money.FromDecimal(9.00m),
+                OpeningMovementType,
 
-        await context.SaveChangesAsync(token).ConfigureAwait(false);
+                // An opening count answers to no document. ref_doc_id is nullable for exactly
+                // this case (docs/01_DATA_MODEL.md, stock_movement).
+                RefDocId: null,
+                userId,
+                now,
+                Note: "Opening count seeded on first run."),
+            token).ConfigureAwait(false);
+
         return true;
     }
 
-    private static async Task<bool> SeedShiftAsync(
+    private async Task<bool> SeedShiftAsync(
         PosDbContext context,
         long userId,
         DateTimeOffset now,
@@ -316,11 +375,17 @@ public sealed class FirstRunSeeder
             return false;
         }
 
-        var shiftNumber = await context.Set<Shift>().CountAsync(token).ConfigureAwait(false) + 1;
+        // From number_sequence, in this seeding transaction, exactly as a bill draws its
+        // bill_no. Counting the rows would be MAX(n)+1 by another name, and the first shift the
+        // sequence later issues would collide with it on shift_no UNIQUE
+        // (CLAUDE.md invariant 4).
+        var shiftNo = await _numbers
+            .AllocateAsync(ShiftDocumentType, DateOnly.FromDateTime(now.Date), token)
+            .ConfigureAwait(false);
 
         context.Add(new Shift
         {
-            ShiftNo = "SH-" + shiftNumber.ToString("000000", CultureInfo.InvariantCulture),
+            ShiftNo = shiftNo,
             UserId = userId,
             OpenedAt = now,
             BusinessDate = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
