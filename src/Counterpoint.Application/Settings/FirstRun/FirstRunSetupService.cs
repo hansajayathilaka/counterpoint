@@ -47,6 +47,7 @@ internal sealed class FirstRunSetupService : IFirstRunSetup
     private readonly SettingsService _settings;
     private readonly ISettingStore _store;
     private readonly ITaxClassSeed _taxClasses;
+    private readonly ICatalogueReferenceDataSeed _catalogue;
     private readonly INumberSequenceConfiguration _sequences;
     private readonly IInitialOwnerSetup _initialOwner;
     private readonly IUserStore _users;
@@ -59,6 +60,7 @@ internal sealed class FirstRunSetupService : IFirstRunSetup
         SettingsService settings,
         ISettingStore store,
         ITaxClassSeed taxClasses,
+        ICatalogueReferenceDataSeed catalogue,
         INumberSequenceConfiguration sequences,
         IInitialOwnerSetup initialOwner,
         IUserStore users,
@@ -70,6 +72,7 @@ internal sealed class FirstRunSetupService : IFirstRunSetup
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(taxClasses);
+        ArgumentNullException.ThrowIfNull(catalogue);
         ArgumentNullException.ThrowIfNull(sequences);
         ArgumentNullException.ThrowIfNull(initialOwner);
         ArgumentNullException.ThrowIfNull(users);
@@ -81,6 +84,7 @@ internal sealed class FirstRunSetupService : IFirstRunSetup
         _settings = settings;
         _store = store;
         _taxClasses = taxClasses;
+        _catalogue = catalogue;
         _sequences = sequences;
         _initialOwner = initialOwner;
         _users = users;
@@ -133,6 +137,12 @@ internal sealed class FirstRunSetupService : IFirstRunSetup
                 await _settings.SaveAsAsync(request.Settings, ownerId, token).ConfigureAwait(false);
                 await SeedTaxClassesAsync(request, token).ConfigureAwait(false);
                 await ConfigureNumberingAsync(request.Settings, token).ConfigureAwait(false);
+
+                // P1-T04, docs/01_DATA_MODEL.md §11: the default unit and category set. Guarded
+                // by name, so it composes safely alongside FirstRunSeeder's own "Piece" row
+                // rather than duplicating it.
+                await _catalogue.EnsureDefaultUomsAsync(token).ConfigureAwait(false);
+                await _catalogue.EnsureDefaultCategoriesAsync(token).ConfigureAwait(false);
 
                 if (ownerPasswordNeeded)
                 {

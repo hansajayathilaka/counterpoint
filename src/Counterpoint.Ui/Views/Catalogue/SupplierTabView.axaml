@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="560"
+             x:Class="Counterpoint.Ui.Views.Catalogue.SupplierTabView"
+             x:DataType="vm:SupplierTabViewModel">
+
+  <DockPanel Margin="12">
+
+    <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding Status}" />
+
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="6">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="_New" Command="{Binding NewCommand}" IsEnabled="{Binding !Busy}" />
+        <Button Content="Turn on / off" Command="{Binding ToggleActiveCommand}" IsEnabled="{Binding !Busy}" />
+        <Button Content="Delete" Command="{Binding DeleteCommand}" IsEnabled="{Binding !Busy}" />
+        <Button Content="_Save" Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
+      </StackPanel>
+      <WrapPanel>
+        <TextBox Width="200" Margin="0,0,8,4" Watermark="Supplier name" Text="{Binding Name}" />
+        <TextBox Width="160" Margin="0,0,8,4" Watermark="Contact person" Text="{Binding Contact}" />
+        <TextBox Width="140" Margin="0,0,8,4" Watermark="Phone" Text="{Binding Phone}" />
+        <TextBox Width="220" Margin="0,0,8,4" Watermark="Address" Text="{Binding Address}" />
+        <TextBox Width="140" Margin="0,0,8,4" Watermark="Tax number" Text="{Binding TaxNo}" />
+        <TextBox Width="160" Margin="0,0,8,4" Watermark="Payment terms" Text="{Binding PaymentTerms}" />
+      </WrapPanel>
+    </StackPanel>
+
+    <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:SupplierRowViewModel">
+          <Grid ColumnDefinitions="200,160,140,90">
+            <TextBlock Grid.Column="0" Text="{Binding Name}" />
+            <TextBlock Grid.Column="1" Text="{Binding Contact}" />
+            <TextBlock Grid.Column="2" Text="{Binding Phone}" />
+            <TextBlock Grid.Column="3" Text="{Binding StateText}" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+  </DockPanel>
+
+</UserControl>

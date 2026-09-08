@@ -90,6 +90,7 @@ internal static class Program
                 services.GetRequiredService<Ui.ViewModels.LoginViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.SalesViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.UserAdminViewModel>(),
+                services.GetRequiredService<Ui.ViewModels.Catalogue.CatalogueViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Settings.SettingsViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.FirstRun.FirstRunWizardViewModel>(),
                 firstRunRequired))

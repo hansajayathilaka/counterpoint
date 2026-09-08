@@ -30,6 +30,9 @@
       <Button Content="_Users"
               Command="{Binding ManageUsersCommand}"
               IsVisible="{Binding CanManageUsers}" />
+      <Button Content="_Catalogue"
+              Command="{Binding ManageCatalogueCommand}"
+              IsVisible="{Binding CanManageCatalogue}" />
       <Button Content="_Settings"
               Command="{Binding OpenSettingsCommand}"
               IsVisible="{Binding CanChangeSettings}" />

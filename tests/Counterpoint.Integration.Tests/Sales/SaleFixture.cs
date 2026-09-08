@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Security;
+using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -178,6 +179,28 @@ internal sealed class SaleFixture : IAsyncDisposable
         // any more than the running application can.
         services.AddSingleton<IUserAdministration>(p => RoleAuthorisation.Decorate<IUserAdministration>(
             ActivatorUtilities.CreateInstance<UserAdministrationService>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P1-T04: category, brand, unit, tax class, supplier, customer maintenance - wired
+        // exactly as the composition root wires them, decorated-only, same as IUserAdministration
+        // above (SRS FR-2.20, FR-2.21, FR-6, NFR-S2, AC-17).
+        services.AddSingleton<ICategoryMaintenance>(p => RoleAuthorisation.Decorate<ICategoryMaintenance>(
+            ActivatorUtilities.CreateInstance<CategoryMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+        services.AddSingleton<IBrandMaintenance>(p => RoleAuthorisation.Decorate<IBrandMaintenance>(
+            ActivatorUtilities.CreateInstance<BrandMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+        services.AddSingleton<IUomMaintenance>(p => RoleAuthorisation.Decorate<IUomMaintenance>(
+            ActivatorUtilities.CreateInstance<UomMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+        services.AddSingleton<ITaxClassMaintenance>(p => RoleAuthorisation.Decorate<ITaxClassMaintenance>(
+            ActivatorUtilities.CreateInstance<TaxClassMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+        services.AddSingleton<ISupplierMaintenance>(p => RoleAuthorisation.Decorate<ISupplierMaintenance>(
+            ActivatorUtilities.CreateInstance<SupplierMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+        services.AddSingleton<ICustomerMaintenance>(p => RoleAuthorisation.Decorate<ICustomerMaintenance>(
+            ActivatorUtilities.CreateInstance<CustomerMaintenanceService>(p),
             p.GetRequiredService<ISession>()));
 
         // P0-T07: SnapshotService and RestoreService, wired exactly as

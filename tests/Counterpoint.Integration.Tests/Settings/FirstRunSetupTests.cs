@@ -70,6 +70,44 @@ public sealed class FirstRunSetupTests
     }
 
     [Fact]
+    public async Task P1_T04_TheDefaultUnitAndCategorySetIsPresentAfterTheWizard()
+    {
+        await using var fixture = await SaleFixture.CreateAsync();
+        var setup = fixture.Resolve<IFirstRunSetup>();
+
+        (await setup.CompleteAsync(Request())).Should().BeTrue();
+
+        foreach (var (name, symbol, decimalPlaces) in new (string, string, int)[]
+                 {
+                     ("Piece", "pc", 0),
+                     ("Metre", "m", 3),
+                     ("Kilogram", "kg", 3),
+                     ("Litre", "L", 3),
+                     ("Box", "box", 0),
+                     ("Coil", "coil", 0),
+                     ("Packet", "pkt", 0),
+                     ("Roll", "roll", 0),
+                     ("Bundle", "bdl", 0),
+                 })
+        {
+            (await fixture.ScalarAsync($"SELECT symbol FROM uom WHERE name = '{name}';"))
+                .Should().Be(symbol, $"docs/01_DATA_MODEL.md §11 names {name}");
+            (await fixture.ScalarAsync($"SELECT decimal_places FROM uom WHERE name = '{name}';"))
+                .Should().Be(decimalPlaces.ToString());
+        }
+
+        foreach (var name in new[]
+                 {
+                     "Plumbing", "Electrical", "Fasteners", "Tools", "Paint", "Adhesives", "Garden", "Building",
+                 })
+        {
+            (await fixture.CountAsync(
+                $"SELECT COUNT(*) FROM category WHERE name = '{name}' AND parent_id IS NULL;"))
+                .Should().Be(1, $"docs/01_DATA_MODEL.md §11 names {name} as a top-level category");
+        }
+    }
+
+    [Fact]
     public async Task FR_10_3_TheSeededDemoTaxClassIsNotDuplicatedByTheWizardsDefault()
     {
         // FirstRunSeeder (run by SaleFixture before any test body) already lays down a demo tax

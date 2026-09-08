@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Counterpoint.Ui.ViewModels;
+using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Settings;
 using Counterpoint.Ui.Views;
@@ -33,6 +34,7 @@ public partial class App : Avalonia.Application
     private readonly LoginViewModel? _loginViewModel;
     private readonly SalesViewModel? _salesViewModel;
     private readonly UserAdminViewModel? _userAdminViewModel;
+    private readonly CatalogueViewModel? _catalogueViewModel;
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly FirstRunWizardViewModel? _firstRunViewModel;
     private readonly bool _firstRunRequired;
@@ -54,6 +56,7 @@ public partial class App : Avalonia.Application
         LoginViewModel loginViewModel,
         SalesViewModel salesViewModel,
         UserAdminViewModel userAdminViewModel,
+        CatalogueViewModel catalogueViewModel,
         SettingsViewModel settingsViewModel,
         FirstRunWizardViewModel firstRunViewModel,
         bool firstRunRequired)
@@ -61,12 +64,14 @@ public partial class App : Avalonia.Application
         ArgumentNullException.ThrowIfNull(loginViewModel);
         ArgumentNullException.ThrowIfNull(salesViewModel);
         ArgumentNullException.ThrowIfNull(userAdminViewModel);
+        ArgumentNullException.ThrowIfNull(catalogueViewModel);
         ArgumentNullException.ThrowIfNull(settingsViewModel);
         ArgumentNullException.ThrowIfNull(firstRunViewModel);
 
         _loginViewModel = loginViewModel;
         _salesViewModel = salesViewModel;
         _userAdminViewModel = userAdminViewModel;
+        _catalogueViewModel = catalogueViewModel;
         _settingsViewModel = settingsViewModel;
         _firstRunViewModel = firstRunViewModel;
         _firstRunRequired = firstRunRequired;
@@ -156,6 +161,7 @@ public partial class App : Avalonia.Application
 
         var sales = new SalesWindow { DataContext = _salesViewModel };
         _salesViewModel.ManageUsersRequested += (_, _) => ShowUsers(sales);
+        _salesViewModel.CatalogueRequested += (_, _) => ShowCatalogue(sales);
         _salesViewModel.SettingsRequested += (_, _) => ShowSettings(sales);
 
         var login = desktop.MainWindow;
@@ -174,6 +180,22 @@ public partial class App : Avalonia.Application
 
         var window = new UserAdminWindow { DataContext = _userAdminViewModel };
         _userAdminViewModel.RefreshCommand.Execute(null);
+        window.Show(owner);
+    }
+
+    /// <summary>
+    /// Opens the catalogue reference-data screen: category, brand, unit, tax class, supplier,
+    /// customer (SRS FR-2.20, FR-2.21, FR-6).
+    /// </summary>
+    private void ShowCatalogue(Window owner)
+    {
+        if (_catalogueViewModel is null)
+        {
+            return;
+        }
+
+        var window = new CatalogueWindow { DataContext = _catalogueViewModel };
+        _catalogueViewModel.LoadCommand.Execute(null);
         window.Show(owner);
     }
 
