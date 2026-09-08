@@ -203,6 +203,12 @@ internal sealed class SaleFixture : IAsyncDisposable
             ActivatorUtilities.CreateInstance<CustomerMaintenanceService>(p),
             p.GetRequiredService<ISession>()));
 
+        // P1-T05: product, variant and UOM conversion maintenance - wired exactly as the six
+        // above (SRS FR-2.1-FR-2.8, FR-3.6, AC-08, NFR-S2, AC-17).
+        services.AddSingleton<IProductMaintenance>(p => RoleAuthorisation.Decorate<IProductMaintenance>(
+            ActivatorUtilities.CreateInstance<ProductMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
         // P0-T07: SnapshotService and RestoreService, wired exactly as
         // CounterpointHostBuilderExtensions wires them, and after the Argon2Parameters
         // registration above so AddCounterpointBackup's TryAddSingleton(Argon2Parameters.Default)

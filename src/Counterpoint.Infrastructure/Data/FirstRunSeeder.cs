@@ -285,6 +285,20 @@ public sealed class FirstRunSeeder
         context.Add(product);
         await context.SaveChangesAsync(token).ConfigureAwait(false);
 
+        // P1-T05's base-unit guard (docs/01_DATA_MODEL.md §8): a product can never exist without
+        // a product_uom row for its own base unit. This seeder predates that rule and writes the
+        // product row directly rather than through IProductStore.CreateAsync, so it has to keep
+        // the guarantee itself.
+        context.Add(new ProductUom
+        {
+            ProductId = product.Id,
+            UomId = uomId,
+            ConversionFactor = 10_000L,
+            SellingPrice = null,
+            IsBase = true,
+        });
+        await context.SaveChangesAsync(token).ConfigureAwait(false);
+
         var variant = new ProductVariant
         {
             ProductId = product.Id,

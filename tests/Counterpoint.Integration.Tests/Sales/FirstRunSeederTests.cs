@@ -18,6 +18,8 @@ public sealed class FirstRunSeederTests
         (await fixture.CountAsync("SELECT COUNT(*) FROM uom;")).Should().Be(1);
         (await fixture.CountAsync("SELECT COUNT(*) FROM tax_class;")).Should().Be(1);
         (await fixture.CountAsync("SELECT COUNT(*) FROM product;")).Should().Be(1);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM product_uom WHERE is_base = 1;")).Should().Be(
+            1, "P1-T05's base-unit guard: a product can never exist without one (docs/01_DATA_MODEL.md §8)");
         (await fixture.CountAsync("SELECT COUNT(*) FROM product_variant;")).Should().Be(1);
         (await fixture.CountAsync("SELECT COUNT(*) FROM barcode;")).Should().Be(1);
         (await fixture.CountAsync("SELECT COUNT(*) FROM app_user WHERE role = 'OWNER';")).Should().Be(1);
@@ -83,6 +85,7 @@ public sealed class FirstRunSeederTests
         wroteAnything.Should().BeFalse("everything was already there");
 
         (await fixture.CountAsync("SELECT COUNT(*) FROM uom;")).Should().Be(1);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM product_uom;")).Should().Be(1, "a second run must not post a second base unit");
         (await fixture.CountAsync("SELECT COUNT(*) FROM product_variant;")).Should().Be(1);
         (await fixture.CountAsync("SELECT COUNT(*) FROM barcode;")).Should().Be(1);
         (await fixture.CountAsync("SELECT COUNT(*) FROM app_user;")).Should().Be(1);

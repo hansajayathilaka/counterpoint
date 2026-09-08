@@ -61,6 +61,11 @@ public sealed class AppendOnlyTriggerTests
             "trg_category_two_levels_insert",
             "trg_category_two_levels_update",
 
+            // FR-2.4, FR-2.5: a product_uom row marked is_base = 1 must carry
+            // conversion_factor = 10000. Not append-only protection either.
+            "trg_product_uom_base_factor_insert",
+            "trg_product_uom_base_factor_update",
+
             // FR-2.11, the FTS5 search index. Rebuildable, so not append-only protection.
             "trg_product_search_variant_insert",
             "trg_product_search_variant_update",

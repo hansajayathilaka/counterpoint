@@ -121,3 +121,9 @@ it stopped.
 - `2026-09-08T04:47:20Z` **P1-T04** start — Catalogue: categories, brands, UOM, tax classes, suppliers
 - `2026-09-08T05:24:00Z` **P1-T04** note — orchestrator decision: uom lacks active column (P1-T01 gap); adding it now via migration is within P1-T04's own done-when criteria, not scope creep into P1-T05
 - `2026-09-08T06:49:13Z` **P1-T04** done — 6 files/89 total files, 417 tests total (34+ new), 2 review rounds (code-reviewer, data-modeler) clean, 0 fix loops needed
+- `2026-09-08T06:50:43Z` **P1-T05** start — Product, variant and UOM conversion domain
+- `2026-09-08T07:52:18Z` **P1-T05** fix-attempt — 1: unhandled ArgumentOutOfRangeException on blank/zero UOM conversion-factor input in ProductTabViewModel (UI-06 violation)
+- `2026-09-08T08:03:05Z` **P1-T05** done — 56 files, 437 tests total (~50 new incl. two 10k-sample property tests), 2 review rounds (code-reviewer, data-modeler) + 1 fix round (1 must-fix closed)
+- `2026-09-08T08:03:49Z` **P1-T05** done — PR #15 opened against main (stacked on #14): https://github.com/hansajayathilaka/counterpoint/pull/15
+
+**Run ended 2026-09-08T08:03:59Z** — 2 completed, 0 halted

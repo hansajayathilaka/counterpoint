@@ -17,10 +17,20 @@ public static class CatalogueAuditActions
     public const string TaxClassEntityType = "tax_class";
     public const string SupplierEntityType = "supplier";
     public const string CustomerEntityType = "customer";
+    public const string ProductEntityType = "product";
+    public const string ProductVariantEntityType = "product_variant";
+    public const string ProductUomEntityType = "product_uom";
 
     public const string Created = "CATALOGUE_ITEM_CREATED";
     public const string Updated = "CATALOGUE_ITEM_UPDATED";
     public const string Deactivated = "CATALOGUE_ITEM_DEACTIVATED";
     public const string Reactivated = "CATALOGUE_ITEM_REACTIVATED";
     public const string Deleted = "CATALOGUE_ITEM_DELETED";
+
+    /// <summary>
+    /// A variant matrix was generated and committed in one operation (SRS FR-2.6) - one audit row
+    /// per commit, not one per variant, so a sixty-variant matrix does not flood the trail with
+    /// sixty near-identical entries for a single owner action.
+    /// </summary>
+    public const string VariantMatrixCommitted = "PRODUCT_VARIANT_MATRIX_COMMITTED";
 }

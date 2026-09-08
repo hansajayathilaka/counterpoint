@@ -23,7 +23,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
                 baseEntityType,
                 propertyCount: 6,
                 foreignKeyCount: 2,
-                unnamedIndexCount: 1,
+                unnamedIndexCount: 2,
                 keyCount: 1);
 
             var id = runtimeEntityType.AddProperty(
@@ -85,9 +85,15 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
             key.AddAnnotation("Relational:Name", "pk_product_uom");
 
             var index = runtimeEntityType.AddIndex(
+                new[] { productId },
+                unique: true);
+            index.AddAnnotation("Relational:Filter", "is_base = 1");
+            index.AddAnnotation("Relational:Name", "ux_product_uom_one_base");
+
+            var index0 = runtimeEntityType.AddIndex(
                 new[] { productId, uomId },
                 unique: true);
-            index.AddAnnotation("Relational:Name", "ux_product_uom");
+            index0.AddAnnotation("Relational:Name", "ux_product_uom");
 
             return runtimeEntityType;
         }

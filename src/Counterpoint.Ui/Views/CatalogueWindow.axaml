@@ -37,6 +37,9 @@
     <TabItem Header="Customers">
       <views:CustomerTabView DataContext="{Binding Customer}" />
     </TabItem>
+    <TabItem Header="Products">
+      <views:ProductTabView DataContext="{Binding Product}" />
+    </TabItem>
   </TabControl>
 
 </Window>

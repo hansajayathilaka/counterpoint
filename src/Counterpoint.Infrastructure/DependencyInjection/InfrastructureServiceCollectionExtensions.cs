@@ -96,6 +96,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ICustomerStore, SqliteCustomerStore>();
         services.AddSingleton<ICatalogueReferenceDataSeed, SqliteCatalogueReferenceDataSeed>();
 
+        // P1-T05: product, variant and UOM conversion maintenance (SRS FR-2.1-FR-2.8, FR-3.6, AC-08).
+        services.AddSingleton<IProductStore, SqliteProductStore>();
+
         // P0-T07: the one seam Counterpoint.Backup reaches a SQLCipher connection through,
         // because it may not reference this assembly (CLAUDE.md "Project boundaries").
         services.AddSingleton<IDatabaseSnapshotSource, SqliteDatabaseSnapshotSource>();
