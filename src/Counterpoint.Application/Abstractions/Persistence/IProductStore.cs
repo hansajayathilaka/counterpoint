@@ -21,6 +21,14 @@ public interface IProductStore
 
     public Task<ProductRecord?> FindByIdAsync(long id, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Every active product's name and brand - the FR-2.24 duplicate-on-creation check's search
+    /// space. Deliberately its own lightweight query rather than a re-use of <see cref="ListAsync"/>:
+    /// the duplicate check runs on every product creation, not once when a screen opens, and has
+    /// no use for <see cref="ListAsync"/>'s unit symbol or variant count.
+    /// </summary>
+    public Task<IReadOnlyList<ProductDuplicateCandidate>> ListForDuplicateCheckAsync(CancellationToken cancellationToken = default);
+
     public Task<bool> ExistsWithCodeAsync(string code, long? excludingId, CancellationToken cancellationToken = default);
 
     /// <summary>

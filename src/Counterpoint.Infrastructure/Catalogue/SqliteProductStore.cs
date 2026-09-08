@@ -63,6 +63,32 @@ internal sealed class SqliteProductStore : IProductStore
             cancellationToken);
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<ProductDuplicateCandidate>> ListForDuplicateCheckAsync(CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteInTransactionAsync(
+            async (_, _, token) =>
+            {
+                using var context = _unitOfWork.CreateDbContext();
+
+                var brandNames = await context.Set<Brand>().ToDictionaryAsync(row => row.Id, row => row.Name, token)
+                    .ConfigureAwait(false);
+
+                var rows = await context.Set<Product>()
+                    .Where(row => row.Active)
+                    .Select(row => new { row.Id, row.Name, row.BrandId })
+                    .ToListAsync(token)
+                    .ConfigureAwait(false);
+
+                IReadOnlyList<ProductDuplicateCandidate> result = [.. rows.Select(row => new ProductDuplicateCandidate(
+                    row.Id,
+                    row.Name,
+                    row.BrandId,
+                    row.BrandId is { } brandId ? brandNames.GetValueOrDefault(brandId) : null))];
+
+                return result;
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
     public Task<ProductRecord?> FindByIdAsync(long id, CancellationToken cancellationToken = default) =>
         _unitOfWork.ExecuteInTransactionAsync(
             async (_, _, token) =>

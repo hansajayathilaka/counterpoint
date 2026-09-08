@@ -209,6 +209,14 @@ internal sealed class SaleFixture : IAsyncDisposable
             ActivatorUtilities.CreateInstance<ProductMaintenanceService>(p),
             p.GetRequiredService<ISession>()));
 
+        // P1-T06: barcode administration - wired exactly as the composition root wires it
+        // (SRS FR-2.9, FR-2.10, FR-2.24, NFR-S2, AC-17). IProductSearchService and
+        // IReindexSearchCommand need no equivalent line: AddCounterpointInfrastructure above
+        // already registers them undecorated, the same as IProductLookup.
+        services.AddSingleton<IBarcodeMaintenance>(p => RoleAuthorisation.Decorate<IBarcodeMaintenance>(
+            ActivatorUtilities.CreateInstance<BarcodeMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
         // P0-T07: SnapshotService and RestoreService, wired exactly as
         // CounterpointHostBuilderExtensions wires them, and after the Argon2Parameters
         // registration above so AddCounterpointBackup's TryAddSingleton(Argon2Parameters.Default)

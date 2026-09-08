@@ -76,6 +76,19 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
     public async Task<long> CreateAsync(SaveProductCommand command, CancellationToken cancellationToken = default)
     {
         var validated = await ValidateAsync(command, excludingId: null, cancellationToken).ConfigureAwait(false);
+
+        if (!validated.ConfirmDuplicate)
+        {
+            var similar = await FindSimilarProductsAsync(
+                validated.Name, validated.BrandId, size: null, excludingProductId: null, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (similar.Count > 0)
+            {
+                throw new DuplicateProductWarningException(similar);
+            }
+        }
+
         var now = _timeProvider.GetLocalNow();
 
         return await _unitOfWork.ExecuteInTransactionAsync(
@@ -396,6 +409,56 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
                 return ids;
             },
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SimilarProductMatch>> FindSimilarProductsAsync(
+        string name,
+        long? brandId,
+        string? size = null,
+        long? excludingProductId = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        var trimmedName = name.Trim();
+        if (trimmedName.Length == 0)
+        {
+            return [];
+        }
+
+        var candidates = await _products.ListForDuplicateCheckAsync(cancellationToken).ConfigureAwait(false);
+        var matches = new List<SimilarProductMatch>();
+
+        foreach (var candidate in candidates)
+        {
+            if (candidate.Id == excludingProductId || candidate.BrandId != brandId)
+            {
+                continue;
+            }
+
+            var score = ProductNameSimilarity.Score(trimmedName, candidate.Name);
+            if (score < ProductNameSimilarity.DefaultThreshold)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(size))
+            {
+                var variants = await _products.ListVariantsAsync(candidate.Id, cancellationToken).ConfigureAwait(false);
+                var hasMatchingSize = variants.Any(variant => variant.Attributes.Values.Any(
+                    value => string.Equals(value, size, StringComparison.OrdinalIgnoreCase)));
+
+                if (!hasMatchingSize)
+                {
+                    continue;
+                }
+            }
+
+            matches.Add(new SimilarProductMatch(candidate.Id, candidate.Name, candidate.BrandName, score));
+        }
+
+        return [.. matches.OrderByDescending(match => match.Score)];
     }
 
     private async Task<HashSet<VariantAttributes>> ExistingAttributeSetAsync(long productId, CancellationToken cancellationToken)
