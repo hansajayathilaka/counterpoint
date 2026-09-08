@@ -49,7 +49,7 @@ hands them back.
 | P1-T09 | Sales screen and bill building | todo | | |
 | P1-T10 | Tender, change and sale completion | todo | | |
 | P1-T11 | Receipt templates and printing | todo | | Real printer verified in HW-T01 |
-| P1-T12 | Label printing | todo | | Real label verified in HW-T03 |
+| P1-T12 | Label printing | in-progress | | Real label verified in HW-T03 |
 | P1-T13 | Spreadsheet import | todo | | |
 | P1-T14 | Shift open (minimal) and dashboard | todo | | |
 | P1-T15 | Local and USB backup | todo | | |
