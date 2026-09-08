@@ -31,6 +31,7 @@ public sealed class PosDataDirectory
     private const string DatabaseFolderName = "db";
     private const string BackupFolderName = "backups";
     private const string PreMigrationFolderName = "pre-migration";
+    private const string SnapshotFolderName = "snapshots";
     private const string OneDriveTenantPrefix = "OneDrive - ";
 
     /// <summary>
@@ -78,6 +79,19 @@ public sealed class PosDataDirectory
         Path.Combine(Root, BackupFolderName, PreMigrationFolderName);
 
     /// <summary>
+    /// Folder holding the encrypted, checksummed FR-11 backup snapshots (<c>P0-T07</c>), each
+    /// recorded as a <c>backup_record</c> row. Created by <see cref="EnsureCreated"/>.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="PreMigrationBackupDirectory"/>: that folder holds a plain, unencrypted-beyond-
+    /// SQLCipher <c>VACUUM INTO</c> copy taken automatically before a schema migration, with no
+    /// separate passphrase and no <c>backup_record</c> row. The two are deliberately different
+    /// mechanisms for different failure modes.
+    /// </remarks>
+    public string SnapshotDirectory =>
+        Path.Combine(Root, BackupFolderName, SnapshotFolderName);
+
+    /// <summary>
     /// Resolves the data directory, falling back to the platform default when
     /// <paramref name="overridePath"/> is null or blank.
     /// </summary>
@@ -111,6 +125,7 @@ public sealed class PosDataDirectory
     {
         Directory.CreateDirectory(DatabaseDirectory);
         Directory.CreateDirectory(PreMigrationBackupDirectory);
+        Directory.CreateDirectory(SnapshotDirectory);
         return this;
     }
 

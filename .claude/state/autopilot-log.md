@@ -106,3 +106,4 @@ it stopped.
 - budget: 1 task(s)
 
 - `2026-09-08T01:43:21Z` **P0-T07** start — Backup snapshot, encryption, publish
+- `2026-09-08T02:36:42Z` **P0-T07** fix-attempt — 1: VACUUM INTO uses write-gated connection instead of read connection, blocking sale completion during a snapshot (CLAUDE.md invariant 7); both code-reviewer and data-modeler confirmed independently

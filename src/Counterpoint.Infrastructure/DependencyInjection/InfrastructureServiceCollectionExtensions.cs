@@ -1,7 +1,9 @@
 using System;
+using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Infrastructure.Audit;
+using Counterpoint.Infrastructure.Backup;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Inventory;
 using Counterpoint.Infrastructure.Printing;
@@ -81,6 +83,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ISettingStore, SqliteSettingStore>();
         services.AddSingleton<INumberSequenceConfiguration, SqliteNumberSequenceConfiguration>();
         services.AddSingleton<ITaxClassSeed, SqliteTaxClassSeed>();
+
+        // P0-T07: the one seam Counterpoint.Backup reaches a SQLCipher connection through,
+        // because it may not reference this assembly (CLAUDE.md "Project boundaries").
+        services.AddSingleton<IDatabaseSnapshotSource, SqliteDatabaseSnapshotSource>();
+        services.AddSingleton<IBackupRecordStore, SqliteBackupRecordStore>();
 
         // A clock, not DateTimeOffset.Now: created-at and printed-at stamps have to be
         // controllable from a test, and TimeProvider is the framework's answer.

@@ -8,6 +8,8 @@ using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Application.Settings.FirstRun;
+using Counterpoint.Backup.DependencyInjection;
+using Counterpoint.Backup.Snapshots;
 using Counterpoint.Devices.DependencyInjection;
 using Counterpoint.Devices.Printing;
 using Counterpoint.Domain.Services;
@@ -39,15 +41,23 @@ internal sealed class SaleFixture : IAsyncDisposable
     private readonly string _root;
     private readonly ServiceProvider _services;
 
-    private SaleFixture(string root, ServiceProvider services)
+    private SaleFixture(string root, ServiceProvider services, string snapshotDirectory)
     {
         _root = root;
         _services = services;
         ReceiptDirectory = Path.Combine(root, "receipts");
+        SnapshotDirectory = snapshotDirectory;
     }
 
     /// <summary>Where <see cref="FileReceiptPrinter"/> drops the rendered byte streams.</summary>
     internal string ReceiptDirectory { get; }
+
+    /// <summary>
+    /// Where <see cref="Counterpoint.Backup.Snapshots.SnapshotService"/> writes the encrypted
+    /// backup file, when <c>includeBackup</c> was passed to <see cref="CreateAsync"/>. Same value
+    /// <c>PosDataDirectory.SnapshotDirectory</c> resolves to for this fixture's own root (P0-T07).
+    /// </summary>
+    internal string SnapshotDirectory { get; }
 
     /// <summary>The username <see cref="FirstRunSeeder"/> gives the shop's owner account.</summary>
     internal static string SeededOwnerUsername => "owner";
@@ -84,12 +94,26 @@ internal sealed class SaleFixture : IAsyncDisposable
     /// Argon2id work factors. Null uses <see cref="TestArgon2Parameters"/>; pass
     /// <see cref="Argon2Parameters.Default"/> to measure what the shop will actually feel.
     /// </param>
+    /// <param name="includeBackup">
+    /// Wires <c>Counterpoint.Backup</c>'s <c>SnapshotService</c> and <c>RestoreService</c> into
+    /// the container, exactly as <c>CounterpointHostBuilderExtensions</c> does (P0-T07). Off by
+    /// default: most sale tests need none of it, and Argon2id parameters are shared with sign-in
+    /// through the same <see cref="Argon2Parameters"/> registration either way.
+    /// </param>
     internal static async Task<SaleFixture> CreateAsync(
         PrinterFailureMode printerFailureMode = PrinterFailureMode.None,
-        Argon2Parameters? hashing = null)
+        Argon2Parameters? hashing = null,
+        bool includeBackup = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "counterpoint-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+
+        // Resolved a second time, deliberately - the same pattern
+        // CounterpointHostBuilderExtensions uses: AddCounterpointInfrastructure resolves and
+        // registers its own PosDataDirectory internally and does not hand it back, and Resolve()
+        // is idempotent for the same root, so this costs a redundant filesystem check, not a
+        // second source of truth.
+        var dataDirectory = PosDataDirectory.Resolve(root).EnsureCreated();
 
         var clock = new FixedTimeProvider(
             new DateTimeOffset(2026, 9, 6, 9, 15, 0, TimeSpan.FromHours(5.5)));
@@ -156,8 +180,17 @@ internal sealed class SaleFixture : IAsyncDisposable
             ActivatorUtilities.CreateInstance<UserAdministrationService>(p),
             p.GetRequiredService<ISession>()));
 
+        // P0-T07: SnapshotService and RestoreService, wired exactly as
+        // CounterpointHostBuilderExtensions wires them, and after the Argon2Parameters
+        // registration above so AddCounterpointBackup's TryAddSingleton(Argon2Parameters.Default)
+        // finds the cheap test one already there rather than racing it.
+        if (includeBackup)
+        {
+            services.AddCounterpointBackup(new SnapshotOptions(dataDirectory.SnapshotDirectory));
+        }
+
         var provider = services.BuildServiceProvider();
-        var fixture = new SaleFixture(root, provider);
+        var fixture = new SaleFixture(root, provider, dataDirectory.SnapshotDirectory);
 
         try
         {
@@ -185,9 +218,10 @@ internal sealed class SaleFixture : IAsyncDisposable
     /// exactly as the shop is.
     /// </remarks>
     internal static async Task<SaleFixture> CreateSignedInAsync(
-        PrinterFailureMode printerFailureMode = PrinterFailureMode.None)
+        PrinterFailureMode printerFailureMode = PrinterFailureMode.None,
+        bool includeBackup = false)
     {
-        var fixture = await CreateAsync(printerFailureMode);
+        var fixture = await CreateAsync(printerFailureMode, includeBackup: includeBackup);
 
         try
         {
