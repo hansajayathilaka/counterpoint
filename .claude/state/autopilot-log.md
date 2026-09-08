@@ -107,3 +107,4 @@ it stopped.
 
 - `2026-09-08T01:43:21Z` **P0-T07** start — Backup snapshot, encryption, publish
 - `2026-09-08T02:36:42Z` **P0-T07** fix-attempt — 1: VACUUM INTO uses write-gated connection instead of read connection, blocking sale completion during a snapshot (CLAUDE.md invariant 7); both code-reviewer and data-modeler confirmed independently
+- `2026-09-08T02:51:01Z` **P0-T07** progress — Committed 40b955a, pushed task/p0-t07-backup-snapshot-publish, opened draft PR #13. 4/6 Done-when proven locally (630 tests, verify.sh clean, 2 review rounds + 1 fix-loop verification). Waiting on this PR's own CI run (windows-publish job) to confirm the last 2: Windows self-contained publish w/ SQLCipher asset, and installer artifact build.
