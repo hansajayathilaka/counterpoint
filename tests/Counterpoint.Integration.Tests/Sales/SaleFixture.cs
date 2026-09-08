@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -161,6 +162,10 @@ internal sealed class SaleFixture : IAsyncDisposable
         services.AddSingleton<CompleteSaleHandler>();
         services.AddSingleton<ICompleteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
         services.AddSingleton<IQuoteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
+
+        // P1-T07: the stock enquiry screen's use case, wired exactly as the composition root
+        // wires it.
+        services.AddSingleton<IStockEnquiry, StockEnquiryService>();
 
         // Security, wired exactly as the composition root wires it - in particular
         // IUserAdministration resolves only to the role-decorated instance, so a test cannot

@@ -136,3 +136,10 @@ it stopped.
 
 - `2026-09-08T13:21:51Z` **P1-T06** start — Barcodes and product search
 - `2026-09-08T14:19:26Z` **P1-T06** done — 35 files, 33+2 tests, 2 review rounds clean (0 must-fix)
+- `2026-09-08T14:20:24Z` **P1-T07** start — Stock ledger and balance projection
+- `2026-09-08T14:51:11Z` **P1-T07** note — corrected premature self-mark by task-implementer; resuming normal B4-B8 loop (test-engineer, verify, review) before re-judging done
+- `2026-09-08T15:08:59Z` **P1-T07** fix-attempt — 1: SqliteStockConsistencyCheck.CheckAsync reports mismatch quantities as raw scaled longs instead of descaled Quantity values (code-reviewer must-fix)
+- `2026-09-08T15:17:39Z` **P1-T07** done — 26 files, 40+ tests, 1 fix-attempt closing a real scaling bug, review clean after re-check
+
+**Run ended 2026-09-08T15:18:38Z** — 2 completed, 0 halted
+- `2026-09-08T18:28:35Z` **P1-T07** note — CI fix after main merge: PR #17's Build-and-test job failed because P1-T06 (merged to main while this PR was open) introduced FR-2.24 duplicate-name detection that legitimately fired on RebuildStockBalanceCommandTests' generated near-identical product names; fixed by setting ConfirmDuplicate:true in the test fixture (commit 53895ea)

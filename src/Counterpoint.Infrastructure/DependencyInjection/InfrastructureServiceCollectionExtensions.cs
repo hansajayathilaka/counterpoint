@@ -77,6 +77,12 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ITillSessionProvider, SqliteTillSessionProvider>();
         services.AddSingleton<ISaleWriter, SqliteSaleWriter>();
         services.AddSingleton<IStockLedger, SqliteStockLedger>();
+
+        // P1-T07: the ledger's projection rebuild, its startup consistency check, and the
+        // stock enquiry screen's read side (SRS FR-4, DM-05, SAD §3).
+        services.AddSingleton<IRebuildStockBalance, RebuildStockBalanceCommand>();
+        services.AddSingleton<IStockConsistencyCheck, SqliteStockConsistencyCheck>();
+        services.AddSingleton<IStockPositionReader, SqliteStockPositionReader>();
         services.AddSingleton<IAuditTrail, SqliteAuditTrail>();
         services.AddSingleton<IPrintJobOutbox, SqlitePrintJobOutbox>();
         services.AddSingleton<IUserStore, SqliteUserStore>();
