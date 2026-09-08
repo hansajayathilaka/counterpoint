@@ -119,3 +119,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-08T04:47:20Z` **P1-T04** start — Catalogue: categories, brands, UOM, tax classes, suppliers
+- `2026-09-08T05:24:00Z` **P1-T04** note — orchestrator decision: uom lacks active column (P1-T01 gap); adding it now via migration is within P1-T04's own done-when criteria, not scope creep into P1-T05
