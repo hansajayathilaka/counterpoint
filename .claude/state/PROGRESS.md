@@ -41,7 +41,7 @@ hands them back.
 | P1-T01 | Full schema migration | done | 2026-09-06 | 0cc8724 feat(P1-T01): full schema migration - 4/4 Done-when proven; compiled model + UseModel verified by NFR_P6_TheContextUsesTheCompiledModel and NFR_P6_TheCompiledModelMatchesTheDatabaseTheMigrationsBuilt |
 | P1-T02 | Users, authentication, roles, authorisation | done | 2026-09-07 | e8a59b2 feat(P1-T02): users, authentication, roles and authorisation (FR-1, NFR-S1, NFR-S2, NFR-S9, AC-17) |
 | P1-T03 | Settings framework | done | 2026-09-08 | 051c6ad + 6e937c2 + abfbcc0: PR#11 follow-up closing should-fix items from the original review round (tax-class dedupe, multi-line hard-coded-value test gap, no-op starting-number box); 619 tests passing, verify.sh clean, code-reviewer pass clean |
-| P1-T04 | Catalogue reference data | in-progress | | resuming: uom.active migration is in-scope, not a later-task dependency |
+| P1-T04 | Catalogue reference data | done | 2026-09-08 | c3384ba feat(P1-T04): uom deactivate and reactivate (FR-2.1, FR-2.20, FR-2.21) - all six entities (category, brand, uom, tax_class, supplier, customer) create/edit/deactivate/reactivate; delete-guard proven for the FK cases that exist today |
 | P1-T05 | Product, variant and UOM conversion domain | todo | | |
 | P1-T06 | Barcodes and product search | todo | | |
 | P1-T07 | Stock ledger and balance projection | todo | | |
