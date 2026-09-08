@@ -156,3 +156,5 @@ it stopped.
 - `2026-09-08T19:48:54Z` **P1-T08** done — 39+10+4 files, 814 tests, 2 review rounds (code-reviewer+data-modeler), 1 must-fix closed (cost leak via ProductRecord), PR #18
 - `2026-09-08T19:49:19Z` **P1-T12** start — Label printing
 - `2026-09-08T20:30:36Z` **P1-T12** done — 34+3 files, 819 tests, 2 review rounds (code-reviewer+device-integrator), 0 must-fix, PR #19
+
+**Run ended 2026-09-08T20:30:47Z** — 2 completed, 0 halted
