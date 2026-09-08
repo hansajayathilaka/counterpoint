@@ -20,6 +20,7 @@ public static class CatalogueAuditActions
     public const string ProductEntityType = "product";
     public const string ProductVariantEntityType = "product_variant";
     public const string ProductUomEntityType = "product_uom";
+    public const string BarcodeEntityType = "barcode";
 
     public const string Created = "CATALOGUE_ITEM_CREATED";
     public const string Updated = "CATALOGUE_ITEM_UPDATED";

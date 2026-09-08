@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore;
 namespace Counterpoint.Infrastructure.Catalogue;
 
 /// <summary>
-/// Recognises the two shapes of <c>SQLITE_CONSTRAINT</c> (error code 19) the reference-data
-/// stores can hit on a write: a business-rule trigger's own <c>RAISE(ABORT, …)</c>, and a plain
-/// foreign-key violation. Both come back from EF Core as a <see cref="DbUpdateException"/>
-/// wrapping a <see cref="SqliteException"/>; this is where that wrapping is unwrapped, once,
-/// rather than in every store.
+/// Recognises the shapes of <c>SQLITE_CONSTRAINT</c> (error code 19) the reference-data
+/// stores can hit on a write: a business-rule trigger's own <c>RAISE(ABORT, …)</c>, a plain
+/// foreign-key violation, and a plain UNIQUE-index violation. All three come back from EF Core
+/// as a <see cref="DbUpdateException"/> wrapping a <see cref="SqliteException"/>; this is where
+/// that wrapping is unwrapped, once, rather than in every store.
 /// </summary>
 internal static class SqliteErrors
 {
@@ -32,6 +32,15 @@ internal static class SqliteErrors
         && sqlite.SqliteErrorCode == SqliteConstraintErrorCode
         && sqlite.Message.Contains("FOREIGN KEY constraint failed", System.StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>SQLite's <c>SQLITE_CONSTRAINT</c> primary result code. Both shapes above use it.</summary>
+    /// <summary>
+    /// True when a UNIQUE index refused the write - the backstop behind a store's own duplicate
+    /// pre-check, for example <c>ux_barcode</c> (FR-2.24).
+    /// </summary>
+    internal static bool IsUniqueViolation(DbUpdateException exception) =>
+        exception.InnerException is SqliteException sqlite
+        && sqlite.SqliteErrorCode == SqliteConstraintErrorCode
+        && sqlite.Message.Contains("UNIQUE constraint failed", System.StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>SQLite's <c>SQLITE_CONSTRAINT</c> primary result code. Every shape above uses it.</summary>
     private const int SqliteConstraintErrorCode = 19;
 }

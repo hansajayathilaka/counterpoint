@@ -99,6 +99,19 @@ public static class InfrastructureServiceCollectionExtensions
         // P1-T05: product, variant and UOM conversion maintenance (SRS FR-2.1-FR-2.8, FR-3.6, AC-08).
         services.AddSingleton<IProductStore, SqliteProductStore>();
 
+        // P1-T06: barcodes and product search (SRS FR-2.9-2.12, FR-2.24, NFR-P1, NFR-P2).
+        // IProductSearchService and IReindexSearchCommand are read/maintenance ports with no
+        // role requirement of their own - IProductSearchService is on the counter-search path a
+        // cashier is standing at, exactly like IProductLookup above, and IReindexSearchCommand
+        // carries no data a session-less caller could misuse. IBarcodeStore is registered here as
+        // the port ProductMaintenance's sibling BarcodeMaintenanceService is built against; the
+        // owner-only IBarcodeMaintenance itself is wired decorated in the composition root, the
+        // same as IProductMaintenance.
+        services.AddSingleton<IBarcodeStore, SqliteBarcodeStore>();
+        services.AddSingleton<IBarcodeSerialAllocator, SqliteBarcodeSerialAllocator>();
+        services.AddSingleton<IProductSearchService, SqliteProductSearchService>();
+        services.AddSingleton<IReindexSearchCommand, SqliteReindexSearchCommand>();
+
         // P0-T07: the one seam Counterpoint.Backup reaches a SQLCipher connection through,
         // because it may not reference this assembly (CLAUDE.md "Project boundaries").
         services.AddSingleton<IDatabaseSnapshotSource, SqliteDatabaseSnapshotSource>();

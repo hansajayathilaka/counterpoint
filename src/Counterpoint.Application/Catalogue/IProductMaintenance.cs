@@ -28,7 +28,32 @@ public interface IProductMaintenance
     /// <exception cref="System.InvalidOperationException">
     /// The code is already used, or the category, brand, base unit or tax class does not exist.
     /// </exception>
+    /// <exception cref="DuplicateProductWarningException">
+    /// An active product with a very similar name and the same brand already exists and
+    /// <see cref="SaveProductCommand.ConfirmDuplicate"/> was false (SRS FR-2.24). Resubmit the
+    /// same command with it set to create the product anyway.
+    /// </exception>
     public Task<long> CreateAsync(SaveProductCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Active products whose name is very similar to <paramref name="name"/> and whose brand
+    /// matches <paramref name="brandId"/> (SRS FR-2.24) - what <see cref="CreateAsync"/> checks
+    /// before writing, and available on its own for a screen that wants to warn before the shop
+    /// even presses save.
+    /// </summary>
+    /// <param name="name">The candidate product's name.</param>
+    /// <param name="brandId">The candidate's brand, or null for unbranded - matched exactly, never fuzzily.</param>
+    /// <param name="size">
+    /// A size or attribute value to additionally require on at least one of a candidate's
+    /// variants, or null to compare on name and brand alone.
+    /// </param>
+    /// <param name="excludingProductId">A product id to leave out of the results, for an edit screen.</param>
+    public Task<IReadOnlyList<SimilarProductMatch>> FindSimilarProductsAsync(
+        string name,
+        long? brandId,
+        string? size = null,
+        long? excludingProductId = null,
+        CancellationToken cancellationToken = default);
 
     /// <exception cref="System.InvalidOperationException">
     /// As <see cref="CreateAsync"/>, or the base unit differs from the product's existing one -

@@ -244,6 +244,14 @@ internal static class CounterpointHostBuilderExtensions
             ActivatorUtilities.CreateInstance<ProductMaintenanceService>(p),
             p.GetRequiredService<ISession>()));
 
+        // P1-T06: barcode administration and the internal-barcode generator - wired exactly as
+        // the seven above (SRS FR-2.9, FR-2.10, FR-2.24, NFR-S2, AC-17). IProductSearchService and
+        // IReindexSearchCommand carry no RequiresRoleAttribute, so they are registered undecorated
+        // by AddCounterpointInfrastructure and never appear here.
+        services.AddSingleton<IBarcodeMaintenance>(p => RoleAuthorisation.Decorate<IBarcodeMaintenance>(
+            ActivatorUtilities.CreateInstance<BarcodeMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
         return services;
     }
 }
