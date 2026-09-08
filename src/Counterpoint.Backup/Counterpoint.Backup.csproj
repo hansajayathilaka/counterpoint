@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Versions come from Directory.Packages.props. -->
+  <ItemGroup>
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+    <PackageReference Include="ZstdSharp.Port" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Counterpoint.Application\Counterpoint.Application.csproj" />
     <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />

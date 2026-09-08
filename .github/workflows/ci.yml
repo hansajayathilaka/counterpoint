@@ -76,19 +76,24 @@ jobs:
     name: Windows self-contained publish
     runs-on: windows-2022
     needs: build-and-test
-    if: github.ref == 'refs/heads/main'
+    # Runs on every push and pull request the workflow's own `on:` triggers already cover (main,
+    # task/**, fix/**, and every PR into main) - not gated to main only. P0-T07's own "Done when"
+    # ("Windows CI job green", "installer/Counterpoint.iss ... produces an installer artifact in
+    # CI") can only be checked before merge if this job actually runs on the PR that adds it.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
-      # The product ships on Windows. This job proves the self-contained publish
-      # works with the native SQLCipher assets, which is the packaging risk
-      # retired in task P0-T07.
+      # The product ships on Windows and the composition root - the WinExe with Program.Main,
+      # BuildAvaloniaApp and the DI/IHost wiring - is Counterpoint.App, not Counterpoint.Ui (a
+      # class library; CLAUDE.md "Project boundaries"). This job proves the self-contained
+      # publish works with the native SQLCipher assets, which is the packaging risk retired in
+      # task P0-T07.
       - name: Publish
         run: >
-          dotnet publish src/Counterpoint.Ui -c Release -r win-x64
+          dotnet publish src/Counterpoint.App -c Release -r win-x64
           --self-contained true -p:PublishReadyToRun=true
           -o artifacts/publish
 
@@ -98,7 +103,39 @@ jobs:
           $size = (Get-ChildItem artifacts/publish -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
           Write-Host ("Publish size: {0:N1} MB" -f $size)
 
+      # NFR-S3: SQLitePCLRaw.bundle_e_sqlcipher must actually have deployed its native win-x64
+      # library into the publish output, or PRAGMA key is silently ignored and the database ships
+      # unencrypted. This is the one thing this job exists to retire the risk on - publishing and
+      # reporting a size without checking it proves nothing.
+      - name: Verify SQLCipher native asset is present
+        shell: pwsh
+        run: |
+          $asset = Get-ChildItem artifacts/publish -Recurse -Filter "*sqlcipher*" |
+            Where-Object { $_.Extension -in ".dll", ".so", ".dylib" }
+          if (-not $asset) {
+            throw "No SQLCipher native asset (e.g. e_sqlcipher.dll) was found under artifacts/publish. " +
+              "SQLitePCLRaw.bundle_e_sqlcipher did not deploy it, so PRAGMA key would be a no-op and " +
+              "the database would ship unencrypted (NFR-S3)."
+          }
+          Write-Host "Found SQLCipher native asset(s):"
+          $asset | ForEach-Object { Write-Host (" - " + $_.FullName) }
+
       - uses: actions/upload-artifact@v4
         with:
           name: pos-win-x64
           path: artifacts/publish
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '[^A-Za-z0-9\.\-]', '-'
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\iscc.exe"
+          & $iscc "/DMyAppVersion=$version" installer\Counterpoint.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pos-win-x64-installer
+          path: artifacts/installer

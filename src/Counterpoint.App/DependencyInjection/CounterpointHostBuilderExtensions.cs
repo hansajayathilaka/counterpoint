@@ -1,12 +1,16 @@
 using System;
+using System.IO;
 using Avalonia.Threading;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Application.Settings.FirstRun;
+using Counterpoint.Backup.DependencyInjection;
+using Counterpoint.Backup.Snapshots;
 using Counterpoint.Devices.DependencyInjection;
 using Counterpoint.Domain.Services;
+using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.DependencyInjection;
 using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.FirstRun;
@@ -48,6 +52,16 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<IQuoteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
 
         builder.Services.AddCounterpointSecurity();
+
+        // Resolved a second time, deliberately: AddCounterpointInfrastructure resolves and
+        // registers its own PosDataDirectory internally and does not hand it back, and changing
+        // that already-tested signature is out of scope here. Resolve() and EnsureCreated() are
+        // both idempotent - same validation, same "create if missing" - so this costs a
+        // redundant filesystem check at start-up, not a second source of truth. Registered after
+        // AddCounterpointSecurity so its TryAddSingleton(Argon2Parameters.Default) genuinely finds
+        // one already there rather than racing it. See P0-T07.
+        var dataDirectory = PosDataDirectory.Resolve().EnsureCreated();
+        builder.Services.AddCounterpointBackup(new SnapshotOptions(dataDirectory.SnapshotDirectory));
 
         // The screens.
         builder.Services.AddSingleton<LoginViewModel>();

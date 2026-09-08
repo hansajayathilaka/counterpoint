@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Counterpoint.Domain\Counterpoint.Domain.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Application\Counterpoint.Application.csproj" />
+    <ProjectReference Include="..\..\src\Counterpoint.Backup\Counterpoint.Backup.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Devices\Counterpoint.Devices.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj" />
     <!-- The viewmodel, so the scan-to-Pay loop can be driven end to end without a display.

@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Counterpoint.Application\Counterpoint.Application.csproj" />
+    <ProjectReference Include="..\Counterpoint.Backup\Counterpoint.Backup.csproj" />
     <ProjectReference Include="..\Counterpoint.Devices\Counterpoint.Devices.csproj" />
     <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />
     <ProjectReference Include="..\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj" />
