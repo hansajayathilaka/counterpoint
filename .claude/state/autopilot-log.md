@@ -142,3 +142,4 @@ it stopped.
 - `2026-09-08T15:17:39Z` **P1-T07** done — 26 files, 40+ tests, 1 fix-attempt closing a real scaling bug, review clean after re-check
 
 **Run ended 2026-09-08T15:18:38Z** — 2 completed, 0 halted
+- `2026-09-08T18:28:35Z` **P1-T07** note — CI fix after main merge: PR #17's Build-and-test job failed because P1-T06 (merged to main while this PR was open) introduced FR-2.24 duplicate-name detection that legitimately fired on RebuildStockBalanceCommandTests' generated near-identical product names; fixed by setting ConfirmDuplicate:true in the test fixture (commit 53895ea)
