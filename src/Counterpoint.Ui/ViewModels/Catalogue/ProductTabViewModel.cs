@@ -486,7 +486,7 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
             {
                 var command = new SaveProductUomCommand(
                     uomId,
-                    UomConversion.FromDecimal(ParseDecimal(UomFactorText)),
+                    ParseUomConversion(UomFactorText),
                     ParseOptionalDecimal(UomSellingPriceText) is { } price ? Money.FromDecimal(price) : null);
 
                 await _products.AddUomOptionAsync(productId, command, cancellationToken).ConfigureAwait(true);
@@ -512,7 +512,7 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
             {
                 var command = new SaveProductUomCommand(
                     selected.UomId,
-                    UomConversion.FromDecimal(ParseDecimal(UomFactorText)),
+                    ParseUomConversion(UomFactorText),
                     ParseOptionalDecimal(UomSellingPriceText) is { } price ? Money.FromDecimal(price) : null);
 
                 await _products.UpdateUomOptionAsync(selected.Id, command, cancellationToken).ConfigureAwait(true);
@@ -670,6 +670,33 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
 
     private static decimal ParseDecimal(string text) =>
         decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) ? value : 0m;
+
+    /// <summary>
+    /// Reads the "conversion factor" box into a <see cref="UomConversion"/>, rejecting a blank or
+    /// non-positive entry with a sentence the owner can act on rather than letting
+    /// <see cref="UomConversion.FromDecimal"/>'s <see cref="ArgumentOutOfRangeException"/> escape
+    /// <see cref="ReferenceDataTabViewModel.RunAsync"/> uncaught (SRS UI-06).
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="SettingsText.ToTaxRate"/>, which clamps a blank or negative rate to zero
+    /// because zero is a perfectly sensible tax rate, there is no sensible default conversion
+    /// factor: "1 box = 0 pieces" or "1 box = blank pieces" is not a smaller version of a valid
+    /// unit, it is a unit with no meaning, so it is refused outright rather than silently
+    /// substituted.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// <paramref name="text"/> is blank, unparseable, or not a positive number.
+    /// </exception>
+    private static UomConversion ParseUomConversion(string text)
+    {
+        var factor = ParseDecimal(text);
+        if (factor <= 0m)
+        {
+            throw new InvalidOperationException("Enter a conversion factor greater than zero.");
+        }
+
+        return UomConversion.FromDecimal(factor);
+    }
 
     private static decimal? ParseOptionalDecimal(string text) =>
         string.IsNullOrWhiteSpace(text)
