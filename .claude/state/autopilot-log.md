@@ -153,3 +153,4 @@ it stopped.
 - `2026-09-08T18:45:18Z` **P1-T08** start — Pricing and discount engine
 - `2026-09-08T18:46:06Z` **P1-T08** start — task-implementer delegated
 - `2026-09-08T19:40:10Z` **P1-T08** fix-attempt — 1: ProductRecord.CostAvg leaked cost through undecorated IProductStore/IStockEnquiry paths (CLAUDE.md invariant 8); moving to a narrow owner-gated cost read
+- `2026-09-08T19:48:54Z` **P1-T08** done — 39+10+4 files, 814 tests, 2 review rounds (code-reviewer+data-modeler), 1 must-fix closed (cost leak via ProductRecord), PR #18
