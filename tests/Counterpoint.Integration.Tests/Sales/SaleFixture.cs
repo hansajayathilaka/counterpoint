@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Inventory;
+using Counterpoint.Application.Labels;
 using Counterpoint.Application.Pricing;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
@@ -14,6 +15,7 @@ using Counterpoint.Application.Settings.FirstRun;
 using Counterpoint.Backup.DependencyInjection;
 using Counterpoint.Backup.Snapshots;
 using Counterpoint.Devices.DependencyInjection;
+using Counterpoint.Devices.Labels;
 using Counterpoint.Devices.Printing;
 using Counterpoint.Domain.Services;
 using Counterpoint.Infrastructure.Data;
@@ -49,11 +51,15 @@ internal sealed class SaleFixture : IAsyncDisposable
         _root = root;
         _services = services;
         ReceiptDirectory = Path.Combine(root, "receipts");
+        LabelDirectory = Path.Combine(root, "labels");
         SnapshotDirectory = snapshotDirectory;
     }
 
     /// <summary>Where <see cref="FileReceiptPrinter"/> drops the rendered byte streams.</summary>
     internal string ReceiptDirectory { get; }
+
+    /// <summary>Where <see cref="FileLabelPrinter"/> drops the rendered TSPL byte streams.</summary>
+    internal string LabelDirectory { get; }
 
     /// <summary>
     /// Where <see cref="Counterpoint.Backup.Snapshots.SnapshotService"/> writes the encrypted
@@ -131,7 +137,12 @@ internal sealed class SaleFixture : IAsyncDisposable
                 FailureMode = printerFailureMode,
                 TimeProvider = clock,
             },
-            new PrintWorkerOptions { PollInterval = TimeSpan.FromMilliseconds(5), MaxAttempts = 3 });
+            new PrintWorkerOptions { PollInterval = TimeSpan.FromMilliseconds(5), MaxAttempts = 3 },
+            labelPrinterOptions: new FileLabelPrinterOptions
+            {
+                OutputDirectory = Path.Combine(root, "labels"),
+                TimeProvider = clock,
+            });
 
         services.AddLogging();
 
@@ -234,6 +245,13 @@ internal sealed class SaleFixture : IAsyncDisposable
         // already registers them undecorated, the same as IProductLookup.
         services.AddSingleton<IBarcodeMaintenance>(p => RoleAuthorisation.Decorate<IBarcodeMaintenance>(
             ActivatorUtilities.CreateInstance<BarcodeMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P1-T12: label printing (SRS FR-2.10, FR-2.12) - owner-only, wired exactly as
+        // CounterpointHostBuilderExtensions wires it, decorated-only, same as the catalogue
+        // maintenance interfaces above (NFR-S2, AC-17).
+        services.AddSingleton<ILabelPrintService>(p => RoleAuthorisation.Decorate<ILabelPrintService>(
+            ActivatorUtilities.CreateInstance<LabelPrintService>(p),
             p.GetRequiredService<ISession>()));
 
         // P0-T07: SnapshotService and RestoreService, wired exactly as
