@@ -121,3 +121,4 @@ it stopped.
 - `2026-09-08T04:47:20Z` **P1-T04** start — Catalogue: categories, brands, UOM, tax classes, suppliers
 - `2026-09-08T05:24:00Z` **P1-T04** note — orchestrator decision: uom lacks active column (P1-T01 gap); adding it now via migration is within P1-T04's own done-when criteria, not scope creep into P1-T05
 - `2026-09-08T06:49:13Z` **P1-T04** done — 6 files/89 total files, 417 tests total (34+ new), 2 review rounds (code-reviewer, data-modeler) clean, 0 fix loops needed
+- `2026-09-08T06:50:43Z` **P1-T05** start — Product, variant and UOM conversion domain
