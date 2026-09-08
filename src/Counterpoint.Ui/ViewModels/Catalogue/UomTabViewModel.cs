@@ -9,10 +9,7 @@ using Counterpoint.Application.Catalogue;
 
 namespace Counterpoint.Ui.ViewModels.Catalogue;
 
-/// <summary>
-/// The unit-of-measure tab of the catalogue screen. No "turn off": see the remarks on
-/// <c>Counterpoint.Application.Abstractions.Persistence.UomRecord</c> for why.
-/// </summary>
+/// <summary>The unit-of-measure tab of the catalogue screen.</summary>
 public sealed partial class UomTabViewModel : ReferenceDataTabViewModel
 {
     private readonly IUomMaintenance _uoms;
@@ -93,6 +90,34 @@ public sealed partial class UomTabViewModel : ReferenceDataTabViewModel
 
                 New();
                 await RefreshAsync(cancellationToken).ConfigureAwait(true);
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    public async Task ToggleActiveAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedItem is not { } selected)
+        {
+            Status = "Pick a unit first.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                if (selected.Active)
+                {
+                    await _uoms.DeactivateAsync(selected.Id, cancellationToken).ConfigureAwait(true);
+                }
+                else
+                {
+                    await _uoms.ReactivateAsync(selected.Id, cancellationToken).ConfigureAwait(true);
+                }
+
+                var wasActive = selected.Active;
+                await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                Status = selected.Name + (wasActive ? " is turned off." : " is turned back on.");
             },
             cancellationToken).ConfigureAwait(true);
     }

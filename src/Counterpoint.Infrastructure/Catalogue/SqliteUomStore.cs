@@ -10,11 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Counterpoint.Infrastructure.Catalogue;
 
-/// <summary>
-/// <c>uom</c>, read and written through the unit of work. See the remarks on
-/// <see cref="UomRecord"/> for why there is no <c>SetActiveAsync</c> here: the table has no
-/// <c>active</c> column.
-/// </summary>
+/// <summary><c>uom</c>, read and written through the unit of work.</summary>
 internal sealed class SqliteUomStore : IUomStore
 {
     private readonly SqliteUnitOfWork _unitOfWork;
@@ -98,7 +94,7 @@ internal sealed class SqliteUomStore : IUomStore
             {
                 using var context = _unitOfWork.CreateDbContext();
 
-                var row = new Uom { Name = name, Symbol = symbol, DecimalPlaces = decimalPlaces };
+                var row = new Uom { Name = name, Symbol = symbol, DecimalPlaces = decimalPlaces, Active = true };
                 context.Add(row);
                 await context.SaveChangesAsync(token).ConfigureAwait(false);
 
@@ -126,6 +122,23 @@ internal sealed class SqliteUomStore : IUomStore
                 row.Symbol = symbol;
                 row.DecimalPlaces = decimalPlaces;
 
+                await context.SaveChangesAsync(token).ConfigureAwait(false);
+                return null;
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task SetActiveAsync(long id, bool active, CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteInTransactionAsync<object?>(
+            async (_, _, token) =>
+            {
+                using var context = _unitOfWork.CreateDbContext();
+
+                var row = await context.Set<Uom>().FirstOrDefaultAsync(u => u.Id == id, token)
+                    .ConfigureAwait(false)
+                    ?? throw new InvalidOperationException($"There is no uom row with id {id}.");
+
+                row.Active = active;
                 await context.SaveChangesAsync(token).ConfigureAwait(false);
                 return null;
             },
@@ -160,5 +173,5 @@ internal sealed class SqliteUomStore : IUomStore
             },
             cancellationToken);
 
-    private static UomRecord ToRecord(Uom row) => new(row.Id, row.Name, row.Symbol, row.DecimalPlaces);
+    private static UomRecord ToRecord(Uom row) => new(row.Id, row.Name, row.Symbol, row.DecimalPlaces, row.Active);
 }

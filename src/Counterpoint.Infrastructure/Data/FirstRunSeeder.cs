@@ -172,7 +172,7 @@ public sealed class FirstRunSeeder
             return existing.Value;
         }
 
-        var row = new Uom { Name = "Piece", Symbol = "pc", DecimalPlaces = 0 };
+        var row = new Uom { Name = "Piece", Symbol = "pc", DecimalPlaces = 0, Active = true };
         context.Add(row);
         await context.SaveChangesAsync(token).ConfigureAwait(false);
 

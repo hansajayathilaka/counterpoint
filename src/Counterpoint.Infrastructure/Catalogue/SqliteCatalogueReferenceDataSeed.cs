@@ -61,7 +61,13 @@ internal sealed class SqliteCatalogueReferenceDataSeed : ICatalogueReferenceData
                         continue;
                     }
 
-                    context.Add(new Uom { Name = name, Symbol = symbol, DecimalPlaces = decimalPlaces });
+                    context.Add(new Uom
+                    {
+                        Name = name,
+                        Symbol = symbol,
+                        DecimalPlaces = decimalPlaces,
+                        Active = true,
+                    });
                     await context.SaveChangesAsync(token).ConfigureAwait(false);
                 }
             },

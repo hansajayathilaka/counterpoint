@@ -7,10 +7,6 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// <summary>
 /// Reads and writes <c>uom</c> (docs/01_DATA_MODEL.md §3).
 /// </summary>
-/// <remarks>
-/// No <c>SetActiveAsync</c>: see the remarks on <see cref="UomRecord"/> for why the schema this
-/// port sits on has nothing to toggle.
-/// </remarks>
 public interface IUomStore
 {
     public Task<IReadOnlyList<UomRecord>> ListAsync(CancellationToken cancellationToken = default);
@@ -34,6 +30,8 @@ public interface IUomStore
         string symbol,
         int decimalPlaces,
         CancellationToken cancellationToken = default);
+
+    public Task SetActiveAsync(long id, bool active, CancellationToken cancellationToken = default);
 
     /// <summary>Returns false when the database's foreign keys refused the delete.</summary>
     public Task<bool> DeleteAsync(long id, CancellationToken cancellationToken = default);

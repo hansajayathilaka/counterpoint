@@ -14,6 +14,8 @@ public sealed class UomRowViewModel
         Name = uom.Name;
         Symbol = uom.Symbol;
         DecimalPlaces = uom.DecimalPlaces;
+        Active = uom.Active;
+        StateText = uom.Active ? "active" : "off";
     }
 
     public long Id { get; }
@@ -23,4 +25,8 @@ public sealed class UomRowViewModel
     public string Symbol { get; }
 
     public int DecimalPlaces { get; }
+
+    public bool Active { get; }
+
+    public string StateText { get; }
 }

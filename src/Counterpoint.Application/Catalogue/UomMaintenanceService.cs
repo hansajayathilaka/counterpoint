@@ -8,13 +8,7 @@ using Counterpoint.Application.Security;
 
 namespace Counterpoint.Application.Catalogue;
 
-/// <summary>
-/// The owner's unit-of-measure maintenance.
-/// </summary>
-/// <remarks>
-/// No deactivate, no reactivate: see the remarks on <see cref="UomRecord"/>. Delete is the only
-/// way to retire a unit, and it is refused while any product still references it.
-/// </remarks>
+/// <summary>The owner's unit-of-measure maintenance.</summary>
 internal sealed class UomMaintenanceService : IUomMaintenance
 {
     private readonly IUomStore _store;
@@ -107,6 +101,34 @@ internal sealed class UomMaintenanceService : IUomMaintenance
     }
 
     /// <inheritdoc />
+    public async Task DeactivateAsync(long id, CancellationToken cancellationToken = default)
+    {
+        var existing = await RequireUomAsync(id, cancellationToken).ConfigureAwait(false);
+
+        if (!existing.Active)
+        {
+            return;
+        }
+
+        await SetActiveAsync(id, existing.Name, active: false, CatalogueAuditActions.Deactivated, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task ReactivateAsync(long id, CancellationToken cancellationToken = default)
+    {
+        var existing = await RequireUomAsync(id, cancellationToken).ConfigureAwait(false);
+
+        if (existing.Active)
+        {
+            return;
+        }
+
+        await SetActiveAsync(id, existing.Name, active: true, CatalogueAuditActions.Reactivated, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task DeleteAsync(long id, CancellationToken cancellationToken = default)
     {
         var existing = await RequireUomAsync(id, cancellationToken).ConfigureAwait(false);
@@ -136,6 +158,31 @@ internal sealed class UomMaintenanceService : IUomMaintenance
                     now,
                     before: Json(existing.Name, existing.Symbol, existing.DecimalPlaces),
                     after: null,
+                    token).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SetActiveAsync(
+        long id,
+        string name,
+        bool active,
+        string action,
+        CancellationToken cancellationToken)
+    {
+        var now = _timeProvider.GetLocalNow();
+
+        await _unitOfWork.ExecuteInTransactionAsync(
+            async token =>
+            {
+                await _store.SetActiveAsync(id, active, token).ConfigureAwait(false);
+
+                await RecordAsync(
+                    action,
+                    id,
+                    now,
+                    before: SecurityAuditJson.Object(("name", name), ("active", !active)),
+                    after: SecurityAuditJson.Object(("name", name), ("active", active)),
                     token).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
