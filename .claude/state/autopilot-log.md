@@ -131,3 +131,5 @@ it stopped.
 - `2026-09-08T14:51:11Z` **P1-T07** note — corrected premature self-mark by task-implementer; resuming normal B4-B8 loop (test-engineer, verify, review) before re-judging done
 - `2026-09-08T15:08:59Z` **P1-T07** fix-attempt — 1: SqliteStockConsistencyCheck.CheckAsync reports mismatch quantities as raw scaled longs instead of descaled Quantity values (code-reviewer must-fix)
 - `2026-09-08T15:17:39Z` **P1-T07** done — 26 files, 40+ tests, 1 fix-attempt closing a real scaling bug, review clean after re-check
+
+**Run ended 2026-09-08T15:18:38Z** — 2 completed, 0 halted
