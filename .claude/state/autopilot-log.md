@@ -127,3 +127,4 @@ it stopped.
 - `2026-09-08T08:03:49Z` **P1-T05** done — PR #15 opened against main (stacked on #14): https://github.com/hansajayathilaka/counterpoint/pull/15
 
 **Run ended 2026-09-08T08:03:59Z** — 2 completed, 0 halted
+- `2026-09-08T14:20:24Z` **P1-T07** start — Stock ledger and balance projection
