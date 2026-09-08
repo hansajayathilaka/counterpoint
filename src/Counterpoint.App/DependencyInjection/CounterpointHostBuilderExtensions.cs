@@ -3,6 +3,7 @@ using System.IO;
 using Avalonia.Threading;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -52,6 +53,12 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<CompleteSaleHandler>();
         builder.Services.AddSingleton<ICompleteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
         builder.Services.AddSingleton<IQuoteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
+
+        // P1-T07: the stock enquiry screen (F11). No [RequiresRole] - "check stock" is a
+        // cashier capability (Counterpoint.Domain.Security.Role) - so the whole result comes
+        // back and StockEnquiryService itself strips cost for anyone who is not signed in as
+        // owner (CLAUDE.md invariant 8).
+        builder.Services.AddSingleton<IStockEnquiry, StockEnquiryService>();
 
         builder.Services.AddCounterpointSecurity();
         builder.Services.AddCounterpointCatalogue();

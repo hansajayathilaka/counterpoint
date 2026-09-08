@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Avalonia;
 using Counterpoint.App.DependencyInjection;
+using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Application.Settings.FirstRun;
@@ -9,6 +10,7 @@ using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Counterpoint.App;
 
@@ -16,7 +18,7 @@ namespace Counterpoint.App;
 /// The composition root. Everything the application is made of is assembled here and nowhere
 /// else (SAD §5).
 /// </summary>
-internal static class Program
+internal static partial class Program
 {
     /// <summary>
     /// Refuses to be a second till, brings the database up to date, seeds a first run, starts the
@@ -125,6 +127,12 @@ internal static class Program
             .LoadAsync()
             .ConfigureAwait(false);
 
+        // P1-T07's startup consistency check (SAD §3). Diagnostic only: it never blocks the
+        // till from opening (CLAUDE.md invariant 7 in spirit - nothing here may hold up the
+        // sales screen), and a mismatch is logged loudly rather than corrected on the spot,
+        // because fixing it is IRebuildStockBalance's job, run deliberately.
+        await RunStockConsistencyCheckAsync(services).ConfigureAwait(false);
+
         // Last, because it reads the same app_setting table the four steps above have just
         // finished with, and because the answer decides which window opens. The wizard writes
         // everything it collects in one transaction of its own; nothing here pre-empts it.
@@ -132,4 +140,49 @@ internal static class Program
             .IsRequiredAsync()
             .ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Runs the P1-T07 consistency check and logs the outcome. Never throws: a diagnostic that
+    /// could stop the till from opening would be worse than the drift it is looking for.
+    /// </summary>
+    private static async Task RunStockConsistencyCheckAsync(IServiceProvider services)
+    {
+        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("StockConsistencyCheck");
+
+        try
+        {
+            var report = await services.GetRequiredService<IStockConsistencyCheck>()
+                .CheckAsync()
+                .ConfigureAwait(false);
+
+            if (!report.HasMismatch)
+            {
+                StockConsistencyCheckClean(logger, report.SampledCount);
+            }
+
+            // A mismatch is already logged as a Warning per variant by
+            // IStockConsistencyCheck itself.
+        }
+#pragma warning disable CA1031 // Catch-all is the requirement here, not an oversight.
+        catch (Exception exception)
+        {
+            // The check itself failing is not a reason to refuse the till - it is the same
+            // "never block the sale" spirit as CLAUDE.md invariant 7, applied to a diagnostic
+            // that has no business holding up the sales screen.
+            StockConsistencyCheckFailed(logger, exception);
+        }
+#pragma warning restore CA1031
+    }
+
+    [LoggerMessage(
+        EventId = 7301,
+        Level = LogLevel.Information,
+        Message = "Stock consistency check: {SampledCount} variants sampled, no mismatch.")]
+    private static partial void StockConsistencyCheckClean(ILogger logger, int sampledCount);
+
+    [LoggerMessage(
+        EventId = 7302,
+        Level = LogLevel.Warning,
+        Message = "Stock consistency check could not run.")]
+    private static partial void StockConsistencyCheckFailed(ILogger logger, Exception exception);
 }

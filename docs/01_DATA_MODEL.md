@@ -40,13 +40,16 @@ history.
 
 | Projection | Recomputable from | Rebuild lands in |
 |---|---|---|
-| `stock_balance` | `stock_movement` (CLAUDE.md invariant 3) | **P1-T07**, with the stock ledger |
+| `stock_balance` | `stock_movement` (CLAUDE.md invariant 3) | **P1-T07** (`RebuildStockBalanceCommand`), with the stock ledger |
 | `customer.balance` | the customer's sales, returns and payments | **P5-T02**, with credit accounts |
 | `daily_sales_summary`, `daily_product_summary` | `sale`, `sale_line`, `payment`, `sale_return` | **P3**, with the Z report that writes them |
 
-Each is written in the same transaction as the rows it summarises. None of the rebuilds exists yet
-and none is missing: a rebuild for a table that nothing yet posts to would be untestable ceremony.
-`stock_balance` is the only one of the three that the skeleton migration created.
+Each is written in the same transaction as the rows it summarises. The other two rebuilds do not
+exist yet and neither is missing: a rebuild for a table that nothing yet posts to would be
+untestable ceremony. `stock_balance` is the only one of the three the skeleton migration created,
+and P1-T07 is the only one of the three rebuilds that exists so far - `StockLedger.PostAsync`
+writes the projection on every movement, `RebuildStockBalanceCommand` replays it from
+`stock_movement` alone, and a startup sample check sums a random 200 variants' ledgers against it.
 
 ---
 
