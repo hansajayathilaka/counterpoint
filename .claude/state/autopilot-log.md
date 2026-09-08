@@ -109,3 +109,5 @@ it stopped.
 - `2026-09-08T02:36:42Z` **P0-T07** fix-attempt — 1: VACUUM INTO uses write-gated connection instead of read connection, blocking sale completion during a snapshot (CLAUDE.md invariant 7); both code-reviewer and data-modeler confirmed independently
 - `2026-09-08T02:51:01Z` **P0-T07** progress — Committed 40b955a, pushed task/p0-t07-backup-snapshot-publish, opened draft PR #13. 4/6 Done-when proven locally (630 tests, verify.sh clean, 2 review rounds + 1 fix-loop verification). Waiting on this PR's own CI run (windows-publish job) to confirm the last 2: Windows self-contained publish w/ SQLCipher asset, and installer artifact build.
 - `2026-09-08T02:59:14Z` **P0-T07** done — 30 files, 630 tests (9 new + 2 concurrency regression), 2 review rounds (code-reviewer + data-modeler) + 1 fix-loop verification round closing 1 must-fix (VACUUM INTO write-gate contention); PR #13 CI green including windows-publish (SQLCipher asset + installer artifact confirmed)
+
+**Run ended 2026-09-08T03:00:30Z** — 1 completed, 0 halted
