@@ -102,9 +102,14 @@ public sealed class RebuildStockBalanceCommandTests
         var products = fixture.Resolve<IProductMaintenance>();
         for (var i = 0; i < extraCount; i++)
         {
+            // ConfirmDuplicate: the generated names ("Random product 0", "Random product 1", ...)
+            // are deliberately near-identical and share the same (null) brand, so P1-T06's FR-2.24
+            // similar-name check would otherwise throw DuplicateProductWarningException on the
+            // second one - a false positive for this fixture's own naming scheme, not a real
+            // duplicate a shop would want to be warned about.
             var productId = await products.CreateAsync(new SaveProductCommand(
                 $"RND-{i}", $"Random product {i}", null, null, null, baseUomId,
-                ProductType.Standard, taxClassId, null, false, null, null, null));
+                ProductType.Standard, taxClassId, null, false, null, null, null, ConfirmDuplicate: true));
 
             variantIds.Add(await products.CreateVariantAsync(
                 productId,
