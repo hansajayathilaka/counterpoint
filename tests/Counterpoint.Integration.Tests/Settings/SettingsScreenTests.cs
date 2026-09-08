@@ -356,6 +356,23 @@ public sealed class SettingsScreenTests
     }
 
     [Fact]
+    public async Task FR_10_4_TheStartingNumberBoxIsDisabledOnTheGeneralSettingsScreen()
+    {
+        // This screen is only ever reached after first run, so ConfigureAsync - not
+        // InitialiseAsync - is what a save here goes through, and it silently ignores whatever is
+        // typed into "Starts at" (CLAUDE.md invariant 4). The box must say so rather than accept
+        // keystrokes that do nothing (unlike FirstRunWizardViewModel.BillNumbering, where the same
+        // box is real).
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        using var screen = Open(fixture);
+
+        foreach (var series in screen.Numbering.Series)
+        {
+            series.IsStartingNumberEditable.Should().BeFalse(series.Title);
+        }
+    }
+
+    [Fact]
     public async Task AC_17_ACashierAtTheSettingsScreenIsRefusedAndToldWhyRatherThanCrashing()
     {
         await using var fixture = await SignedInAsCashierAsync();

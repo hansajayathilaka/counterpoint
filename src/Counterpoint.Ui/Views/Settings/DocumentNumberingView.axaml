@@ -20,8 +20,18 @@
       <TextBox Grid.Column="3" Margin="8,0,0,0" Text="{Binding Pattern}" />
 
       <TextBlock Grid.Column="4" Margin="16,0,0,0" VerticalAlignment="Center" Text="Starts at" />
-      <TextBox Grid.Column="5" Margin="8,0,0,0" Text="{Binding StartingNumber}" />
+      <TextBox Grid.Column="5" Margin="8,0,0,0"
+               Text="{Binding StartingNumber}"
+               IsEnabled="{Binding IsStartingNumberEditable}"
+               ToolTip.Tip="Set once during first-run setup; a document number, once issued, is never renumbered."
+               ToolTip.ShowOnDisabled="True" />
     </Grid>
+
+    <!-- Explains the disabled "Starts at" box without requiring a hover, for the general
+         settings screen (NumberingSettingsViewModel) - the first-run wizard never shows this. -->
+    <TextBlock IsVisible="{Binding !IsStartingNumberEditable}"
+               FontSize="12" Opacity="0.7" Margin="0,2,0,0"
+               Text="Set once during first-run setup; a document number, once issued, is never renumbered." />
 
   </StackPanel>
 

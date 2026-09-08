@@ -23,6 +23,18 @@ public sealed partial class DocumentNumberingViewModel : NumericInputViewModel
     [ObservableProperty]
     private string _pattern = string.Empty;
 
+    /// <summary>
+    /// Whether the "Starts at" box does anything if the shop types into it. True by default, for
+    /// the first-run wizard, where <see cref="StartingNumber"/> flows to
+    /// <c>INumberSequenceConfiguration.InitialiseAsync</c> and really does set the series's first
+    /// number. The general settings screen (<c>NumberingSettingsViewModel</c>) sets this false: a
+    /// series it loads has already issued its first number or is at least past first run, and its
+    /// save path is <c>ConfigureAsync</c>, which silently refuses to move an existing counter
+    /// (CLAUDE.md invariant 4). Leaving the box live there invites a keystroke nothing acts on.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isStartingNumberEditable = true;
+
     public DocumentNumberingViewModel(string title)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);

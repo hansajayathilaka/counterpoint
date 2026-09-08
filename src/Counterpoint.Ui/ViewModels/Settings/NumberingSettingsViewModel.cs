@@ -38,6 +38,18 @@ public sealed class NumberingSettingsViewModel : SettingsGroupViewModel
     public IReadOnlyList<DocumentNumberingViewModel> Series =>
         [Bill, Return, CreditNote, GoodsReceipt, PurchaseOrder, Shift];
 
+    public NumberingSettingsViewModel()
+    {
+        // This screen is only ever reached after first run, so every series it shows has already
+        // gone through the wizard - ConfigureAsync (not InitialiseAsync) silently ignores a
+        // "Starts at" edit here (CLAUDE.md invariant 4). Disable the box rather than let it look
+        // live and do nothing.
+        foreach (var series in Series)
+        {
+            series.IsStartingNumberEditable = false;
+        }
+    }
+
     /// <inheritdoc />
     public override IEnumerable<INotifyPropertyChanged> Children => Series;
 

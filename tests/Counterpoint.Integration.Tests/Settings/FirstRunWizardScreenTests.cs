@@ -180,6 +180,18 @@ public sealed class FirstRunWizardScreenTests
         wizard.TaxClasses.Should().ContainSingle();
     }
 
+    [Fact]
+    public async Task P1_T03_TheWizardsStartingNumberBoxIsLive()
+    {
+        await using var fixture = await SaleFixture.CreateAsync();
+
+        var wizard = Open(fixture);
+
+        wizard.BillNumbering.IsStartingNumberEditable.Should().BeTrue(
+            "the wizard's starting number really does set the counter "
+            + "(INumberSequenceConfiguration.InitialiseAsync), unlike the general settings screen");
+    }
+
     /// <summary>Builds the wizard and opens it, which fills the pages with the shop's defaults.</summary>
     private static FirstRunWizardViewModel Open(SaleFixture fixture)
     {
