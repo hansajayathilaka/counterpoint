@@ -158,12 +158,28 @@ public static class SettingDefaults
         ShowTaxRegistrationNumber: true);
 
     /// <summary>
+    /// FR-2.10, FR-2.12. A common small shelf-label size (40 x 30 mm on a 2 mm gap), every field
+    /// shown, one copy proposed per product - the owner narrows it down from here (P1-T12).
+    /// <c>HW-T03</c> confirms these against the shop's own label stock.
+    /// </summary>
+    public static LabelSettings Label { get; } = new(
+        WidthMm: 40,
+        HeightMm: 30,
+        GapMm: 2,
+        ShowProductName: true,
+        ShowCode: true,
+        ShowBarcode: true,
+        ShowUnit: true,
+        ShowPrice: true,
+        DefaultQuantityPerLabel: 1);
+
+    /// <summary>
     /// The whole default set. An immutable value, so handing it out costs nothing and nobody can
     /// mutate the defaults from under the next reader.
     /// </summary>
     /// <remarks>
     /// Declared last on purpose: static property initialisers run in declaration order, so this
-    /// one has to come after the eight groups it is built from.
+    /// one has to come after the nine groups it is built from.
     /// </remarks>
     public static SettingsSnapshot Snapshot { get; } = new(
         Shop,
@@ -173,5 +189,6 @@ public static class SettingDefaults
         Policy,
         Peripherals,
         Backup,
-        Receipt);
+        Receipt,
+        Label);
 }

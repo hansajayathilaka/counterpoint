@@ -57,6 +57,7 @@ public sealed class SettingDefaultsTests
             ["peripheral."] = "FR-10.6 peripherals",
             ["backup."] = "FR-10.7 backup",
             ["receipt."] = "FR-10.8 receipt template",
+            ["label."] = "FR-2.10, FR-2.12 label layout",
         };
 
         foreach (var (prefix, requirement) in groups)
@@ -317,7 +318,17 @@ public sealed class SettingDefaultsTests
             ShowItemAndUnitCount: false,
             ShowTaxSummary: false,
             ShowTaxableValue: false,
-            ShowTaxRegistrationNumber: false));
+            ShowTaxRegistrationNumber: false),
+        new LabelSettings(
+            WidthMm: 50,
+            HeightMm: 25,
+            GapMm: 3,
+            ShowProductName: false,
+            ShowCode: false,
+            ShowBarcode: false,
+            ShowUnit: false,
+            ShowPrice: false,
+            DefaultQuantityPerLabel: 5));
 
     /// <summary>Every key constant declared on <see cref="SettingKeys"/>.</summary>
     private static HashSet<string> DeclaredKeys() =>

@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
+using Counterpoint.Ui.ViewModels.Labels;
 using Counterpoint.Ui.ViewModels.Settings;
 using Counterpoint.Ui.Views;
 
@@ -35,6 +36,7 @@ public partial class App : Avalonia.Application
     private readonly SalesViewModel? _salesViewModel;
     private readonly UserAdminViewModel? _userAdminViewModel;
     private readonly CatalogueViewModel? _catalogueViewModel;
+    private readonly LabelPrintViewModel? _labelPrintViewModel;
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly FirstRunWizardViewModel? _firstRunViewModel;
     private readonly bool _firstRunRequired;
@@ -57,6 +59,7 @@ public partial class App : Avalonia.Application
         SalesViewModel salesViewModel,
         UserAdminViewModel userAdminViewModel,
         CatalogueViewModel catalogueViewModel,
+        LabelPrintViewModel labelPrintViewModel,
         SettingsViewModel settingsViewModel,
         FirstRunWizardViewModel firstRunViewModel,
         bool firstRunRequired)
@@ -65,6 +68,7 @@ public partial class App : Avalonia.Application
         ArgumentNullException.ThrowIfNull(salesViewModel);
         ArgumentNullException.ThrowIfNull(userAdminViewModel);
         ArgumentNullException.ThrowIfNull(catalogueViewModel);
+        ArgumentNullException.ThrowIfNull(labelPrintViewModel);
         ArgumentNullException.ThrowIfNull(settingsViewModel);
         ArgumentNullException.ThrowIfNull(firstRunViewModel);
 
@@ -72,6 +76,7 @@ public partial class App : Avalonia.Application
         _salesViewModel = salesViewModel;
         _userAdminViewModel = userAdminViewModel;
         _catalogueViewModel = catalogueViewModel;
+        _labelPrintViewModel = labelPrintViewModel;
         _settingsViewModel = settingsViewModel;
         _firstRunViewModel = firstRunViewModel;
         _firstRunRequired = firstRunRequired;
@@ -162,6 +167,7 @@ public partial class App : Avalonia.Application
         var sales = new SalesWindow { DataContext = _salesViewModel };
         _salesViewModel.ManageUsersRequested += (_, _) => ShowUsers(sales);
         _salesViewModel.CatalogueRequested += (_, _) => ShowCatalogue(sales);
+        _salesViewModel.LabelPrintRequested += (_, _) => ShowLabelPrint(sales);
         _salesViewModel.SettingsRequested += (_, _) => ShowSettings(sales);
 
         var login = desktop.MainWindow;
@@ -196,6 +202,20 @@ public partial class App : Avalonia.Application
 
         var window = new CatalogueWindow { DataContext = _catalogueViewModel };
         _catalogueViewModel.LoadCommand.Execute(null);
+        window.Show(owner);
+    }
+
+    /// <summary>
+    /// Opens the label-printing screen (SRS FR-2.10, FR-2.12).
+    /// </summary>
+    private void ShowLabelPrint(Window owner)
+    {
+        if (_labelPrintViewModel is null)
+        {
+            return;
+        }
+
+        var window = new LabelPrintWindow { DataContext = _labelPrintViewModel };
         window.Show(owner);
     }
 

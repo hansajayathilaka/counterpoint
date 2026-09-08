@@ -45,6 +45,7 @@ public static class SettingsSerializer
         AppendPeripherals(rows, snapshot.Peripherals);
         AppendBackup(rows, snapshot.Backup);
         AppendReceipt(rows, snapshot.Receipt);
+        AppendLabel(rows, snapshot.Label);
 
         return rows;
     }
@@ -73,7 +74,8 @@ public static class SettingsSerializer
             ReadPolicy(rows, fallback.Policy),
             ReadPeripherals(rows, fallback.Peripherals),
             ReadBackup(rows, fallback.Backup),
-            ReadReceipt(rows, fallback.Receipt));
+            ReadReceipt(rows, fallback.Receipt),
+            ReadLabel(rows, fallback.Label));
     }
 
     // ---- FR-10.1 Shop profile ----------------------------------------------------------------
@@ -378,6 +380,34 @@ public static class SettingsSerializer
             ReadBool(rows, SettingKeys.ReceiptShowTaxSummary, fallback.ShowTaxSummary),
             ReadBool(rows, SettingKeys.ReceiptShowTaxableValue, fallback.ShowTaxableValue),
             ReadBool(rows, SettingKeys.ReceiptShowTaxRegistrationNumber, fallback.ShowTaxRegistrationNumber));
+
+    // ---- FR-2.10, FR-2.12 Label layout ----------------------------------------------------
+
+    private static void AppendLabel(List<SettingRow> rows, LabelSettings label)
+    {
+        rows.Add(Integer(SettingKeys.LabelWidthMm, label.WidthMm));
+        rows.Add(Integer(SettingKeys.LabelHeightMm, label.HeightMm));
+        rows.Add(Integer(SettingKeys.LabelGapMm, label.GapMm));
+        rows.Add(Boolean(SettingKeys.LabelShowProductName, label.ShowProductName));
+        rows.Add(Boolean(SettingKeys.LabelShowCode, label.ShowCode));
+        rows.Add(Boolean(SettingKeys.LabelShowBarcode, label.ShowBarcode));
+        rows.Add(Boolean(SettingKeys.LabelShowUnit, label.ShowUnit));
+        rows.Add(Boolean(SettingKeys.LabelShowPrice, label.ShowPrice));
+        rows.Add(Integer(SettingKeys.LabelDefaultQuantityPerLabel, label.DefaultQuantityPerLabel));
+    }
+
+    private static LabelSettings ReadLabel(
+        IReadOnlyDictionary<string, StoredSetting> rows,
+        LabelSettings fallback) => new(
+            ReadInt(rows, SettingKeys.LabelWidthMm, fallback.WidthMm),
+            ReadInt(rows, SettingKeys.LabelHeightMm, fallback.HeightMm),
+            ReadInt(rows, SettingKeys.LabelGapMm, fallback.GapMm),
+            ReadBool(rows, SettingKeys.LabelShowProductName, fallback.ShowProductName),
+            ReadBool(rows, SettingKeys.LabelShowCode, fallback.ShowCode),
+            ReadBool(rows, SettingKeys.LabelShowBarcode, fallback.ShowBarcode),
+            ReadBool(rows, SettingKeys.LabelShowUnit, fallback.ShowUnit),
+            ReadBool(rows, SettingKeys.LabelShowPrice, fallback.ShowPrice),
+            ReadInt(rows, SettingKeys.LabelDefaultQuantityPerLabel, fallback.DefaultQuantityPerLabel));
 
     // ---- Row builders ------------------------------------------------------------------------
 

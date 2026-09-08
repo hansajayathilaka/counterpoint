@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Inventory;
+using Counterpoint.Application.Labels;
 using Counterpoint.Application.Pricing;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
@@ -18,6 +19,7 @@ using Counterpoint.Infrastructure.DependencyInjection;
 using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
+using Counterpoint.Ui.ViewModels.Labels;
 using Counterpoint.Ui.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -101,6 +103,15 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<ProductTabViewModel>();
 
         builder.Services.AddSingleton<CatalogueViewModel>();
+
+        // P1-T12: label printing (SRS FR-2.10, FR-2.12). ILabelPrintService is owner-only, wired
+        // exactly as the catalogue-maintenance interfaces are in AddCounterpointCatalogue; it
+        // lives here instead because it depends on ILabelPrinter/ILabelRenderer, which only exist
+        // once AddCounterpointDevices has run above.
+        builder.Services.AddSingleton<ILabelPrintService>(p => RoleAuthorisation.Decorate<ILabelPrintService>(
+            ActivatorUtilities.CreateInstance<LabelPrintService>(p),
+            p.GetRequiredService<ISession>()));
+        builder.Services.AddSingleton<LabelPrintViewModel>();
 
         // The settings screen is handed the one thing it cannot get from Counterpoint.Ui: a way
         // back onto the thread the window lives on. ISettings.Changed is raised by whichever
