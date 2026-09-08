@@ -143,3 +143,12 @@ it stopped.
 
 **Run ended 2026-09-08T15:18:38Z** — 2 completed, 0 halted
 - `2026-09-08T18:28:35Z` **P1-T07** note — CI fix after main merge: PR #17's Build-and-test job failed because P1-T06 (merged to main while this PR was open) introduced FR-2.24 duplicate-name detection that legitimately fired on RebuildStockBalanceCommandTests' generated near-identical product names; fixed by setting ConfirmDuplicate:true in the test fixture (commit 53895ea)
+
+## Run 2026-09-08T18:45:08Z
+
+- branch: `claude/pensive-hypatia-ybtaco`
+- head: `482a677`
+- budget: 2 task(s)
+
+- `2026-09-08T18:45:18Z` **P1-T08** start — Pricing and discount engine
+- `2026-09-08T18:46:06Z` **P1-T08** start — task-implementer delegated
