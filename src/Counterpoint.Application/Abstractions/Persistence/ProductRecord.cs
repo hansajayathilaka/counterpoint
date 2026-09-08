@@ -8,12 +8,13 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// (docs/01_DATA_MODEL.md §3, SRS FR-2.1-FR-2.8).
 /// </summary>
 /// <remarks>
-/// Carries <see cref="CostAvg"/>. That is safe only because <c>IProductMaintenance</c>, the one
-/// port this record is returned from, is owner-only end to end (SRS §3.3 ROLE-2, NFR-S2, AC-17) -
-/// the same reasoning that lets <c>Counterpoint.Application.Inventory.StockEnquiryResult</c> carry
-/// cost. It is not the cashier-facing catalogue read: that is
-/// <c>Counterpoint.Application.Abstractions.Persistence.CatalogueItem</c>, and it stays cost-free
-/// (CLAUDE.md invariant 8).
+/// Deliberately cost-free. <see cref="IProductStore.FindByIdAsync"/> is not owner-gated on its
+/// own - it is also reachable through <c>IStockEnquiry</c>, which any cashier session can call
+/// (CLAUDE.md invariant 8). Owner-only reads that need cost use their own purpose-built type
+/// instead, e.g. <c>PriceQueryVariant</c> for <c>IPriceQuery</c>, or a narrow single-value read
+/// such as <c>IProductStore.FindCostAvgAsync</c> for the below-cost check in
+/// <c>ProductMaintenanceService</c>, which is called only from the owner-gated
+/// <c>IProductMaintenance</c>.
 /// </remarks>
 public sealed record ProductRecord(
     long Id,
@@ -34,5 +35,4 @@ public sealed record ProductRecord(
     int? WarrantyDays,
     string? Notes,
     Percentage? MaxDiscountRate,
-    bool Active,
-    Money CostAvg);
+    bool Active);

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Domain.ValueObjects;
 
 namespace Counterpoint.Application.Abstractions.Persistence;
 
@@ -20,6 +21,16 @@ public interface IProductStore
     public Task<IReadOnlyList<ProductSummaryRecord>> ListAsync(CancellationToken cancellationToken = default);
 
     public Task<ProductRecord?> FindByIdAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The product's moving average cost alone, for the below-cost check
+    /// (<c>ProductMaintenanceService.RequireAboveCostOrConfirmed</c>, SRS FR-2.18). Deliberately not
+    /// part of <see cref="ProductRecord"/>: that type is also returned from this same port's
+    /// <see cref="FindByIdAsync"/>, which is reachable outside the owner-only
+    /// <c>IProductMaintenance</c> (via <c>IStockEnquiry</c>), and cost must not travel on it
+    /// (CLAUDE.md invariant 8). Null when there is no product with this id.
+    /// </summary>
+    public Task<Money?> FindCostAvgAsync(long productId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Every active product's name and brand - the FR-2.24 duplicate-on-creation check's search

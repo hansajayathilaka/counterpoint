@@ -179,9 +179,10 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
     /// <inheritdoc />
     public async Task<long> CreateVariantAsync(long productId, SaveProductVariantCommand command, CancellationToken cancellationToken = default)
     {
-        var product = await RequireProductAsync(productId, cancellationToken).ConfigureAwait(false);
+        await RequireProductAsync(productId, cancellationToken).ConfigureAwait(false);
         var validated = await ValidateVariantAsync(command, excludingId: null, cancellationToken).ConfigureAwait(false);
-        RequireAboveCostOrConfirmed(validated.Price, product.CostAvg, validated.ConfirmBelowCost);
+        var costAvg = await RequireCostAvgAsync(productId, cancellationToken).ConfigureAwait(false);
+        RequireAboveCostOrConfirmed(validated.Price, costAvg, validated.ConfirmBelowCost);
         var now = _timeProvider.GetLocalNow();
 
         return await _unitOfWork.ExecuteInTransactionAsync(
@@ -207,9 +208,10 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
     public async Task UpdateVariantAsync(long variantId, SaveProductVariantCommand command, CancellationToken cancellationToken = default)
     {
         var existing = await RequireVariantAsync(variantId, cancellationToken).ConfigureAwait(false);
-        var product = await RequireProductAsync(existing.ProductId, cancellationToken).ConfigureAwait(false);
+        await RequireProductAsync(existing.ProductId, cancellationToken).ConfigureAwait(false);
         var validated = await ValidateVariantAsync(command, excludingId: variantId, cancellationToken).ConfigureAwait(false);
-        RequireAboveCostOrConfirmed(validated.Price, product.CostAvg, validated.ConfirmBelowCost);
+        var costAvg = await RequireCostAvgAsync(existing.ProductId, cancellationToken).ConfigureAwait(false);
+        RequireAboveCostOrConfirmed(validated.Price, costAvg, validated.ConfirmBelowCost);
         var now = _timeProvider.GetLocalNow();
         var actor = RequireActor();
 
@@ -653,6 +655,16 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
         ?? throw new InvalidOperationException(string.Create(
             CultureInfo.InvariantCulture,
             $"There is no product with id {id}. It may have been removed since this screen was opened."));
+
+    /// <summary>
+    /// The below-cost check's (FR-2.18) narrow read of just the cost, deliberately not carried on
+    /// <see cref="ProductRecord"/> (CLAUDE.md invariant 8 - see that type's remarks).
+    /// </summary>
+    private async Task<Money> RequireCostAvgAsync(long productId, CancellationToken cancellationToken) =>
+        await _products.FindCostAvgAsync(productId, cancellationToken).ConfigureAwait(false)
+        ?? throw new InvalidOperationException(string.Create(
+            CultureInfo.InvariantCulture,
+            $"There is no product with id {productId}. It may have been removed since this screen was opened."));
 
     private async Task<ProductVariantRecord> RequireVariantAsync(long variantId, CancellationToken cancellationToken) =>
         await _products.FindVariantByIdAsync(variantId, cancellationToken).ConfigureAwait(false)
