@@ -129,3 +129,4 @@ it stopped.
 **Run ended 2026-09-08T08:03:59Z** — 2 completed, 0 halted
 - `2026-09-08T14:20:24Z` **P1-T07** start — Stock ledger and balance projection
 - `2026-09-08T14:51:11Z` **P1-T07** note — corrected premature self-mark by task-implementer; resuming normal B4-B8 loop (test-engineer, verify, review) before re-judging done
+- `2026-09-08T15:08:59Z` **P1-T07** fix-attempt — 1: SqliteStockConsistencyCheck.CheckAsync reports mismatch quantities as raw scaled longs instead of descaled Quantity values (code-reviewer must-fix)
