@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
 
@@ -90,7 +91,14 @@ internal sealed partial class SqliteStockConsistencyCheck : IStockConsistencyChe
 
                 if (projected != ledgered)
                 {
-                    mismatches.Add(new StockConsistencyMismatch(variantId, projected, ledgered));
+                    // The raw longs are the scaled storage form (CLAUDE.md invariant 1). Neither
+                    // row here carries a UOM to hang a full Quantity off, so descale with the
+                    // value object's own published scale rather than a magic 10 000 - the report
+                    // (and its XML doc) promise base-unit decimals, not storage integers.
+                    var projectedQty = projected / (decimal)Quantity.QtyScale;
+                    var ledgeredQty = ledgered / (decimal)Quantity.QtyScale;
+
+                    mismatches.Add(new StockConsistencyMismatch(variantId, projectedQty, ledgeredQty));
                     VariantMismatched(variantId, projected, ledgered);
                 }
             }

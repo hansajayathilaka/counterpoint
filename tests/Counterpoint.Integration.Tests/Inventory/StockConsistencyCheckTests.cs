@@ -41,5 +41,12 @@ public sealed class StockConsistencyCheckTests
 
         report.HasMismatch.Should().BeTrue();
         report.Mismatches.Should().ContainSingle();
+
+        // The corruption above added 999999 to the *scaled* storage column, i.e. 99.9999 real
+        // units (CLAUDE.md invariant 1). The reported mismatch must be in the same base-unit
+        // decimals IStockConsistencyCheck's own XML doc promises, not the raw scaled integer -
+        // otherwise a real 99.9999-unit drift would be misreported as a 999999-unit one.
+        var mismatch = report.Mismatches.Single();
+        (mismatch.ProjectedQtyBase - mismatch.LedgerQtyBase).Should().Be(99.9999m);
     }
 }
