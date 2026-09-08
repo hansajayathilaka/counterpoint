@@ -46,19 +46,24 @@ public sealed class NoHardCodedBusinessValuesTests
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(5));
 
-    /// <summary>A tax rate built from a number written in the source.</summary>
+    /// <summary>
+    /// A tax rate built from a number written in the source. <c>\s</c> already matches a newline,
+    /// so this tolerates the call being wrapped across lines, e.g.
+    /// <c>TaxRate.FromPercent(\n 15m)</c> - as long as it is run against the whole file's code,
+    /// not line by line (see <see cref="FindMatches"/>).
+    /// </summary>
     private static readonly Regex LiteralTaxRate = new(
-        @"TaxRate\.From(?:Percent|Fraction)\(\s*(?<value>-?[0-9][0-9_]*(?:\.[0-9]+)?)m?\s*\)",
+        @"TaxRate\.From(?:Percent|Fraction)\s*\(\s*(?<value>-?[0-9][0-9_]*(?:\.[0-9]+)?)m?\s*\)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(5));
 
-    /// <summary>A discount or fee limit built from a number written in the source.</summary>
+    /// <summary>A discount or fee limit built from a number written in the source. See <see cref="LiteralTaxRate"/> for why <c>\s</c> is enough to span lines.</summary>
     private static readonly Regex LiteralPercentage = new(
-        @"Percentage\.From(?:Percent|Fraction)\(\s*(?<value>-?[0-9][0-9_]*(?:\.[0-9]+)?)m?\s*\)",
+        @"Percentage\.From(?:Percent|Fraction)\s*\(\s*(?<value>-?[0-9][0-9_]*(?:\.[0-9]+)?)m?\s*\)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(5));
 
-    /// <summary>A rounding policy built with a decimal-place count written in the source.</summary>
+    /// <summary>A rounding policy built with a decimal-place count written in the source. See <see cref="LiteralTaxRate"/> for why <c>\s</c> is enough to span lines.</summary>
     private static readonly Regex ConstructedRoundingPolicy = new(
         @"new\s+Half(?:AwayFromZero|ToEven)Rounding\s*\(",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
@@ -105,12 +110,10 @@ public sealed class NoHardCodedBusinessValuesTests
                 continue;
             }
 
-            foreach (var (line, number) in CodeLines(file))
-            {
-                offenders.AddRange(
-                    from Match match in LiteralTaxRate.Matches(line)
-                    select Describe(file, number, "tax rate " + match.Groups["value"].Value));
-            }
+            offenders.AddRange(FindMatches(
+                file,
+                LiteralTaxRate,
+                match => "tax rate " + match.Groups["value"].Value));
         }
 
         offenders.Should().BeEmpty(
@@ -130,12 +133,10 @@ public sealed class NoHardCodedBusinessValuesTests
                 continue;
             }
 
-            foreach (var (line, number) in CodeLines(file))
-            {
-                offenders.AddRange(
-                    from Match match in LiteralPercentage.Matches(line)
-                    select Describe(file, number, "rate " + match.Groups["value"].Value));
-            }
+            offenders.AddRange(FindMatches(
+                file,
+                LiteralPercentage,
+                match => "rate " + match.Groups["value"].Value));
         }
 
         offenders.Should().BeEmpty(
@@ -157,19 +158,133 @@ public sealed class NoHardCodedBusinessValuesTests
                 continue;
             }
 
-            foreach (var (line, number) in CodeLines(file))
-            {
-                if (ConstructedRoundingPolicy.IsMatch(line))
-                {
-                    offenders.Add(Describe(file, number, "a rounding policy built by hand"));
-                }
-            }
+            offenders.AddRange(FindMatches(
+                file,
+                ConstructedRoundingPolicy,
+                _ => "a rounding policy built by hand"));
         }
 
         offenders.Should().BeEmpty(
             "the decimal places and the rounding rule come from settings through "
             + "RoundingPolicyFactory and SettingsRoundingPolicy, so a change takes effect without "
             + "a restart (FR-10.2). Offenders: " + string.Join("; ", offenders));
+    }
+
+    /// <summary>
+    /// The blind spot this test class had before this fix: a call is only an "offender" to the
+    /// original, line-by-line version of these checks if the whole thing - method name, paren
+    /// and literal - sits on one line. Wrap the same call across two lines and it used to slip
+    /// through undetected. These regression tests write a synthetic file to a temp directory and
+    /// scan it with the real <see cref="FindMatches"/> plumbing to prove that no longer happens.
+    /// </summary>
+    public sealed class MultiLineOffendersAreStillCaught : IDisposable
+    {
+        private readonly string _directory = Path.Combine(
+            Path.GetTempPath(),
+            "counterpoint-hardcoded-values-" + Guid.NewGuid().ToString("N"));
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_directory))
+            {
+                Directory.Delete(_directory, recursive: true);
+            }
+        }
+
+        [Fact]
+        public void AMultiLineTaxRateCallIsCaught()
+        {
+            var file = WriteFile(
+                "MultiLineTaxRate.cs",
+                """
+                internal sealed class Offender
+                {
+                    private static readonly TaxRate Rate = TaxRate.FromPercent(
+                        15m);
+                }
+                """);
+
+            var offenders = FindMatches(
+                file,
+                LiteralTaxRate,
+                match => "tax rate " + match.Groups["value"].Value).ToList();
+
+            offenders.Should().ContainSingle()
+                .Which.Should().Be("MultiLineTaxRate.cs:3 tax rate 15");
+        }
+
+        [Fact]
+        public void AMultiLineDiscountPercentageCallIsCaught()
+        {
+            var file = WriteFile(
+                "MultiLinePercentage.cs",
+                """
+                internal sealed class Offender
+                {
+                    private static readonly Percentage Limit = Percentage.FromPercent(
+                        20m);
+                }
+                """);
+
+            var offenders = FindMatches(
+                file,
+                LiteralPercentage,
+                match => "rate " + match.Groups["value"].Value).ToList();
+
+            offenders.Should().ContainSingle()
+                .Which.Should().Be("MultiLinePercentage.cs:3 rate 20");
+        }
+
+        [Fact]
+        public void AMultiLineRoundingPolicyConstructorCallIsCaught()
+        {
+            var file = WriteFile(
+                "MultiLineRounding.cs",
+                """
+                internal sealed class Offender
+                {
+                    private static readonly IRoundingPolicy Policy = new HalfAwayFromZeroRounding(
+                        2);
+                }
+                """);
+
+            var offenders = FindMatches(
+                file,
+                ConstructedRoundingPolicy,
+                _ => "a rounding policy built by hand").ToList();
+
+            offenders.Should().ContainSingle()
+                .Which.Should().Be("MultiLineRounding.cs:3 a rounding policy built by hand");
+        }
+
+        [Fact]
+        public void ASingleLineOffenderIsStillCaughtOnItsOwnLine()
+        {
+            var file = WriteFile(
+                "SingleLineTaxRate.cs",
+                """
+                internal sealed class Offender
+                {
+                    private static readonly TaxRate Rate = TaxRate.FromPercent(15m);
+                }
+                """);
+
+            var offenders = FindMatches(
+                file,
+                LiteralTaxRate,
+                match => "tax rate " + match.Groups["value"].Value).ToList();
+
+            offenders.Should().ContainSingle()
+                .Which.Should().Be("SingleLineTaxRate.cs:3 tax rate 15");
+        }
+
+        private FileInfo WriteFile(string name, string content)
+        {
+            Directory.CreateDirectory(_directory);
+            var path = Path.Combine(_directory, name);
+            File.WriteAllText(path, content);
+            return new FileInfo(path);
+        }
     }
 
     private static bool IsDefaults(FileInfo file) =>
@@ -203,6 +318,50 @@ public sealed class NoHardCodedBusinessValuesTests
 
             yield return (line, number);
         }
+    }
+
+    /// <summary>
+    /// Runs <paramref name="regex"/> against a file's code as a single joined string, rather than
+    /// line by line, so a call split across lines (e.g. <c>TaxRate.FromPercent(\n  15m)</c>) is
+    /// still caught. Comment lines are left out exactly as <see cref="CodeLines"/> already leaves
+    /// them out. Each match is reported against the original source line it starts on, computed
+    /// by counting the newlines that precede it in the joined text.
+    /// </summary>
+    private static IEnumerable<string> FindMatches(
+        FileInfo file, Regex regex, Func<Match, string> what)
+    {
+        var lines = CodeLines(file).ToArray();
+
+        if (lines.Length == 0)
+        {
+            yield break;
+        }
+
+        var joined = string.Join('\n', lines.Select(codeLine => codeLine.Line));
+
+        foreach (Match match in regex.Matches(joined))
+        {
+            var row = CountNewlinesBefore(joined, match.Index);
+            var number = lines[Math.Min(row, lines.Length - 1)].Number;
+
+            yield return Describe(file, number, what(match));
+        }
+    }
+
+    /// <summary>The number of '\n' characters in <paramref name="text"/> before <paramref name="index"/> - the row, within the joined code lines, that a match index falls on.</summary>
+    private static int CountNewlinesBefore(string text, int index)
+    {
+        var count = 0;
+
+        for (var i = 0; i < index; i++)
+        {
+            if (text[i] == '\n')
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static string Describe(FileInfo file, int line, string what) =>
