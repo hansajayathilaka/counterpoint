@@ -19,7 +19,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
                 "Counterpoint.Infrastructure.Data.Schema.Uom",
                 typeof(Uom),
                 baseEntityType,
-                propertyCount: 4,
+                propertyCount: 5,
                 unnamedIndexCount: 1,
                 keyCount: 1);
 
@@ -32,6 +32,15 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
                 afterSaveBehavior: PropertySaveBehavior.Throw,
                 sentinel: 0L);
             id.AddAnnotation("Relational:ColumnName", "id");
+
+            var active = runtimeEntityType.AddProperty(
+                "Active",
+                typeof(bool),
+                propertyInfo: typeof(Uom).GetProperty("Active", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly),
+                fieldInfo: typeof(Uom).GetField("<Active>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly),
+                sentinel: true);
+            active.AddAnnotation("Relational:ColumnName", "active");
+            active.AddAnnotation("Relational:DefaultValue", true);
 
             var decimalPlaces = runtimeEntityType.AddProperty(
                 "DecimalPlaces",

@@ -171,8 +171,10 @@ CREATE TABLE uom (
   id             INTEGER PRIMARY KEY,
   name           TEXT NOT NULL UNIQUE,    -- 'Metre', 'Piece', 'Coil'
   symbol         TEXT NOT NULL,           -- 'm', 'pc', 'coil'
-  decimal_places INTEGER NOT NULL DEFAULT 0 CHECK (decimal_places BETWEEN 0 AND 4)
+  decimal_places INTEGER NOT NULL DEFAULT 0 CHECK (decimal_places BETWEEN 0 AND 4),
+  active         INTEGER NOT NULL DEFAULT 1
 );
+-- `active` was added by UomActive0005 (P1-T04 follow-up); see §13.
 
 CREATE TABLE product (
   id                INTEGER PRIMARY KEY,
@@ -1621,9 +1623,12 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 | `FullSchema0002` | P1-T01 | The remaining twenty-five tables of areas A–F, sixteen more indexes, the two `product` foreign keys, the append-only triggers for `cash_movement`, `sale_return` and `sale_return_line`, and the two-level `category` guard |
 | `ProductForeignKeys0003` | P1-T01 | The `product.category_id` and `product.brand_id` foreign keys, and the column order that survives the rebuild they cost. The **only** step of this upgrade that is not one transaction |
 | `ProductSearch0004` | P1-T01 | The `product_search` FTS5 index, its four maintenance triggers and its backfill, split out because `ProductForeignKeys0003` rebuilds `product` (see §8) |
+| `UomActive0005` | P1-T04 | `uom.active INTEGER NOT NULL DEFAULT 1`, matching the `active` column its five catalogue siblings (`category`, `brand`, `tax_class`, `supplier`, `customer`) already carried — a plain `ADD COLUMN`, since `uom` carries no triggers to lose |
 
-Forty tables, forty-four indexes, thirty-one triggers. Three migrations rather than one, and the
-split is not cosmetic — see §8, "One rebuild, alone, in a migration of its own".
+Forty tables, forty-four indexes, thirty-one triggers, laid down across `Skeleton0001` through
+`ProductSearch0004`. Three migrations rather than one for that part, and the split is not
+cosmetic — see §8, "One rebuild, alone, in a migration of its own". `UomActive0005` adds one
+column to an existing table and changes none of those counts.
 
 ### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 

@@ -16,6 +16,7 @@ internal sealed class UomConfiguration : IEntityTypeConfiguration<Uom>
         entity.Property(uom => uom.Name).IsRequired();
         entity.Property(uom => uom.Symbol).IsRequired();
         entity.Property(uom => uom.DecimalPlaces).HasDefaultValue(0).ValueGeneratedNever();
+        entity.Property(uom => uom.Active).HasDefaultValue(true).ValueGeneratedNever();
 
         entity.HasIndex(uom => uom.Name).IsUnique().HasDatabaseName("ux_uom_name");
 
