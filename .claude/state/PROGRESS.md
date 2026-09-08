@@ -172,7 +172,7 @@ Answer before the phase noted. Defaults are in `docs/README.md`.
 | # | Question | Blocks | Answer |
 |---|---|---|---|
 | Q-H | Exact printer and scanner models | **Phase 0 — buy them now** | |
-| Q-16 | Bill number format | P0-T06 | |
+| Q-16 | Bill number format | P0-T06 | `INV-YYYY-NNNNNN`, starting at 1 (docs/Counterpoint_Requirements.md, docs/README.md); matches FirstRunSeeder |
 | Q-01 | Currency and decimal places | P1-T03 | LKR; 2 decimal places |
 | Q-02 | Tax regime and legally required bill fields | P1-T03 | Fully configurable now (tax classes, named rates, inclusive/exclusive toggle, receipt tax fields), defaulting to 0% Exempt; actual regime chosen as data at first-run setup |
 | Q-12 | Cashier discount limits | P1-T08 | Not for now |

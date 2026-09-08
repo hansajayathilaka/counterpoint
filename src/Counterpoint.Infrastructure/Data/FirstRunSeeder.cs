@@ -182,7 +182,7 @@ public sealed class FirstRunSeeder
     private static async Task<long> SeedTaxClassAsync(PosDbContext context, CancellationToken token)
     {
         var existing = await context.Set<TaxClass>()
-            .Where(row => row.Name == "Zero rated")
+            .Where(row => row.Name == "Exempt")
             .Select(row => (long?)row.Id)
             .FirstOrDefaultAsync(token)
             .ConfigureAwait(false);
@@ -192,9 +192,12 @@ public sealed class FirstRunSeeder
             return existing.Value;
         }
 
-        // Zero rated until Q-02 answers what the shop actually charges (P1-T03). A rate the
+        // "Exempt" at 0% until Q-02 answers what the shop actually charges (P1-T03). A rate the
         // skeleton invented would be a wrong number printed on a bill, which is worse than none.
-        var row = new TaxClass { Name = "Zero rated", Rate = TaxRate.Zero, Active = true };
+        // Named to match SettingDefaults.DefaultTaxClassName, so the first-run wizard's own
+        // default seeding (SqliteTaxClassSeed.EnsureAsync, matched by name) completes this same
+        // row instead of creating a second, orphaned zero-rated class.
+        var row = new TaxClass { Name = "Exempt", Rate = TaxRate.Zero, Active = true };
         context.Add(row);
         await context.SaveChangesAsync(token).ConfigureAwait(false);
 

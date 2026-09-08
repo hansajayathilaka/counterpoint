@@ -70,6 +70,27 @@ public sealed class FirstRunSetupTests
     }
 
     [Fact]
+    public async Task FR_10_3_TheSeededDemoTaxClassIsNotDuplicatedByTheWizardsDefault()
+    {
+        // FirstRunSeeder (run by SaleFixture before any test body) already lays down a demo tax
+        // class. When the owner defines no custom tax classes, CompleteAsync falls back to
+        // Settings.Tax.DefaultTaxClassName ("Exempt" - SettingDefaults). Both must land on the
+        // same row: two zero-rated tax classes would leave the seeder's orphaned, still FK'd to
+        // its demo product, alongside the one the wizard actually configured.
+        await using var fixture = await SaleFixture.CreateAsync();
+        var setup = fixture.Resolve<IFirstRunSetup>();
+
+        (await setup.CompleteAsync(Request() with { TaxClasses = [] })).Should().BeTrue();
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM tax_class WHERE name = 'Exempt';"))
+            .Should().Be(1);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM tax_class WHERE name = 'Zero rated';"))
+            .Should().Be(0, "the seeder's demo class and the wizard's default are the same row");
+        (await fixture.CountAsync("SELECT COUNT(*) FROM tax_class;"))
+            .Should().Be(1, "no stray zero-rated row survives alongside 'Exempt'");
+    }
+
+    [Fact]
     public async Task FR_10_TheWizardIsIdempotent()
     {
         await using var fixture = await SaleFixture.CreateAsync();
