@@ -1,8 +1,11 @@
 <Project>
 
   <PropertyGroup>
-    <!-- Set by the release pipeline (.releaserc.json) from the next semver version. Do not edit by hand. -->
-    <Version>0.0.0</Version>
+    <!-- Version comes from MinVer, which derives it from the latest "vX.Y.Z" tag reachable from
+         HEAD (semantic-release creates and pushes that tag; see .releaserc.json). Do not add a
+         <Version> property here - MinVer sets Version/AssemblyVersion/InformationalVersion itself,
+         and an explicit <Version> would silently override it. -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
@@ -18,6 +21,10 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MinVer" PrivateAssets="All" />
+  </ItemGroup>
 
   <!-- Money must never be a floating point number. CA1305/CS1591 style rules that
        would otherwise be warnings are errors here on purpose (see CLAUDE.md). -->

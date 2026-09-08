@@ -6,6 +6,13 @@
 
   <!-- Versions are pinned centrally so every project agrees.
        Bump deliberately, one package per PR, with a note in docs/adr/. -->
+  <ItemGroup Label="Build">
+    <!-- Build-time only (PrivateAssets="All" in Directory.Build.props): stamps Version /
+         AssemblyVersion / InformationalVersion from the latest "vX.Y.Z" git tag instead of a
+         hand-edited or CI-committed <Version> property. See Directory.Build.props. -->
+    <PackageVersion Include="MinVer" Version="6.0.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Data">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <!-- ".Core" on purpose: the plain Microsoft.EntityFrameworkCore.Sqlite package drags in
