@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Inventory;
+using Counterpoint.Application.Pricing;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -62,6 +63,13 @@ internal static class CounterpointHostBuilderExtensions
 
         builder.Services.AddCounterpointSecurity();
         builder.Services.AddCounterpointCatalogue();
+
+        // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19, FR-3.7-FR-3.10, Q-12).
+        // IDiscountAuthorisationService is not owner-only - a cashier applies a discount inside
+        // the cap without needing anyone's role, and going over it is gated by an OverrideToken,
+        // not RequiresRoleAttribute - so it is registered plain, undecorated, the same as
+        // IRoundingPolicy above.
+        builder.Services.AddSingleton<IDiscountAuthorisationService, DiscountAuthorisationService>();
 
         // Resolved a second time, deliberately: AddCounterpointInfrastructure resolves and
         // registers its own PosDataDirectory internally and does not hand it back, and changing
@@ -257,6 +265,12 @@ internal static class CounterpointHostBuilderExtensions
         // by AddCounterpointInfrastructure and never appear here.
         services.AddSingleton<IBarcodeMaintenance>(p => RoleAuthorisation.Decorate<IBarcodeMaintenance>(
             ActivatorUtilities.CreateInstance<BarcodeMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P1-T08: bulk price update by category, brand or supplier (SRS FR-2.19) - wired exactly
+        // as the eight above.
+        services.AddSingleton<IBulkPriceUpdateService>(p => RoleAuthorisation.Decorate<IBulkPriceUpdateService>(
+            ActivatorUtilities.CreateInstance<BulkPriceUpdateService>(p),
             p.GetRequiredService<ISession>()));
 
         return services;

@@ -105,6 +105,16 @@ public static class InfrastructureServiceCollectionExtensions
         // P1-T05: product, variant and UOM conversion maintenance (SRS FR-2.1-FR-2.8, FR-3.6, AC-08).
         services.AddSingleton<IProductStore, SqliteProductStore>();
 
+        // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19). IPriceChangeLogStore and
+        // IPriceQuery are read/maintenance ports with no role requirement of their own - the
+        // owner-only surfaces built on top of them (IProductMaintenance's price change,
+        // IBulkPriceUpdateService) are wired decorated in the composition root, the same as
+        // IProductStore above. IPriceTierQuery is read-only until P5-T01 adds the maintenance
+        // screen that writes price_tier rows.
+        services.AddSingleton<IPriceChangeLogStore, SqlitePriceChangeLogStore>();
+        services.AddSingleton<IPriceTierQuery, SqlitePriceTierQuery>();
+        services.AddSingleton<IPriceQuery, SqlitePriceQuery>();
+
         // P1-T06: barcodes and product search (SRS FR-2.9-2.12, FR-2.24, NFR-P1, NFR-P2).
         // IProductSearchService and IReindexSearchCommand are read/maintenance ports with no
         // role requirement of their own - IProductSearchService is on the counter-search path a

@@ -27,6 +27,7 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
     private readonly IBrandStore _brands;
     private readonly IUomStore _uoms;
     private readonly ITaxClassStore _taxClasses;
+    private readonly IPriceChangeLogStore _priceChangeLog;
     private readonly IAuditTrail _audit;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISession _session;
@@ -38,6 +39,7 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
         IBrandStore brands,
         IUomStore uoms,
         ITaxClassStore taxClasses,
+        IPriceChangeLogStore priceChangeLog,
         IAuditTrail audit,
         IUnitOfWork unitOfWork,
         ISession session,
@@ -48,6 +50,7 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
         ArgumentNullException.ThrowIfNull(brands);
         ArgumentNullException.ThrowIfNull(uoms);
         ArgumentNullException.ThrowIfNull(taxClasses);
+        ArgumentNullException.ThrowIfNull(priceChangeLog);
         ArgumentNullException.ThrowIfNull(audit);
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(session);
@@ -58,6 +61,7 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
         _brands = brands;
         _uoms = uoms;
         _taxClasses = taxClasses;
+        _priceChangeLog = priceChangeLog;
         _audit = audit;
         _unitOfWork = unitOfWork;
         _session = session;
@@ -175,8 +179,9 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
     /// <inheritdoc />
     public async Task<long> CreateVariantAsync(long productId, SaveProductVariantCommand command, CancellationToken cancellationToken = default)
     {
-        await RequireProductAsync(productId, cancellationToken).ConfigureAwait(false);
+        var product = await RequireProductAsync(productId, cancellationToken).ConfigureAwait(false);
         var validated = await ValidateVariantAsync(command, excludingId: null, cancellationToken).ConfigureAwait(false);
+        RequireAboveCostOrConfirmed(validated.Price, product.CostAvg, validated.ConfirmBelowCost);
         var now = _timeProvider.GetLocalNow();
 
         return await _unitOfWork.ExecuteInTransactionAsync(
@@ -202,13 +207,26 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
     public async Task UpdateVariantAsync(long variantId, SaveProductVariantCommand command, CancellationToken cancellationToken = default)
     {
         var existing = await RequireVariantAsync(variantId, cancellationToken).ConfigureAwait(false);
+        var product = await RequireProductAsync(existing.ProductId, cancellationToken).ConfigureAwait(false);
         var validated = await ValidateVariantAsync(command, excludingId: variantId, cancellationToken).ConfigureAwait(false);
+        RequireAboveCostOrConfirmed(validated.Price, product.CostAvg, validated.ConfirmBelowCost);
         var now = _timeProvider.GetLocalNow();
+        var actor = RequireActor();
 
         await _unitOfWork.ExecuteInTransactionAsync(
             async token =>
             {
                 await _products.UpdateVariantAsync(variantId, validated, token).ConfigureAwait(false);
+
+                if (validated.Price != existing.Price)
+                {
+                    // FR-2.17: retained separately from audit_log, in the table a price-history
+                    // screen actually reads - one row per change, old price and new price both
+                    // named rather than left to be diffed out of two audit payloads.
+                    await _priceChangeLog.RecordAsync(
+                        new NewPriceChangeLogEntry(variantId, existing.Price, validated.Price, now, actor.Id, validated.Reason),
+                        token).ConfigureAwait(false);
+                }
 
                 await RecordAsync(
                     CatalogueAuditActions.Updated,
@@ -221,6 +239,10 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
             },
             cancellationToken).ConfigureAwait(false);
     }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<PriceChangeLogEntry>> GetPriceHistoryAsync(long variantId, CancellationToken cancellationToken = default) =>
+        _priceChangeLog.ListByVariantAsync(variantId, cancellationToken);
 
     /// <inheritdoc />
     public async Task DeactivateVariantAsync(long variantId, CancellationToken cancellationToken = default)
@@ -705,12 +727,27 @@ internal sealed class ProductMaintenanceService : IProductMaintenance
         string? after,
         CancellationToken cancellationToken)
     {
-        var actor = _session.CurrentUser ?? throw new InvalidOperationException(
-            "Product maintenance ran without a session. The role decorator should have refused "
-            + "this call; the service is registered without it.");
+        var actor = RequireActor();
 
         return _audit.RecordAsync(
             new AuditEntry(now, actor.Id, action, entityType, entityId, before, after),
             cancellationToken);
+    }
+
+    private AuthenticatedUser RequireActor() =>
+        _session.CurrentUser ?? throw new InvalidOperationException(
+            "Product maintenance ran without a session. The role decorator should have refused "
+            + "this call; the service is registered without it.");
+
+    /// <summary>
+    /// FR-2.18: a selling price at or below the product's cost is a warning, not a block - the
+    /// same "confirm and resubmit" shape as <see cref="ValidateAsync"/>'s duplicate-name check.
+    /// </summary>
+    private static void RequireAboveCostOrConfirmed(Money price, Money cost, bool confirmed)
+    {
+        if (!confirmed && price <= cost)
+        {
+            throw new PriceBelowCostWarningException(price, cost);
+        }
     }
 }

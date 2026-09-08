@@ -69,10 +69,23 @@ public interface IProductMaintenance
     public Task<IReadOnlyList<ProductVariantRecord>> ListVariantsAsync(long productId, CancellationToken cancellationToken = default);
 
     /// <exception cref="System.InvalidOperationException">The SKU is already used, or the product does not exist.</exception>
+    /// <exception cref="PriceBelowCostWarningException">
+    /// <see cref="SaveProductVariantCommand.Price"/> is at or below the product's cost and
+    /// <see cref="SaveProductVariantCommand.ConfirmBelowCost"/> is false (SRS FR-2.18).
+    /// </exception>
     public Task<long> CreateVariantAsync(long productId, SaveProductVariantCommand command, CancellationToken cancellationToken = default);
 
     /// <exception cref="System.InvalidOperationException">The SKU is already used by a different variant.</exception>
+    /// <exception cref="PriceBelowCostWarningException">
+    /// As <see cref="CreateVariantAsync"/>. When the price is actually changing and is confirmed
+    /// or above cost, the change is also written to <c>price_change_log</c> (SRS FR-2.17).
+    /// </exception>
     public Task UpdateVariantAsync(long variantId, SaveProductVariantCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>A variant's price history, most recent first (SRS FR-2.17).</summary>
+    public Task<IReadOnlyList<PriceChangeLogEntry>> GetPriceHistoryAsync(
+        long variantId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Turns a variant off. Always succeeds.</summary>
     public Task DeactivateVariantAsync(long variantId, CancellationToken cancellationToken = default);

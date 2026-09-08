@@ -517,7 +517,8 @@ internal sealed class SqliteProductStore : IProductStore
             product.WarrantyDays,
             product.Notes,
             product.MaxDiscountRate,
-            product.Active);
+            product.Active,
+            product.CostAvg);
     }
 
     private static Product ToRow(SaveProductCommand command, DateTimeOffset now) => new()
