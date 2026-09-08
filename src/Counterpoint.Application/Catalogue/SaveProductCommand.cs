@@ -21,6 +21,14 @@ namespace Counterpoint.Application.Catalogue;
 /// <param name="WarrantyDays">Plain count of days, or null.</param>
 /// <param name="Notes">Free text.</param>
 /// <param name="MaxDiscountRate">A per-product discount cap, or null to use the shop-wide limit.</param>
+/// <param name="ConfirmDuplicate">
+/// True to create the product even though <see cref="IProductMaintenance.CreateAsync"/> found an
+/// existing product with a very similar name and the same brand (SRS FR-2.24). False - the
+/// default - is what the first attempt at any new product should send; a caller that receives
+/// <see cref="DuplicateProductWarningException"/> shows the shop what it found and resubmits the
+/// same command with this set to proceed. There is no equivalent override for a duplicate
+/// <em>barcode</em>: that is FR-2.24's hard-block half, and it never has one.
+/// </param>
 public sealed record SaveProductCommand(
     string Code,
     string Name,
@@ -34,4 +42,5 @@ public sealed record SaveProductCommand(
     bool NonReturnable,
     int? WarrantyDays,
     string? Notes,
-    Percentage? MaxDiscountRate);
+    Percentage? MaxDiscountRate,
+    bool ConfirmDuplicate = false);

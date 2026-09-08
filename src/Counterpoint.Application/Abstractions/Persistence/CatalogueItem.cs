@@ -26,6 +26,13 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// <param name="UnitPrice">Retail price per base unit.</param>
 /// <param name="UnitCost">Moving-average cost per base unit. Owner-only information.</param>
 /// <param name="TaxRate">The rate on the product's tax class.</param>
+/// <param name="QtyOnHand">
+/// The <c>stock_balance</c> projection at the moment of the lookup, in base units - joined into
+/// the same prepared statement as the price so a scan never costs a second round trip to show
+/// what is left on the shelf (P1-T06, SRS FR-2.9-2.12, NFR-P1). Zero for a variant that has never
+/// had a movement posted, not an absent row: <c>stock_balance</c> is a projection of
+/// <c>stock_movement</c> and a variant with no history simply has none of either.
+/// </param>
 public sealed record CatalogueItem(
     long ProductVariantId,
     string Description,
@@ -33,4 +40,5 @@ public sealed record CatalogueItem(
     string UomSymbol,
     Money UnitPrice,
     Money UnitCost,
-    TaxRate TaxRate);
+    TaxRate TaxRate,
+    Quantity QtyOnHand);
