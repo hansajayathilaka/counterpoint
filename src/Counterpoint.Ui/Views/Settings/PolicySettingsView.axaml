@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Settings.PolicySettingsView"
+             x:DataType="vm:PolicySettingsViewModel">
+
+  <!--
+    FR-10.5. Every later feature reads its limits from here. The amount and the three rates are a
+    Money and three Percentages behind the boxes; nothing on this screen rounds anything.
+  -->
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="6">
+
+      <TextBlock TextWrapping="Wrap"
+                 Text="Returns, refunds, discount ceilings and what a sale does when stock runs out." />
+
+      <TextBlock Text="Return window, in days" />
+      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding ReturnWindowDays}" />
+
+      <CheckBox Content="Accept a return without the bill it came from"
+                IsChecked="{Binding AllowUnlinkedReturns}" />
+
+      <TextBlock Text="Refund paid as, unless the cashier changes it" />
+      <ComboBox Width="280" HorizontalAlignment="Left"
+                ItemsSource="{Binding DefaultRefundMethodChoices}"
+                SelectedItem="{Binding DefaultRefundMethodChoice}" />
+
+      <TextBlock Text="Most that may be refunded in cash on one return (0 = no limit)" />
+      <TextBox Width="160" HorizontalAlignment="Left" Text="{Binding CashRefundLimit}" />
+
+      <TextBlock Text="Cashier's discount limit on one line, in percent" />
+      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding MaxLineDiscountRate}" />
+
+      <TextBlock Text="Cashier's discount limit on the whole bill, in percent" />
+      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding MaxBillDiscountRate}" />
+
+      <TextBlock Text="When a sale would take the balance below zero" />
+      <ComboBox Width="320" HorizontalAlignment="Left"
+                ItemsSource="{Binding NegativeStockChoices}"
+                SelectedItem="{Binding NegativeStockChoice}" />
+
+      <TextBlock Text="Restocking fee kept on a return, in percent" />
+      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding RestockingFeeRate}" />
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

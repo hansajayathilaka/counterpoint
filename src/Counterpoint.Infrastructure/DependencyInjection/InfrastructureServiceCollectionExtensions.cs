@@ -7,6 +7,7 @@ using Counterpoint.Infrastructure.Inventory;
 using Counterpoint.Infrastructure.Printing;
 using Counterpoint.Infrastructure.Sales;
 using Counterpoint.Infrastructure.Security;
+using Counterpoint.Infrastructure.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -40,6 +41,15 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IDatabaseKeyStore>(provider =>
             DatabaseKeyStoreFactory.Create(provider.GetRequiredService<PosDataDirectory>()));
 
+        // The backup passphrase never goes into app_setting - that table lives inside the
+        // database the backup is a copy of (SRS FR-10.7, NFR-S6). Registered as the concrete
+        // type, not IBackupPassphraseStore: replacing the passphrase is owner-only, and the
+        // composition root registers only the role-decorated interface, so first run's
+        // internal SetInitialPassphrase seam is the one thing here allowed to hold this
+        // directly (SRS NFR-S2, AC-17).
+        services.AddSingleton(provider =>
+            BackupPassphraseStoreFactory.Create(provider.GetRequiredService<PosDataDirectory>()));
+
         services.AddSingleton<PosConnectionFactory>();
         services.AddSingleton<IPosConnectionFactory>(provider =>
             provider.GetRequiredService<PosConnectionFactory>());
@@ -68,6 +78,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IPrintJobOutbox, SqlitePrintJobOutbox>();
         services.AddSingleton<IUserStore, SqliteUserStore>();
         services.AddSingleton<ISecurityPolicyStore, SqliteSecurityPolicyStore>();
+        services.AddSingleton<ISettingStore, SqliteSettingStore>();
+        services.AddSingleton<INumberSequenceConfiguration, SqliteNumberSequenceConfiguration>();
+        services.AddSingleton<ITaxClassSeed, SqliteTaxClassSeed>();
 
         // A clock, not DateTimeOffset.Now: created-at and printed-at stamps have to be
         // controllable from a test, and TimeProvider is the framework's answer.

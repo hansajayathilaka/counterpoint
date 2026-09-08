@@ -84,3 +84,17 @@ it stopped.
 - `2026-09-07T02:15:30Z` **P1-T02** done — 75 files, 536 tests, 2 review rounds (code-reviewer, data-modeler), 1 fix round closing 2 must-fix items (sale.user_id misattribution, undecorated-service DI bypass)
 
 **Run ended 2026-09-07T02:16:11Z** — 2 completed, 0 halted
+
+## Run 2026-09-07T10:16:10Z
+
+- branch: `claude/autopilot-t11ufa`
+- head: `b57cb33`
+- budget: 1 task(s)
+
+- `2026-09-07T10:16:10Z` **P1-T03** start — Settings framework
+- `2026-09-07T11:58:21Z` **P1-T03** fix-attempt — 1: backup-passphrase-before-auth-check, wizard-discards-starting-number, specimen-tax-double-count
+- `2026-09-07T16:02:13Z` **P1-T03** fix-attempt — 1-result: fixed backup-passphrase-authorization (structural RequiresRole gate + SetInitialPassphrase seam), wizard-starting-number (InitialiseAsync), specimen-tax-double-count (PricesIncludeTax branch); verify.sh ALL CHECKS PASSED
+- `2026-09-07T16:02:21Z` **P1-T03** done — 3 review rounds (code-reviewer, data-modeler, device-integrator), 1 fix round closing 2 must-fix authorization/starting-number defects + 1 tax-calculation defect; 604+ tests
+
+**Run ended 2026-09-07T16:03:38Z** — 1 completed, 0 halted
+- `2026-09-08T00:51:50Z` **P1-T03** fix-attempt — PR#11 follow-up: closed 3 should-fix items from earlier review (dedupe demo tax class abfbcc0, multi-line hard-coded-value scan 6e937c2, disable no-op starting-number box 051c6ad) + filled Q-16 ledger answer; code-reviewer pass clean, verify.sh green

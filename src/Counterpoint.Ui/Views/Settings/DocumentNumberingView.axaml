@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="120"
+             x:Class="Counterpoint.Ui.Views.Settings.DocumentNumberingView"
+             x:DataType="vm:DocumentNumberingViewModel">
+
+  <!-- FR-10.4. One series: what it is called, what its numbers look like, where it starts. -->
+  <StackPanel Spacing="4">
+
+    <TextBlock FontSize="16" Text="{Binding Title}" />
+
+    <Grid ColumnDefinitions="Auto,120,Auto,260,Auto,120" RowDefinitions="Auto">
+      <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Prefix" />
+      <TextBox Grid.Column="1" Margin="8,0,0,0" Text="{Binding Prefix}" />
+
+      <TextBlock Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Center" Text="Pattern" />
+      <TextBox Grid.Column="3" Margin="8,0,0,0" Text="{Binding Pattern}" />
+
+      <TextBlock Grid.Column="4" Margin="16,0,0,0" VerticalAlignment="Center" Text="Starts at" />
+      <TextBox Grid.Column="5" Margin="8,0,0,0"
+               Text="{Binding StartingNumber}"
+               IsEnabled="{Binding IsStartingNumberEditable}"
+               ToolTip.Tip="Set once during first-run setup; a document number, once issued, is never renumbered."
+               ToolTip.ShowOnDisabled="True" />
+    </Grid>
+
+    <!-- Explains the disabled "Starts at" box without requiring a hover, for the general
+         settings screen (NumberingSettingsViewModel) - the first-run wizard never shows this. -->
+    <TextBlock IsVisible="{Binding !IsStartingNumberEditable}"
+               FontSize="12" Opacity="0.7" Margin="0,2,0,0"
+               Text="Set once during first-run setup; a document number, once issued, is never renumbered." />
+
+  </StackPanel>
+
+</UserControl>

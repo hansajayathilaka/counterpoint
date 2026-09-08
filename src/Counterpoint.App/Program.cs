@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using Avalonia;
 using Counterpoint.App.DependencyInjection;
 using Counterpoint.Application.Security;
+using Counterpoint.Application.Settings;
+using Counterpoint.Application.Settings.FirstRun;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Runtime;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,12 +46,12 @@ internal static class Program
                 .ConfigureCounterpoint()
                 .Build();
 
-            PrepareDatabaseAsync(host.Services).GetAwaiter().GetResult();
+            var firstRunRequired = PrepareDatabaseAsync(host.Services).GetAwaiter().GetResult();
 
             host.Start();
             try
             {
-                BuildAvaloniaApp(host.Services).StartWithClassicDesktopLifetime(args);
+                BuildAvaloniaApp(host.Services, firstRunRequired).StartWithClassicDesktopLifetime(args);
             }
             finally
             {
@@ -83,15 +85,22 @@ internal static class Program
             .LogToTrace();
 
     /// <summary>Avalonia configuration for the real application, with its viewmodels injected.</summary>
-    private static AppBuilder BuildAvaloniaApp(IServiceProvider services) =>
+    private static AppBuilder BuildAvaloniaApp(IServiceProvider services, bool firstRunRequired) =>
         AppBuilder.Configure(() => new Ui.App(
                 services.GetRequiredService<Ui.ViewModels.LoginViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.SalesViewModel>(),
-                services.GetRequiredService<Ui.ViewModels.UserAdminViewModel>()))
+                services.GetRequiredService<Ui.ViewModels.UserAdminViewModel>(),
+                services.GetRequiredService<Ui.ViewModels.Settings.SettingsViewModel>(),
+                services.GetRequiredService<Ui.ViewModels.FirstRun.FirstRunWizardViewModel>(),
+                firstRunRequired))
             .UsePlatformDetect()
             .LogToTrace();
 
-    private static async Task PrepareDatabaseAsync(IServiceProvider services)
+    /// <returns>
+    /// True when this database has never been through the first-run wizard, and the wizard is
+    /// therefore the first window the shop sees (SRS FR-10, P1-T03).
+    /// </returns>
+    private static async Task<bool> PrepareDatabaseAsync(IServiceProvider services)
     {
         await services.GetRequiredService<MigrationRunner>()
             .ApplyPendingMigrationsAsync()
@@ -101,10 +110,25 @@ internal static class Program
             .EnsureSeededAsync()
             .ConfigureAwait(false);
 
-        // What this build hashes with, written down where the owner can see it. P1-T03's settings
-        // framework takes this over.
+        // What this build hashes with, written down where the owner can see it. Still written
+        // rather than read: the settings framework owns the FR-10 keys, and deliberately not the
+        // security.* ones (docs/01_DATA_MODEL.md §11).
         await services.GetRequiredService<SecurityPolicyRecorder>()
             .EnsureRecordedAsync()
+            .ConfigureAwait(false);
+
+        // Before anything reads a setting, and before the window opens: the rounding policy, the
+        // receipt template and every later feature's limits all come from here (SRS FR-10,
+        // NFR-M1). A change made afterwards republishes this cache without a restart.
+        await services.GetRequiredService<ISettings>()
+            .LoadAsync()
+            .ConfigureAwait(false);
+
+        // Last, because it reads the same app_setting table the four steps above have just
+        // finished with, and because the answer decides which window opens. The wizard writes
+        // everything it collects in one transaction of its own; nothing here pre-empts it.
+        return await services.GetRequiredService<IFirstRunSetup>()
+            .IsRequiredAsync()
             .ConfigureAwait(false);
     }
 }

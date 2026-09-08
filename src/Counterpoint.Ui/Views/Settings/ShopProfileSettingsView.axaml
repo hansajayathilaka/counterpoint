@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Settings.ShopProfileSettingsView"
+             x:DataType="vm:ShopProfileSettingsViewModel">
+
+  <!-- FR-10.1. Tab order is declaration order: every box is reachable without a mouse (UI-01). -->
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="6">
+
+      <TextBlock Text="What prints at the top of every bill and report." TextWrapping="Wrap" />
+
+      <TextBlock Text="Shop name" />
+      <TextBox Text="{Binding Name}" />
+
+      <TextBlock Text="Address, first line" />
+      <TextBox Text="{Binding AddressLine1}" />
+
+      <TextBlock Text="Address, second line" />
+      <TextBox Text="{Binding AddressLine2}" />
+
+      <TextBlock Text="Telephone" />
+      <TextBox Text="{Binding Phone}" />
+
+      <TextBlock Text="Email" />
+      <TextBox Text="{Binding Email}" />
+
+      <TextBlock Text="Tax registration number" />
+      <TextBox Text="{Binding TaxRegistrationNumber}" />
+
+      <TextBlock Text="Logo file (leave empty for no logo)" />
+      <TextBox Text="{Binding LogoPath}" />
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

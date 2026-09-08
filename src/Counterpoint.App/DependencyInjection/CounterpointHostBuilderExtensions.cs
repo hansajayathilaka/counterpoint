@@ -1,10 +1,16 @@
 using System;
+using Avalonia.Threading;
+using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
+using Counterpoint.Application.Settings;
+using Counterpoint.Application.Settings.FirstRun;
 using Counterpoint.Devices.DependencyInjection;
 using Counterpoint.Domain.Services;
 using Counterpoint.Infrastructure.DependencyInjection;
 using Counterpoint.Ui.ViewModels;
+using Counterpoint.Ui.ViewModels.FirstRun;
+using Counterpoint.Ui.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -31,9 +37,7 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddCounterpointInfrastructure();
         builder.Services.AddCounterpointDevices();
 
-        // The shop's rounding rule. Two decimal places for LKR (Q-01); it becomes a setting in
-        // P1-T03, read from app_setting rather than fixed here.
-        builder.Services.AddSingleton<IRoundingPolicy>(new HalfAwayFromZeroRounding(decimalPlaces: 2));
+        builder.Services.AddCounterpointSettings();
 
         // Use cases. Kept in step with the same lines in
         // tests/Counterpoint.Integration.Tests/Sales/SaleFixture.cs, which composes the same
@@ -49,8 +53,74 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<LoginViewModel>();
         builder.Services.AddSingleton<SalesViewModel>();
         builder.Services.AddSingleton<UserAdminViewModel>();
+        builder.Services.AddSingleton<FirstRunWizardViewModel>();
+
+        // The settings screen is handed the one thing it cannot get from Counterpoint.Ui: a way
+        // back onto the thread the window lives on. ISettings.Changed is raised by whichever
+        // thread committed the write, and a viewmodel that reloaded itself from a thread-pool
+        // thread would be updating bindings from the wrong thread.
+        builder.Services.AddSingleton(provider => new SettingsViewModel(
+            provider.GetRequiredService<ISettings>(),
+            provider.GetRequiredService<IBackupPassphraseStore>(),
+            action => Dispatcher.UIThread.Post(action)));
 
         return builder;
+    }
+
+    /// <summary>
+    /// The settings framework, the first-run wizard's headless half, and the rounding policy the
+    /// shop's own settings drive (SRS FR-10, NFR-M1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is where the rounding rule stopped being a constant.</b> It used to be
+    /// <c>new HalfAwayFromZeroRounding(decimalPlaces: 2)</c> right here, with a note saying it
+    /// became a setting in P1-T03. It has: <see cref="SettingsRoundingPolicy"/> reads the rule and
+    /// the decimal places from <see cref="ISettings"/> on every use, so changing them changes the
+    /// next line total and the next printed amount without a restart (FR-10.2).
+    /// </para>
+    /// <para>
+    /// Singletons, and the cache behind them is one immutable reference, so every reader in the
+    /// process sees the same settings and sees a change the moment it commits. <c>ISettings</c>
+    /// must be loaded before anything reads a setting; <c>Program.PrepareDatabaseAsync</c> does
+    /// that, after the migrations and before the window opens.
+    /// </para>
+    /// <para>
+    /// <b><see cref="ISettings"/> is registered decorated</b>, the same way
+    /// <see cref="IUserAdministration"/> is, because <c>SaveAsync</c> and <c>UpdateAsync</c> carry
+    /// <see cref="RequiresRoleAttribute"/>: settings are the owner's (SRS §3.3 ROLE-2, FR-1.2,
+    /// FR-1.6, NFR-S2, AC-17). The read side carries no attribute, so the proxy forwards
+    /// <c>LoadAsync</c> and every group property untouched - which is what lets
+    /// <c>Program.PrepareDatabaseAsync</c> load the settings before anyone has signed in, and lets
+    /// <see cref="SettingsRoundingPolicy"/> read the decimal places on a cashier's every line.
+    /// </para>
+    /// <para>
+    /// The concrete <see cref="SettingsService"/> keeps a registration of its own, unlike
+    /// <c>UserAdministrationService</c>, because <c>FirstRunSetupService</c> genuinely needs it:
+    /// first run has nobody signed in, so it writes through the internal <c>SaveAsAsync</c> that
+    /// is told which owner is acting. Both classes are internal, so only this composition root and
+    /// the two test ones can name them at all.
+    /// </para>
+    /// </remarks>
+    private static IServiceCollection AddCounterpointSettings(this IServiceCollection services)
+    {
+        services.AddSingleton<SettingsService>();
+        services.AddSingleton<ISettings>(p => RoleAuthorisation.Decorate<ISettings>(
+            p.GetRequiredService<SettingsService>(),
+            p.GetRequiredService<ISession>()));
+        services.AddSingleton<IRoundingPolicy, SettingsRoundingPolicy>();
+
+        services.AddSingleton<IFirstRunSetup, FirstRunSetupService>();
+
+        // Same shape as ISettings: replacing the backup passphrase is owner-only, so only the
+        // role-decorated interface is handed out. FirstRunSetupService takes the concrete
+        // BackupPassphraseStore (registered in AddCounterpointInfrastructure) so it can reach
+        // the internal SetInitialPassphrase seam with nobody signed in (SRS NFR-S2, AC-17).
+        services.AddSingleton<IBackupPassphraseStore>(p => RoleAuthorisation.Decorate<IBackupPassphraseStore>(
+            p.GetRequiredService<BackupPassphraseStore>(),
+            p.GetRequiredService<ISession>()));
+
+        return services;
     }
 
     /// <summary>

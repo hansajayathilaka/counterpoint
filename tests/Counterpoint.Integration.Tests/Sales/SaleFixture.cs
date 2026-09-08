@@ -3,8 +3,11 @@ using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
+using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
+using Counterpoint.Application.Settings;
+using Counterpoint.Application.Settings.FirstRun;
 using Counterpoint.Devices.DependencyInjection;
 using Counterpoint.Devices.Printing;
 using Counterpoint.Domain.Services;
@@ -104,7 +107,29 @@ internal sealed class SaleFixture : IAsyncDisposable
             new PrintWorkerOptions { PollInterval = TimeSpan.FromMilliseconds(5), MaxAttempts = 3 });
 
         services.AddLogging();
-        services.AddSingleton<IRoundingPolicy>(new HalfAwayFromZeroRounding(decimalPlaces: 2));
+
+        // The settings framework, wired as the composition root wires it. IRoundingPolicy is
+        // built from the shop's own decimal places and rounding rule, so a test that changes
+        // them changes what the next bill rounds to - without a restart (SRS FR-10.2).
+        //
+        // ISettings is registered decorated, exactly as IUserAdministration is and exactly as
+        // CounterpointHostBuilderExtensions registers it: SaveAsync and UpdateAsync are owner-only
+        // (SRS §3.3 ROLE-2, NFR-S2, AC-17), so a test must not be able to change a setting through
+        // an object the real application would never hand out. The read side carries no attribute,
+        // which is why LoadAsync below still works before anybody has signed in.
+        services.AddSingleton<SettingsService>();
+        services.AddSingleton<ISettings>(p => RoleAuthorisation.Decorate<ISettings>(
+            p.GetRequiredService<SettingsService>(),
+            p.GetRequiredService<ISession>()));
+        services.AddSingleton<IRoundingPolicy, SettingsRoundingPolicy>();
+        services.AddSingleton<IFirstRunSetup, FirstRunSetupService>();
+
+        // Same shape as ISettings and IUserAdministration: the concrete BackupPassphraseStore
+        // is registered by AddCounterpointInfrastructure above; only the role-decorated
+        // interface is handed out, exactly as the composition root wires it (SRS NFR-S2, AC-17).
+        services.AddSingleton<IBackupPassphraseStore>(p => RoleAuthorisation.Decorate<IBackupPassphraseStore>(
+            p.GetRequiredService<BackupPassphraseStore>(),
+            p.GetRequiredService<ISession>()));
 
         // The same lines as Counterpoint.App's CounterpointHostBuilderExtensions.
         services.AddSingleton<IScanItem, ScanItemHandler>();
@@ -139,6 +164,7 @@ internal sealed class SaleFixture : IAsyncDisposable
             await provider.GetRequiredService<MigrationRunner>().ApplyPendingMigrationsAsync();
             await provider.GetRequiredService<FirstRunSeeder>().EnsureSeededAsync();
             await provider.GetRequiredService<SecurityPolicyRecorder>().EnsureRecordedAsync();
+            await provider.GetRequiredService<ISettings>().LoadAsync();
 
             return fixture;
         }

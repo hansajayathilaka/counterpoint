@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Counterpoint.Ui.ViewModels;
+using Counterpoint.Ui.ViewModels.FirstRun;
+using Counterpoint.Ui.ViewModels.Settings;
 using Counterpoint.Ui.Views;
 
 namespace Counterpoint.Ui;
@@ -17,9 +19,11 @@ namespace Counterpoint.Ui;
 /// those dependencies live in (CLAUDE.md "Project boundaries").
 /// </para>
 /// <para>
-/// The sign-in screen comes first and the sales screen only exists after a password has verified
-/// (SRS FR-1.1). Navigation lives here rather than in a viewmodel because opening a window is a
-/// view concern; the viewmodels raise events and know nothing about windows.
+/// A database that has never been set up gets the first-run wizard first, and the sign-in screen
+/// only once it is finished (SRS FR-10, FR-1.3). Otherwise the sign-in screen comes first and the
+/// sales screen only exists after a password has verified (FR-1.1). Navigation lives here rather
+/// than in a viewmodel because opening a window is a view concern; the viewmodels raise events
+/// and know nothing about windows.
 /// </para>
 /// </remarks>
 // Fully qualified: "Application" on its own now binds to the Counterpoint.Application
@@ -29,6 +33,9 @@ public partial class App : Avalonia.Application
     private readonly LoginViewModel? _loginViewModel;
     private readonly SalesViewModel? _salesViewModel;
     private readonly UserAdminViewModel? _userAdminViewModel;
+    private readonly SettingsViewModel? _settingsViewModel;
+    private readonly FirstRunWizardViewModel? _firstRunViewModel;
+    private readonly bool _firstRunRequired;
 
     private IClassicDesktopStyleApplicationLifetime? _desktop;
 
@@ -38,18 +45,31 @@ public partial class App : Avalonia.Application
     }
 
     /// <summary>The real entry point, called by the composition root.</summary>
+    /// <param name="firstRunRequired">
+    /// What <c>IFirstRunSetup.IsRequiredAsync()</c> answered at start-up, after the migrations and
+    /// before any window opened. Asked there rather than here because
+    /// <see cref="OnFrameworkInitializationCompleted"/> cannot await.
+    /// </param>
     public App(
         LoginViewModel loginViewModel,
         SalesViewModel salesViewModel,
-        UserAdminViewModel userAdminViewModel)
+        UserAdminViewModel userAdminViewModel,
+        SettingsViewModel settingsViewModel,
+        FirstRunWizardViewModel firstRunViewModel,
+        bool firstRunRequired)
     {
         ArgumentNullException.ThrowIfNull(loginViewModel);
         ArgumentNullException.ThrowIfNull(salesViewModel);
         ArgumentNullException.ThrowIfNull(userAdminViewModel);
+        ArgumentNullException.ThrowIfNull(settingsViewModel);
+        ArgumentNullException.ThrowIfNull(firstRunViewModel);
 
         _loginViewModel = loginViewModel;
         _salesViewModel = salesViewModel;
         _userAdminViewModel = userAdminViewModel;
+        _settingsViewModel = settingsViewModel;
+        _firstRunViewModel = firstRunViewModel;
+        _firstRunRequired = firstRunRequired;
     }
 
     public override void Initialize()
@@ -62,17 +82,64 @@ public partial class App : Avalonia.Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && _loginViewModel is not null)
         {
             _desktop = desktop;
-            _loginViewModel.SignedIn += OnSignedIn;
 
-            desktop.MainWindow = new LoginWindow { DataContext = _loginViewModel };
+            if (_firstRunRequired && _firstRunViewModel is not null)
+            {
+                _firstRunViewModel.Completed += OnFirstRunCompleted;
 
-            // Asks the Application layer whether this database has a usable credential yet. Kicked
-            // off rather than awaited: OnFrameworkInitializationCompleted is not async, and the
-            // screen shows its own answer when it arrives.
-            _loginViewModel.LoadCommand.Execute(null);
+                desktop.MainWindow = new FirstRunWizardWindow { DataContext = _firstRunViewModel };
+                _firstRunViewModel.LoadCommand.Execute(null);
+            }
+            else
+            {
+                ShowLogin();
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Puts the sign-in screen up, and starts it asking whether the shop has a usable credential.
+    /// </summary>
+    private void ShowLogin()
+    {
+        if (_desktop is not { } desktop || _loginViewModel is null)
+        {
+            return;
+        }
+
+        _loginViewModel.SignedIn -= OnSignedIn;
+        _loginViewModel.SignedIn += OnSignedIn;
+
+        var login = new LoginWindow { DataContext = _loginViewModel };
+        var previous = desktop.MainWindow;
+
+        // Shown before the previous window closes: with the default OnLastWindowClose shutdown
+        // mode, closing the only window first would end the process.
+        desktop.MainWindow = login;
+
+        if (previous is not null)
+        {
+            login.Show();
+            previous.Close();
+        }
+
+        // Asks the Application layer whether this database has a usable credential yet. Kicked
+        // off rather than awaited: OnFrameworkInitializationCompleted is not async, and the
+        // screen shows its own answer when it arrives.
+        _loginViewModel.LoadCommand.Execute(null);
+    }
+
+    /// <summary>The shop is configured and the owner has a password. Ask them to sign in.</summary>
+    private void OnFirstRunCompleted(object? sender, EventArgs e)
+    {
+        if (_firstRunViewModel is not null)
+        {
+            _firstRunViewModel.Completed -= OnFirstRunCompleted;
+        }
+
+        ShowLogin();
     }
 
     /// <summary>
@@ -89,11 +156,10 @@ public partial class App : Avalonia.Application
 
         var sales = new SalesWindow { DataContext = _salesViewModel };
         _salesViewModel.ManageUsersRequested += (_, _) => ShowUsers(sales);
+        _salesViewModel.SettingsRequested += (_, _) => ShowSettings(sales);
 
         var login = desktop.MainWindow;
 
-        // Shown before the sign-in window closes: with the default OnLastWindowClose shutdown
-        // mode, closing the only window first would end the process.
         desktop.MainWindow = sales;
         sales.Show();
         login?.Close();
@@ -108,6 +174,22 @@ public partial class App : Avalonia.Application
 
         var window = new UserAdminWindow { DataContext = _userAdminViewModel };
         _userAdminViewModel.RefreshCommand.Execute(null);
+        window.Show(owner);
+    }
+
+    /// <summary>
+    /// Opens the settings screen, re-reading the settings in force as it does. Re-read on open,
+    /// never cached from start-up - that is the risk P1-T03 names by name.
+    /// </summary>
+    private void ShowSettings(Window owner)
+    {
+        if (_settingsViewModel is null)
+        {
+            return;
+        }
+
+        var window = new SettingsWindow { DataContext = _settingsViewModel };
+        _settingsViewModel.LoadCommand.Execute(null);
         window.Show(owner);
     }
 }
