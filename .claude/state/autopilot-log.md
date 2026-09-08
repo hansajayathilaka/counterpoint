@@ -135,3 +135,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-08T13:21:51Z` **P1-T06** start — Barcodes and product search
+- `2026-09-08T14:19:26Z` **P1-T06** done — 35 files, 33+2 tests, 2 review rounds clean (0 must-fix)
