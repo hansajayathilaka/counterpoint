@@ -66,7 +66,17 @@ public static class LineTaxCalculator
             ? Money.FromScaled(chargedTotal.ToScaled() - tax.ToScaled())
             : chargedTotal;
 
-        return new LinePricing(lineTotal, tax, chargedTotal);
+        // LinePricing.ChargedTotal is documented as "LineTotal plus Tax" in both modes, not just
+        // the inclusive one: in the inclusive branch chargedTotal (the rounded gross) already is
+        // lineTotal + tax by construction above, but in the exclusive branch chargedTotal is only
+        // the net figure, so tax has to be added back in here too - by exact scaled addition, the
+        // same reasoning as the subtraction above, so the two branches agree bit for bit rather
+        // than one of them being a fresh decimal computation.
+        var reportedChargedTotal = pricesIncludeTax
+            ? chargedTotal
+            : Money.FromScaled(chargedTotal.ToScaled() + tax.ToScaled());
+
+        return new LinePricing(lineTotal, tax, reportedChargedTotal);
     }
 }
 
