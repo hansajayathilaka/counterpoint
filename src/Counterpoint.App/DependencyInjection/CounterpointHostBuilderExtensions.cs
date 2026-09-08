@@ -80,6 +80,11 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<TaxClassTabViewModel>();
         builder.Services.AddSingleton<SupplierTabViewModel>();
         builder.Services.AddSingleton<CustomerTabViewModel>();
+
+        // P1-T05: the product editor tab - variant grid, UOM grid, variant matrix generator
+        // (SRS FR-2.1-FR-2.8, FR-3.6, AC-08).
+        builder.Services.AddSingleton<ProductTabViewModel>();
+
         builder.Services.AddSingleton<CatalogueViewModel>();
 
         // The settings screen is handed the one thing it cannot get from Counterpoint.Ui: a way
@@ -231,6 +236,12 @@ internal static class CounterpointHostBuilderExtensions
 
         services.AddSingleton<ICustomerMaintenance>(p => RoleAuthorisation.Decorate<ICustomerMaintenance>(
             ActivatorUtilities.CreateInstance<CustomerMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P1-T05: product, variant and UOM conversion maintenance - wired exactly as the six
+        // above (SRS FR-2.1-FR-2.8, FR-3.6, AC-08, NFR-S2, AC-17).
+        services.AddSingleton<IProductMaintenance>(p => RoleAuthorisation.Decorate<IProductMaintenance>(
+            ActivatorUtilities.CreateInstance<ProductMaintenanceService>(p),
             p.GetRequiredService<ISession>()));
 
         return services;

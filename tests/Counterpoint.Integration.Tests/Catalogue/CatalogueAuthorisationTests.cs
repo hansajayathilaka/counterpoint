@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Security;
+using Counterpoint.Domain.Catalogue;
 using Counterpoint.Domain.Security;
 using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Integration.Tests.Sales;
@@ -35,6 +36,7 @@ public sealed class CatalogueAuthorisationTests
         var taxClasses = fixture.Resolve<ITaxClassMaintenance>();
         var suppliers = fixture.Resolve<ISupplierMaintenance>();
         var customers = fixture.Resolve<ICustomerMaintenance>();
+        var products = fixture.Resolve<IProductMaintenance>();
 
         var listCategory = () => categories.ListAsync();
         var createCategory = () => categories.CreateAsync(new SaveCategoryCommand("Mallory", null));
@@ -44,6 +46,8 @@ public sealed class CatalogueAuthorisationTests
         var createSupplier = () => suppliers.CreateAsync(new SaveSupplierCommand("Mallory", null, null, null, null, null));
         var createCustomer = () =>
             customers.CreateAsync(new SaveCustomerCommand("Mallory", null, null, null, "RETAIL", Money.Zero));
+        var createProduct = () => products.CreateAsync(new SaveProductCommand(
+            "MALLORY-1", "Mallory", null, null, null, 1, ProductType.Standard, 1, null, false, null, null, null));
 
         await listCategory.Should().ThrowAsync<NotAuthorisedException>();
         await createCategory.Should().ThrowAsync<NotAuthorisedException>();
@@ -52,6 +56,7 @@ public sealed class CatalogueAuthorisationTests
         await createTaxClass.Should().ThrowAsync<NotAuthorisedException>();
         await createSupplier.Should().ThrowAsync<NotAuthorisedException>();
         await createCustomer.Should().ThrowAsync<NotAuthorisedException>();
+        await createProduct.Should().ThrowAsync<NotAuthorisedException>();
 
         (await fixture.CountAsync("SELECT COUNT(*) FROM category WHERE name = 'Mallory';"))
             .Should().Be(0, "nothing ran, so nothing was written");
@@ -60,6 +65,7 @@ public sealed class CatalogueAuthorisationTests
         (await fixture.CountAsync("SELECT COUNT(*) FROM tax_class WHERE name = 'Mallory';")).Should().Be(0);
         (await fixture.CountAsync("SELECT COUNT(*) FROM supplier WHERE name = 'Mallory';")).Should().Be(0);
         (await fixture.CountAsync("SELECT COUNT(*) FROM customer WHERE name = 'Mallory';")).Should().Be(0);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM product WHERE code = 'MALLORY-1';")).Should().Be(0);
     }
 
     [Fact]
@@ -73,7 +79,9 @@ public sealed class CatalogueAuthorisationTests
         fixture.TryResolve<TaxClassMaintenanceService>().Should().BeNull();
         fixture.TryResolve<SupplierMaintenanceService>().Should().BeNull();
         fixture.TryResolve<CustomerMaintenanceService>().Should().BeNull();
+        fixture.TryResolve<ProductMaintenanceService>().Should().BeNull();
 
         fixture.Resolve<ICategoryMaintenance>().Should().NotBeOfType<CategoryMaintenanceService>();
+        fixture.Resolve<IProductMaintenance>().Should().NotBeOfType<ProductMaintenanceService>();
     }
 }

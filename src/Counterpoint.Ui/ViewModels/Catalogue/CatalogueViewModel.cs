@@ -24,7 +24,8 @@ public sealed partial class CatalogueViewModel : ViewModelBase
         UomTabViewModel uom,
         TaxClassTabViewModel taxClass,
         SupplierTabViewModel supplier,
-        CustomerTabViewModel customer)
+        CustomerTabViewModel customer,
+        ProductTabViewModel product)
     {
         ArgumentNullException.ThrowIfNull(category);
         ArgumentNullException.ThrowIfNull(brand);
@@ -32,6 +33,7 @@ public sealed partial class CatalogueViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(taxClass);
         ArgumentNullException.ThrowIfNull(supplier);
         ArgumentNullException.ThrowIfNull(customer);
+        ArgumentNullException.ThrowIfNull(product);
 
         Category = category;
         Brand = brand;
@@ -39,6 +41,7 @@ public sealed partial class CatalogueViewModel : ViewModelBase
         TaxClass = taxClass;
         Supplier = supplier;
         Customer = customer;
+        Product = product;
     }
 
     public CategoryTabViewModel Category { get; }
@@ -53,6 +56,9 @@ public sealed partial class CatalogueViewModel : ViewModelBase
 
     public CustomerTabViewModel Customer { get; }
 
+    /// <summary>P1-T05: products, variants and units (SRS FR-2.1-FR-2.8, FR-3.6, AC-08).</summary>
+    public ProductTabViewModel Product { get; }
+
     /// <summary>Loads every tab. Called once, when the window opens.</summary>
     [RelayCommand]
     public async Task LoadAsync(CancellationToken cancellationToken)
@@ -63,5 +69,10 @@ public sealed partial class CatalogueViewModel : ViewModelBase
         await TaxClass.RefreshAsync(cancellationToken).ConfigureAwait(true);
         await Supplier.RefreshAsync(cancellationToken).ConfigureAwait(true);
         await Customer.RefreshAsync(cancellationToken).ConfigureAwait(true);
+
+        // Last, deliberately: Product.RefreshAsync populates the category/brand/unit/tax-class
+        // pickers from the same lists the tabs above just loaded, so it reads them in a state
+        // that already reflects anything those tabs seeded.
+        await Product.RefreshAsync(cancellationToken).ConfigureAwait(true);
     }
 }
