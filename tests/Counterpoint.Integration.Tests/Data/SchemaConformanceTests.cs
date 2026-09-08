@@ -134,8 +134,9 @@ public sealed class SchemaConformanceTests
         "ix_variant_product",
         "ux_app_user_username", "ux_barcode", "ux_brand_name", "ux_category_name_parent",
         "ux_credit_note_number", "ux_grn_no", "ux_one_open_shift", "ux_po_no", "ux_product_code",
-        "ux_product_supplier", "ux_product_uom", "ux_return_no", "ux_sale_bill_no",
-        "ux_sale_line_no", "ux_shift_no", "ux_tax_class_name", "ux_uom_name", "ux_variant_sku",
+        "ux_product_supplier", "ux_product_uom", "ux_product_uom_one_base", "ux_return_no",
+        "ux_sale_bill_no", "ux_sale_line_no", "ux_shift_no", "ux_tax_class_name", "ux_uom_name",
+        "ux_variant_sku",
     ];
 
     /// <summary>DM-04: no orphan lines, enforced by the database rather than by the caller.</summary>

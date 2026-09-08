@@ -228,12 +228,17 @@ CREATE TABLE product_uom (
   is_base           INTEGER NOT NULL DEFAULT 0,
   UNIQUE (product_id, uom_id)
 );
--- Exactly one row per product with is_base = 1 and conversion_factor = 10000.
--- NOT YET ENFORCED. P1-T01 lands the table with `CHECK (conversion_factor > 0)` and the
--- UNIQUE above; the "exactly one base row" rule needs the UOM conversion domain that has to
--- satisfy it, and arrives with it in P1-T05. Half of it is a partial unique index on
--- (product_id) WHERE is_base = 1; the other half - "at least one" - is not expressible as a
--- column constraint at all, because the first row of a product is inserted before the second.
+-- Exactly one row per product with is_base = 1 and conversion_factor = 10000, enforced in two
+-- halves by ProductUomBaseUnit0006 (P1-T05):
+--   * "at most one" - CREATE UNIQUE INDEX ux_product_uom_one_base ON product_uom(product_id)
+--     WHERE is_base = 1.
+--   * "a base row's factor is exactly 10000" - trg_product_uom_base_factor_insert / _update,
+--     a BEFORE trigger rather than a CHECK, because SQLite cannot add a CHECK to an existing
+--     table without a full table rebuild, and a rebuild silently drops triggers (§8).
+-- See §8, "The product_uom base-unit guard", for the trigger SQL.
+-- "At least one" is still not expressible as a column constraint - the first row of a product
+-- is inserted before the second - and is enforced by the application-layer transaction that
+-- creates a product (P1-T05's UomConverter and the product editor).
 
 CREATE TABLE barcode (
   id                 INTEGER PRIMARY KEY,
@@ -1362,6 +1367,54 @@ An abort reaches the client as `SQLITE_CONSTRAINT` (19) with extended code
 same event, so when two of them would both refuse a statement, which message comes back is
 unspecified — assert on the code, not the message, in that case.
 
+### The product_uom base-unit guard (FR-2.4, FR-2.5)
+
+Not append-only protection either: "exactly one row per product with `is_base = 1` and
+`conversion_factor = 10000`" (§3), so `UomConverter.ToBase`/`FromBase` always has exactly one
+unambiguous 1:1 unit to convert through. `product_uom` carried the `CHECK (conversion_factor > 0)`
+and the `UNIQUE (product_id, uom_id)` from `FullSchema0002` onward; the rest needed the UOM
+conversion domain that has to satisfy it, and both halves land together in `ProductUomBaseUnit0006`
+(P1-T05):
+
+```sql
+CREATE UNIQUE INDEX ux_product_uom_one_base ON product_uom(product_id) WHERE is_base = 1;
+
+CREATE TRIGGER trg_product_uom_base_factor_insert
+BEFORE INSERT ON product_uom
+WHEN new.is_base = 1 AND new.conversion_factor IS NOT 10000
+BEGIN SELECT RAISE(ABORT, 'product_uom: base unit must have conversion_factor = 10000 (FR-2.4)'); END;
+
+CREATE TRIGGER trg_product_uom_base_factor_update
+BEFORE UPDATE OF is_base, conversion_factor ON product_uom
+WHEN new.is_base = 1 AND new.conversion_factor IS NOT 10000
+BEGIN SELECT RAISE(ABORT, 'product_uom: base unit must have conversion_factor = 10000 (FR-2.4)'); END;
+```
+
+**Index, not trigger, for "at most one".** A partial unique index is what "at most one row per
+`product_id` where `is_base = 1`" *is* — SQLite enforces it the same way it enforces
+`ux_one_open_shift`, without a row-by-row rule to maintain, and `CREATE INDEX` never touches an
+existing table's triggers.
+
+**Trigger, not a `CHECK`-adding rebuild, for "the base row's factor is 10000".** SQLite has no
+`ALTER TABLE … ADD CONSTRAINT`; the only way to add a `CHECK` to a table that already exists is
+the create-copy-drop-rename rebuild described above, and a rebuild silently drops that table's
+triggers. `product_uom` carries none of its own today, so a rebuild would have cost nothing this
+time — but the trigger is what stays cheap on every migration *after* this one too, the same
+argument that keeps `sale.customer_id` and `payment.sale_return_id` as plain columns rather than
+foreign keys (§13). `IS NOT`, not `<>`, for the same reason as the append-only triggers above:
+`conversion_factor` is `NOT NULL`, so it makes no difference here, but it costs nothing to stay
+consistent with the pattern one migration is not the place to break.
+
+**`UPDATE OF`, not a bare `UPDATE`.** A row can be promoted to `is_base = 1` after insert (a
+product's default unit changes) or have its factor edited while already the base; either column
+touching either the `is_base` or the `conversion_factor` value is the row this rule is about, so
+both are named. A statement that never assigns either column costs nothing to filter.
+
+"At least one" base row is deliberately not here: it cannot be a column or table constraint at
+all, because the first `product_uom` row for a product is inserted before there is a second row
+to compare it to. That half is the application-layer transaction that creates a product, in
+P1-T05's own domain work.
+
 ---
 
 ## 9. State machines
@@ -1573,6 +1626,7 @@ Every change to one of these keys writes one `audit_log` row per changed key —
 | `stock_movement(ref_doc_type, ref_doc_id)` | "show me the movements this GRN posted" |
 | `stock_balance.qty_base` | low-stock / reorder report |
 | `ux_one_open_shift` partial unique | C-01 enforced by the database |
+| `ux_product_uom_one_base` partial unique | "at most one base unit per product" (FR-2.4, §8) enforced by the database, the same pattern as `ux_one_open_shift` |
 | `print_job.status` partial | outbox polling stays O(pending) |
 | `ix_product_category`, `ix_product_brand` | catalogue browsing and the category/brand filters on every product list |
 | `ix_product_active` | every screen and report that excludes discontinued lines, which is most of them |
@@ -1624,11 +1678,14 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 | `ProductForeignKeys0003` | P1-T01 | The `product.category_id` and `product.brand_id` foreign keys, and the column order that survives the rebuild they cost. The **only** step of this upgrade that is not one transaction |
 | `ProductSearch0004` | P1-T01 | The `product_search` FTS5 index, its four maintenance triggers and its backfill, split out because `ProductForeignKeys0003` rebuilds `product` (see §8) |
 | `UomActive0005` | P1-T04 | `uom.active INTEGER NOT NULL DEFAULT 1`, matching the `active` column its five catalogue siblings (`category`, `brand`, `tax_class`, `supplier`, `customer`) already carried — a plain `ADD COLUMN`, since `uom` carries no triggers to lose |
+| `ProductUomBaseUnit0006` | P1-T05 | The two halves of "exactly one base row per product with `conversion_factor = 10000`": the partial unique index `ux_product_uom_one_base` and the `trg_product_uom_base_factor_insert` / `_update` guard triggers — a trigger rather than a `CHECK`-adding rebuild, since `product_uom` carried no triggers to lose either way but a later rebuild might |
 
 Forty tables, forty-four indexes, thirty-one triggers, laid down across `Skeleton0001` through
 `ProductSearch0004`. Three migrations rather than one for that part, and the split is not
 cosmetic — see §8, "One rebuild, alone, in a migration of its own". `UomActive0005` adds one
-column to an existing table and changes none of those counts.
+column to an existing table and changes none of those counts. `ProductUomBaseUnit0006` adds one
+index and two triggers to an existing table — forty-five indexes, thirty-three triggers from
+here on — again without a rebuild.
 
 ### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 

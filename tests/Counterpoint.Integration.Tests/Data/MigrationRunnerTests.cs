@@ -1,4 +1,5 @@
 using System;
+using System.Data.Common;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,6 +25,7 @@ public sealed class MigrationRunnerTests
         "20260905010014_ProductForeignKeys0003",
         "20260905010104_ProductSearch0004",
         "20260908062332_UomActive0005",
+        "20260908065449_ProductUomBaseUnit0006",
     ];
 
     [Fact]
@@ -156,7 +158,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4]);
+        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4], Chain[5]);
         result.BackupFilePath.Should().NotBeNull();
         File.Exists(result.BackupFilePath!).Should().BeTrue();
         Path.GetFileName(result.BackupFilePath!).Should().StartWith("counterpoint-pre-");
@@ -231,7 +233,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4]);
+        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5]);
 
         await using (var check = factory.OpenConfiguredConnection())
         {
@@ -263,7 +265,10 @@ public sealed class MigrationRunnerTests
     /// siblings already carry (docs/01_DATA_MODEL.md §3), so it can be deactivated like the rest
     /// of P1-T04's reference data. It is a plain <c>ADD COLUMN</c> - <c>uom</c> has no triggers of
     /// its own to lose - and a row seeded before the migration ran must pick up the default
-    /// exactly as an existing till would.
+    /// exactly as an existing till would. Migrating from <c>ProductSearch0004</c> also picks up
+    /// <c>ProductUomBaseUnit0006</c> immediately behind it, so both come through in one call; the
+    /// migration test for that one on its own is
+    /// <see cref="FR_2_4_ProductUomBaseUnitRuleAppliesToASeededDatabase"/>.
     /// </summary>
     [Fact]
     public async Task FR_2_1_UomGetsAnActiveColumnDefaultingToTrue()
@@ -281,7 +286,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[4]);
+        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -310,6 +315,117 @@ public sealed class MigrationRunnerTests
 
         command.CommandText = "SELECT active FROM uom WHERE id = 2;";
         (await command.ExecuteScalarAsync()).Should().Be(0L);
+    }
+
+    /// <summary>
+    /// <c>ProductUomBaseUnit0006</c> (docs/01_DATA_MODEL.md §3, §8): "exactly one row per product
+    /// with <c>is_base = 1</c> and <c>conversion_factor = 10000</c>", the rule
+    /// <c>FullSchema0002</c> deliberately left unenforced pending P1-T05's UOM conversion domain.
+    /// Migrated forward from a database already carrying <c>TradingDaySeed</c>'s base row, so the
+    /// migration itself - the partial unique index and the two triggers - is what is under test,
+    /// not a schema built fresh with them already in place.
+    /// </summary>
+    [Fact]
+    public async Task FR_2_4_ProductUomBaseUnitRuleAppliesToASeededDatabase()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "UomActive0005");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+        var result = await runner.ApplyPendingMigrationsAsync();
+
+        result.AppliedMigrations.Should().Equal(Chain[5]);
+
+        await using var check = factory.OpenConfiguredConnection();
+        await using var command = check.CreateCommand();
+
+        command.CommandText = "PRAGMA integrity_check;";
+        (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+        // A handful of extra units to sell product 1 in, distinct from uom 1 (the seeded base).
+        command.CommandText = """
+            INSERT INTO uom (id, name, symbol, decimal_places) VALUES
+                (2, 'Box', 'box', 0),
+                (3, 'Coil', 'coil', 0),
+                (4, 'Metre', 'm', 3),
+                (5, 'Dozen', 'dz', 0);
+            """;
+        await command.ExecuteNonQueryAsync();
+
+        // (a) a second is_base = 1 row for the same product is rejected - ux_product_uom_one_base,
+        // the "at most one" half.
+        var secondBase = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO product_uom (id, product_id, uom_id, conversion_factor, is_base) " +
+            "VALUES (2, 1, 2, 10000, 1);");
+        secondBase.SqliteExtendedErrorCode.Should().Be(SqliteConstraintUnique);
+        secondBase.Message.Should().Contain("UNIQUE constraint failed: product_uom.product_id");
+
+        // (b) is_base = 1 with a conversion_factor other than 10000 is rejected -
+        // trg_product_uom_base_factor_insert, the "factor is exactly 10000" half.
+        var wrongFactor = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO product_uom (id, product_id, uom_id, conversion_factor, is_base) " +
+            "VALUES (3, 1, 3, 500, 1);");
+        wrongFactor.SqliteExtendedErrorCode.Should().Be(SqliteConstraintTrigger);
+        wrongFactor.Message.Should().Contain("conversion_factor = 10000");
+
+        // (b), the UPDATE half - a row promoted to is_base = 1 must also land on 10000.
+        command.CommandText =
+            "INSERT INTO product_uom (id, product_id, uom_id, conversion_factor, is_base) " +
+            "VALUES (4, 1, 3, 500, 0);";
+        await command.ExecuteNonQueryAsync();
+
+        var promotedWithWrongFactor = await ExecuteExpectingSqliteExceptionAsync(check,
+            "UPDATE product_uom SET is_base = 1 WHERE id = 4;");
+        promotedWithWrongFactor.SqliteExtendedErrorCode.Should().Be(SqliteConstraintTrigger);
+        promotedWithWrongFactor.Message.Should().Contain("conversion_factor = 10000");
+
+        // (c) is_base = 0 with any positive conversion_factor is accepted - neither guard applies
+        // to a non-base row.
+        command.CommandText =
+            "INSERT INTO product_uom (id, product_id, uom_id, conversion_factor, is_base) " +
+            "VALUES (5, 1, 4, 1000000, 0);";
+        await command.ExecuteNonQueryAsync();
+
+        command.CommandText = "SELECT count(*) FROM product_uom WHERE id = 5;";
+        (await command.ExecuteScalarAsync()).Should().Be(1L);
+
+        // (d) the pre-existing ck_product_uom_conversion_factor CHECK still refuses a non-positive
+        // factor, base or not - this migration must not have loosened it while adding the trigger.
+        var nonPositiveFactor = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO product_uom (id, product_id, uom_id, conversion_factor, is_base) " +
+            "VALUES (6, 1, 5, 0, 0);");
+        nonPositiveFactor.SqliteExtendedErrorCode.Should().Be(SqliteConstraintCheck);
+        nonPositiveFactor.Message.Should().Contain("ck_product_uom_conversion_factor");
+    }
+
+    private const int SqliteConstraintUnique = 2067;
+    private const int SqliteConstraintTrigger = 1811;
+    private const int SqliteConstraintCheck = 275;
+
+    private static async Task<SqliteException> ExecuteExpectingSqliteExceptionAsync(
+        DbConnection connection, string sql)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+
+        try
+        {
+            await command.ExecuteNonQueryAsync();
+        }
+        catch (SqliteException exception)
+        {
+            return exception;
+        }
+
+        throw new InvalidOperationException(
+            "Expected SQLite to reject the statement, but it succeeded: " + sql);
     }
 
     /// <summary>
