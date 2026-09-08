@@ -11,4 +11,6 @@ internal sealed class Uom
 
     /// <summary>Plain count, 0-4. Not scaled.</summary>
     public int DecimalPlaces { get; set; }
+
+    public bool Active { get; set; }
 }

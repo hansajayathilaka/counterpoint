@@ -2074,6 +2074,11 @@ namespace Counterpoint.Infrastructure.Migrations
                         .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true)
+                        .HasColumnName("active");
+
                     b.Property<int>("DecimalPlaces")
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0)

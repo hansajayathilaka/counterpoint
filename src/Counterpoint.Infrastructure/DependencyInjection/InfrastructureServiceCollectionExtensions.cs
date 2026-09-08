@@ -4,6 +4,7 @@ using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Backup;
+using Counterpoint.Infrastructure.Catalogue;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Inventory;
 using Counterpoint.Infrastructure.Printing;
@@ -83,6 +84,17 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ISettingStore, SqliteSettingStore>();
         services.AddSingleton<INumberSequenceConfiguration, SqliteNumberSequenceConfiguration>();
         services.AddSingleton<ITaxClassSeed, SqliteTaxClassSeed>();
+
+        // P1-T04: category, brand, uom, tax_class, supplier, customer reference-data maintenance
+        // (SRS FR-2.20, FR-2.21, FR-6), and the default unit/category set the first-run wizard
+        // seeds from (docs/01_DATA_MODEL.md §11).
+        services.AddSingleton<ICategoryStore, SqliteCategoryStore>();
+        services.AddSingleton<IBrandStore, SqliteBrandStore>();
+        services.AddSingleton<IUomStore, SqliteUomStore>();
+        services.AddSingleton<ITaxClassStore, SqliteTaxClassStore>();
+        services.AddSingleton<ISupplierStore, SqliteSupplierStore>();
+        services.AddSingleton<ICustomerStore, SqliteCustomerStore>();
+        services.AddSingleton<ICatalogueReferenceDataSeed, SqliteCatalogueReferenceDataSeed>();
 
         // P0-T07: the one seam Counterpoint.Backup reaches a SQLCipher connection through,
         // because it may not reference this assembly (CLAUDE.md "Project boundaries").

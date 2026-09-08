@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Avalonia.Threading;
 using Counterpoint.Application.Abstractions.Security;
+using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -13,6 +14,7 @@ using Counterpoint.Domain.Services;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.DependencyInjection;
 using Counterpoint.Ui.ViewModels;
+using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,6 +54,7 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<IQuoteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
 
         builder.Services.AddCounterpointSecurity();
+        builder.Services.AddCounterpointCatalogue();
 
         // Resolved a second time, deliberately: AddCounterpointInfrastructure resolves and
         // registers its own PosDataDirectory internally and does not hand it back, and changing
@@ -68,6 +71,16 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<SalesViewModel>();
         builder.Services.AddSingleton<UserAdminViewModel>();
         builder.Services.AddSingleton<FirstRunWizardViewModel>();
+
+        // P1-T04: the catalogue reference-data screen, one tab viewmodel per entity, composed
+        // into one CatalogueViewModel (SRS FR-2.20, FR-2.21, FR-6).
+        builder.Services.AddSingleton<CategoryTabViewModel>();
+        builder.Services.AddSingleton<BrandTabViewModel>();
+        builder.Services.AddSingleton<UomTabViewModel>();
+        builder.Services.AddSingleton<TaxClassTabViewModel>();
+        builder.Services.AddSingleton<SupplierTabViewModel>();
+        builder.Services.AddSingleton<CustomerTabViewModel>();
+        builder.Services.AddSingleton<CatalogueViewModel>();
 
         // The settings screen is handed the one thing it cannot get from Counterpoint.Ui: a way
         // back onto the thread the window lives on. ISettings.Changed is raised by whichever
@@ -181,6 +194,43 @@ internal static class CounterpointHostBuilderExtensions
 
         services.AddSingleton<IUserAdministration>(p => RoleAuthorisation.Decorate<IUserAdministration>(
             ActivatorUtilities.CreateInstance<UserAdministrationService>(p),
+            p.GetRequiredService<ISession>()));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Category, brand, unit, tax class, supplier and customer maintenance (SRS FR-2.20, FR-2.21,
+    /// FR-6). Every one of the six is owner-only, registered exactly as
+    /// <see cref="IUserAdministration"/> is: the concrete service is built inside the factory,
+    /// decorated, and only the decorated interface goes into the container - so nothing can reach
+    /// one of these without going through <see cref="RoleAuthorisation"/> first (SRS NFR-S2,
+    /// AC-17).
+    /// </summary>
+    private static IServiceCollection AddCounterpointCatalogue(this IServiceCollection services)
+    {
+        services.AddSingleton<ICategoryMaintenance>(p => RoleAuthorisation.Decorate<ICategoryMaintenance>(
+            ActivatorUtilities.CreateInstance<CategoryMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        services.AddSingleton<IBrandMaintenance>(p => RoleAuthorisation.Decorate<IBrandMaintenance>(
+            ActivatorUtilities.CreateInstance<BrandMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        services.AddSingleton<IUomMaintenance>(p => RoleAuthorisation.Decorate<IUomMaintenance>(
+            ActivatorUtilities.CreateInstance<UomMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        services.AddSingleton<ITaxClassMaintenance>(p => RoleAuthorisation.Decorate<ITaxClassMaintenance>(
+            ActivatorUtilities.CreateInstance<TaxClassMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        services.AddSingleton<ISupplierMaintenance>(p => RoleAuthorisation.Decorate<ISupplierMaintenance>(
+            ActivatorUtilities.CreateInstance<SupplierMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        services.AddSingleton<ICustomerMaintenance>(p => RoleAuthorisation.Decorate<ICustomerMaintenance>(
+            ActivatorUtilities.CreateInstance<CustomerMaintenanceService>(p),
             p.GetRequiredService<ISession>()));
 
         return services;

@@ -111,3 +111,13 @@ it stopped.
 - `2026-09-08T02:59:14Z` **P0-T07** done — 30 files, 630 tests (9 new + 2 concurrency regression), 2 review rounds (code-reviewer + data-modeler) + 1 fix-loop verification round closing 1 must-fix (VACUUM INTO write-gate contention); PR #13 CI green including windows-publish (SQLCipher asset + installer artifact confirmed)
 
 **Run ended 2026-09-08T03:00:30Z** — 1 completed, 0 halted
+
+## Run 2026-09-08T04:47:17Z
+
+- branch: `claude/autopilot-3d7m8e`
+- head: `3d68e9b`
+- budget: 2 task(s)
+
+- `2026-09-08T04:47:20Z` **P1-T04** start — Catalogue: categories, brands, UOM, tax classes, suppliers
+- `2026-09-08T05:24:00Z` **P1-T04** note — orchestrator decision: uom lacks active column (P1-T01 gap); adding it now via migration is within P1-T04's own done-when criteria, not scope creep into P1-T05
+- `2026-09-08T06:49:13Z` **P1-T04** done — 6 files/89 total files, 417 tests total (34+ new), 2 review rounds (code-reviewer, data-modeler) clean, 0 fix loops needed

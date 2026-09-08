@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
+        xmlns:views="using:Counterpoint.Ui.Views.Catalogue"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+        x:Class="Counterpoint.Ui.Views.CatalogueWindow"
+        x:DataType="vm:CatalogueViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="900" Height="640"
+        WindowStartupLocation="CenterOwner"
+        Title="Counterpoint - catalogue">
+
+  <!--
+    Six flat reference-data screens (SRS FR-2.20, FR-2.21, FR-6): category, brand, unit, tax
+    class, supplier, customer. Owner only - not by anything on this window, but by
+    [RequiresRole(Role.Owner)] on every one of the six Application interfaces it calls
+    (SRS NFR-S2, AC-17).
+  -->
+  <TabControl>
+    <TabItem Header="Categories">
+      <views:CategoryTabView DataContext="{Binding Category}" />
+    </TabItem>
+    <TabItem Header="Brands">
+      <views:BrandTabView DataContext="{Binding Brand}" />
+    </TabItem>
+    <TabItem Header="Units">
+      <views:UomTabView DataContext="{Binding Uom}" />
+    </TabItem>
+    <TabItem Header="Tax classes">
+      <views:TaxClassTabView DataContext="{Binding TaxClass}" />
+    </TabItem>
+    <TabItem Header="Suppliers">
+      <views:SupplierTabView DataContext="{Binding Supplier}" />
+    </TabItem>
+    <TabItem Header="Customers">
+      <views:CustomerTabView DataContext="{Binding Customer}" />
+    </TabItem>
+  </TabControl>
+
+</Window>

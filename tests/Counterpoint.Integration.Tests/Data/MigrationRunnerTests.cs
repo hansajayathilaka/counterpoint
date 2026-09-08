@@ -23,6 +23,7 @@ public sealed class MigrationRunnerTests
         "20260905005921_FullSchema0002",
         "20260905010014_ProductForeignKeys0003",
         "20260905010104_ProductSearch0004",
+        "20260908062332_UomActive0005",
     ];
 
     [Fact]
@@ -155,7 +156,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3]);
+        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4]);
         result.BackupFilePath.Should().NotBeNull();
         File.Exists(result.BackupFilePath!).Should().BeTrue();
         Path.GetFileName(result.BackupFilePath!).Should().StartWith("counterpoint-pre-");
@@ -230,7 +231,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3]);
+        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4]);
 
         await using (var check = factory.OpenConfiguredConnection())
         {
@@ -255,6 +256,60 @@ public sealed class MigrationRunnerTests
             command.CommandText = "SELECT code FROM product WHERE id = 1;";
             (await command.ExecuteScalarAsync()).Should().Be("P-001");
         }
+    }
+
+    /// <summary>
+    /// <c>UomActive0005</c>: <c>uom</c> gets the same <c>active</c> column its five catalogue
+    /// siblings already carry (docs/01_DATA_MODEL.md §3), so it can be deactivated like the rest
+    /// of P1-T04's reference data. It is a plain <c>ADD COLUMN</c> - <c>uom</c> has no triggers of
+    /// its own to lose - and a row seeded before the migration ran must pick up the default
+    /// exactly as an existing till would.
+    /// </summary>
+    [Fact]
+    public async Task FR_2_1_UomGetsAnActiveColumnDefaultingToTrue()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "ProductSearch0004");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+        var result = await runner.ApplyPendingMigrationsAsync();
+
+        result.AppliedMigrations.Should().Equal(Chain[4]);
+
+        await using var check = factory.OpenConfiguredConnection();
+        await using var command = check.CreateCommand();
+
+        command.CommandText = "PRAGMA integrity_check;";
+        (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+        // The seeded row predates the migration; it still comes through as active.
+        command.CommandText = "SELECT active FROM uom WHERE id = 1;";
+        (await command.ExecuteScalarAsync()).Should().Be(1L);
+
+        command.CommandText = "SELECT typeof(active) FROM uom WHERE id = 1;";
+        (await command.ExecuteScalarAsync()).Should().Be("integer");
+
+        // A newly inserted row, and one explicitly deactivated - the column behaves like its
+        // five siblings, not merely like a column that exists.
+        command.CommandText =
+            "INSERT INTO uom (id, name, symbol, decimal_places) VALUES (2, 'Metre', 'm', 3);";
+        await command.ExecuteNonQueryAsync();
+
+        command.CommandText = "SELECT active FROM uom WHERE id = 2;";
+        (await command.ExecuteScalarAsync()).Should().Be(1L);
+
+        command.CommandText = "UPDATE uom SET active = 0 WHERE id = 2;";
+        await command.ExecuteNonQueryAsync();
+
+        command.CommandText = "SELECT active FROM uom WHERE id = 2;";
+        (await command.ExecuteScalarAsync()).Should().Be(0L);
     }
 
     /// <summary>
