@@ -128,3 +128,4 @@ it stopped.
 
 **Run ended 2026-09-08T08:03:59Z** — 2 completed, 0 halted
 - `2026-09-08T14:20:24Z` **P1-T07** start — Stock ledger and balance projection
+- `2026-09-08T14:51:11Z` **P1-T07** note — corrected premature self-mark by task-implementer; resuming normal B4-B8 loop (test-engineer, verify, review) before re-judging done
