@@ -3,6 +3,7 @@ using System.IO;
 using Avalonia.Threading;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
 using Counterpoint.Application.Pricing;
@@ -101,6 +102,13 @@ internal static class CounterpointHostBuilderExtensions
         // P1-T05: the product editor tab - variant grid, UOM grid, variant matrix generator
         // (SRS FR-2.1-FR-2.8, FR-3.6, AC-08).
         builder.Services.AddSingleton<ProductTabViewModel>();
+
+        // P1-T13: the import/export tab (SRS FR-2.22, FR-2.23, AC-07, Q-08). Takes the same
+        // role-decorated ICatalogueImportService AddCounterpointCatalogue registers below, plus
+        // ISpreadsheetReader (registered in AddCounterpointInfrastructure) to read a file's
+        // headers for the mapping grid - reading headers is not a use case with its own
+        // Application-layer authorisation, the same as IStockEnquiry above.
+        builder.Services.AddSingleton<ImportTabViewModel>();
 
         builder.Services.AddSingleton<CatalogueViewModel>();
 
@@ -282,6 +290,12 @@ internal static class CounterpointHostBuilderExtensions
         // as the eight above.
         services.AddSingleton<IBulkPriceUpdateService>(p => RoleAuthorisation.Decorate<IBulkPriceUpdateService>(
             ActivatorUtilities.CreateInstance<BulkPriceUpdateService>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P1-T13: spreadsheet catalogue import and export (SRS FR-2.22, FR-2.23) - wired exactly
+        // as the nine above.
+        services.AddSingleton<ICatalogueImportService>(p => RoleAuthorisation.Decorate<ICatalogueImportService>(
+            ActivatorUtilities.CreateInstance<CatalogueImportService>(p),
             p.GetRequiredService<ISession>()));
 
         return services;

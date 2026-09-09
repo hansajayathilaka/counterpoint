@@ -40,6 +40,9 @@
     <TabItem Header="Products">
       <views:ProductTabView DataContext="{Binding Product}" />
     </TabItem>
+    <TabItem Header="Import / Export">
+      <views:ImportTabView DataContext="{Binding Import}" />
+    </TabItem>
   </TabControl>
 
 </Window>
