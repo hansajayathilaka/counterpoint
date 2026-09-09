@@ -520,6 +520,26 @@ internal sealed class SqliteProductStore : IProductStore
             product.Active);
     }
 
+    /// <inheritdoc />
+    public Task<Money?> FindCostAvgAsync(long productId, CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteInTransactionAsync(
+            async (_, _, token) =>
+            {
+                using var context = _unitOfWork.CreateDbContext();
+
+                // A narrow projection, not the whole product row: this exists only to answer the
+                // below-cost check without putting cost on the shared, not-owner-only ProductRecord
+                // (CLAUDE.md invariant 8).
+                var row = await context.Set<Product>()
+                    .Where(product => product.Id == productId)
+                    .Select(product => new { product.CostAvg })
+                    .FirstOrDefaultAsync(token)
+                    .ConfigureAwait(false);
+
+                return row?.CostAvg;
+            },
+            cancellationToken);
+
     private static Product ToRow(SaveProductCommand command, DateTimeOffset now) => new()
     {
         Code = command.Code,

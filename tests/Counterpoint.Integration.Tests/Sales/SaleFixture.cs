@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Inventory;
+using Counterpoint.Application.Pricing;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -212,6 +213,19 @@ internal sealed class SaleFixture : IAsyncDisposable
         // above (SRS FR-2.1-FR-2.8, FR-3.6, AC-08, NFR-S2, AC-17).
         services.AddSingleton<IProductMaintenance>(p => RoleAuthorisation.Decorate<IProductMaintenance>(
             ActivatorUtilities.CreateInstance<ProductMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19, FR-3.7-FR-3.10, Q-12), the same
+        // two lines as Counterpoint.App's CounterpointHostBuilderExtensions.
+        // IDiscountAuthorisationService is not owner-only - a cashier applies a discount inside
+        // the cap without needing anyone's role, and going over it is gated by OverrideToken, not
+        // RequiresRoleAttribute - so it is registered plain, undecorated.
+        services.AddSingleton<IDiscountAuthorisationService, DiscountAuthorisationService>();
+
+        // Bulk price update by category, brand or supplier (SRS FR-2.19) is owner only, wired
+        // exactly as IProductMaintenance above.
+        services.AddSingleton<IBulkPriceUpdateService>(p => RoleAuthorisation.Decorate<IBulkPriceUpdateService>(
+            ActivatorUtilities.CreateInstance<BulkPriceUpdateService>(p),
             p.GetRequiredService<ISession>()));
 
         // P1-T06: barcode administration - wired exactly as the composition root wires it
