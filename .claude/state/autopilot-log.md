@@ -166,3 +166,4 @@ it stopped.
 - budget: 1 task(s)
 
 - `2026-09-09T02:21:46Z` **P1-T09** start — Sales screen and bill building
+- `2026-09-09T03:27:27Z` **P1-T09** note — implementer committed and self-marked done outside the loop; reopening to run test-engineer + review before accepting
