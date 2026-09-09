@@ -284,6 +284,60 @@
             <Button Content="Add" Command="{Binding AddOpenItemCommand}" />
           </StackPanel>
 
+          <!-- F9 Pay (SRS FR-3.16-FR-3.22, FR-3.24-FR-3.26): cash, card, bank transfer and
+               cheque, split across as many as needed. The cash box is pre-filled with the exact
+               total, so F9 then Enter still pays a single-tender bill in two keystrokes. -->
+          <DockPanel IsVisible="{Binding IsPaymentPanelOpen}">
+            <TextBlock DockPanel.Dock="Top" Text="Pay" FontWeight="Bold" Margin="0,0,0,6" />
+
+            <StackPanel DockPanel.Dock="Bottom" Spacing="8">
+              <TextBlock Text="{Binding TenderPreviewText}" FontWeight="Bold" FontSize="18" Foreground="#34D399" TextWrapping="Wrap" />
+              <Button Content="Complete sale" Command="{Binding CompletePaymentCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="Bold" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Cash" FontWeight="Bold" />
+              <TextBox Name="CashTenderBox" Text="{Binding CashTenderText}">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding CompletePaymentCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <ItemsControl ItemsSource="{Binding QuickCashDenominations}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="x:Decimal">
+                    <Button Content="{Binding}" Margin="0,0,4,4" Command="{Binding $parent[Window].((vm:SalesViewModel)DataContext).AddQuickCashCommand}" CommandParameter="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <TextBlock Text="Card" FontWeight="Bold" Margin="0,8,0,0" />
+              <TextBox Text="{Binding CardTenderText}">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding CompletePaymentCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+
+              <TextBlock Text="Bank transfer" FontWeight="Bold" />
+              <TextBox Text="{Binding BankTransferTenderText}">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding CompletePaymentCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+
+              <TextBlock Text="Cheque" FontWeight="Bold" />
+              <TextBox Text="{Binding ChequeTenderText}">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding CompletePaymentCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+            </StackPanel>
+          </DockPanel>
+
         </Grid>
       </Border>
 

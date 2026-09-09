@@ -30,9 +30,18 @@ namespace Counterpoint.Infrastructure.Sales;
 /// <para>
 /// The stock balance projection is joined into the same statement, <c>LEFT JOIN</c> because a
 /// variant that has never had a movement posted has no stock balance row at all - a
-/// missing row and a zero balance mean the same thing, so <c>COALESCE</c> makes them read the
-/// same way too. This is a read of the projection, never a sum of the ledger
+/// missing row and a zero balance (or a zero cost) mean the same thing, so <c>COALESCE</c> makes
+/// them read the same way too. This is a read of the projection, never a sum of the ledger
 /// (CLAUDE.md invariant 3 - the ledger stays the only place a balance is computed from).
+/// </para>
+/// <para>
+/// <b>P1-T10:</b> <see cref="CatalogueItem.UnitCost"/> - the figure a sale snapshots onto
+/// <c>sale_line.unit_cost</c> as its COGS - comes from <c>stock_balance.cost_avg</c>, not
+/// <c>product.cost_avg</c>. The two are different columns: <c>stock_balance.cost_avg</c> is the
+/// one the moving-average formula in <c>StockLedgerMath</c> actually maintains, on every posting
+/// (P1-T07); <c>product.cost_avg</c> is set once, by the product editor, and nothing keeps it in
+/// step with a receipt or a sale afterwards. Reading the wrong one would snapshot a COGS the
+/// ledger has already moved past.
 /// </para>
 /// <para>
 /// <b>P1-T09:</b> a second, small query on the same connection fetches the product's
@@ -54,7 +63,7 @@ internal sealed class SqliteProductLookup : IProductLookup
                p.base_uom_id AS BaseUomId,
                u.symbol AS UomSymbol,
                pv.price AS UnitPrice,
-               p.cost_avg AS UnitCost,
+               COALESCE(sb.cost_avg, 0) AS UnitCost,
                tc.rate AS TaxRate,
                COALESCE(sb.qty_base, 0) AS QtyBase,
                p.max_discount_rate AS MaxDiscountRate

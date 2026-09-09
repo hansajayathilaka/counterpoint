@@ -13,6 +13,7 @@ using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Domain.Pricing;
+using Counterpoint.Domain.Sales;
 using Counterpoint.Domain.Security;
 using Counterpoint.Domain.ValueObjects;
 
@@ -30,6 +31,7 @@ public enum SalesPanel
     Customer,
     StockEnquiry,
     OpenItem,
+    Payment,
 }
 
 /// <summary>
@@ -47,16 +49,26 @@ public enum SalesPanel
 /// here multiplies a price by a quantity.
 /// </para>
 /// <para>
+/// <b>F9 Pay</b> (P1-T10, SRS FR-3.16-FR-3.22, FR-3.24-FR-3.26) opens a non-modal payment panel
+/// pre-filled with a single cash tender for the exact total, so the one-tender fast path is still
+/// F9 then Enter. The cashier can change that amount (a bigger cash figure previews the change
+/// due) or type amounts into card, bank transfer and cheque as well, splitting the bill across
+/// as many of the four as needed; <c>Counterpoint.Domain.Sales.TenderCalculator</c> - the same
+/// calculator the Application layer re-checks the bill against before it is written - is what
+/// turns those figures into the change preview, so the number shown here is never a guess.
+/// </para>
+/// <para>
 /// <b>Deliberately out of this task's reach</b> (see the task's own notes and
-/// <c>docs/03_PHASE_1_core_trading.md</c>): F4 Return (Phase 2), a split-tender pay dialog with
-/// change (P1-T10 - F9 here still completes a bill, at the exact cash amount, which is enough to
-/// prove NFR-U2's keystroke budget), F10 Reprint (needs P1-T11's receipt/print-queue machinery),
-/// F12 Day Close (needs Phase 3's shift close), and an owner re-authentication dialog for a
-/// discount above its cap (SRS FR-3.18) or a manual price override (FR-3.19) - nothing in Phase 1
-/// builds that dialog yet, so an over-cap discount is refused with a plain-language message
-/// rather than offered an override. Trade price tiers (FR-3.23) are Phase 5's, explicitly out of
-/// scope for Phase 1 (docs/03_PHASE_1_core_trading.md); attaching a customer here (F8) is for
-/// record-keeping only and does not change a line's price.
+/// <c>docs/03_PHASE_1_core_trading.md</c>): F4 Return (Phase 2), F10 Reprint (needs P1-T11's
+/// receipt/print-queue machinery), F12 Day Close (needs Phase 3's shift close), and an owner
+/// re-authentication dialog for a discount above its cap (SRS FR-3.18) or a manual price override
+/// (FR-3.19) - nothing in Phase 1 builds that dialog yet, so an over-cap discount is refused with
+/// a plain-language message rather than offered an override. Trade price tiers (FR-3.23) are
+/// Phase 5's, explicitly out of scope for Phase 1 (docs/03_PHASE_1_core_trading.md); attaching a
+/// customer here (F8) is for record-keeping only and does not change a line's price. Bill
+/// cancellation (SRS FR-3.34) is <c>Counterpoint.Application.Sales.ICancelSale</c>, complete and
+/// directly testable in this task - it has no trigger on this screen because cancelling needs to
+/// find a past bill first (SRS FR-3.35), and no bill-lookup screen exists yet in Phase 1.
 /// </para>
 /// </remarks>
 public sealed partial class SalesViewModel : NumericInputViewModel
@@ -201,6 +213,79 @@ public sealed partial class SalesViewModel : NumericInputViewModel
 
     private Dictionary<string, long> _openItemUnitIds = [];
 
+    // ---- Payment panel (F9, SRS FR-3.16-FR-3.22, FR-3.24-FR-3.26) ---------------------------------
+
+    private string _cashTenderText = string.Empty;
+
+    /// <summary>
+    /// What the cashier typed for cash. Pre-filled with the exact total when the panel opens.
+    /// Setting it re-runs <see cref="RefreshTenderPreview"/> - these four boxes have no source
+    /// generator behind them (<see cref="SetNumeric"/> needs a settable field, not the
+    /// <c>[ObservableProperty]</c> pattern the rest of the screen uses), so the preview is kept
+    /// live by hand rather than through a generated <c>OnXChanged</c> partial method.
+    /// </summary>
+    public string CashTenderText
+    {
+        get => _cashTenderText;
+        set
+        {
+            SetNumeric(ref _cashTenderText, value, allowDecimal: true);
+            RefreshTenderPreview();
+        }
+    }
+
+    private string _cardTenderText = string.Empty;
+
+    public string CardTenderText
+    {
+        get => _cardTenderText;
+        set
+        {
+            SetNumeric(ref _cardTenderText, value, allowDecimal: true);
+            RefreshTenderPreview();
+        }
+    }
+
+    private string _bankTransferTenderText = string.Empty;
+
+    public string BankTransferTenderText
+    {
+        get => _bankTransferTenderText;
+        set
+        {
+            SetNumeric(ref _bankTransferTenderText, value, allowDecimal: true);
+            RefreshTenderPreview();
+        }
+    }
+
+    private string _chequeTenderText = string.Empty;
+
+    public string ChequeTenderText
+    {
+        get => _chequeTenderText;
+        set
+        {
+            SetNumeric(ref _chequeTenderText, value, allowDecimal: true);
+            RefreshTenderPreview();
+        }
+    }
+
+    /// <summary>
+    /// The live change/still-owed preview (SRS FR-3.26), recomputed from
+    /// <c>Counterpoint.Domain.Sales.TenderCalculator</c> on every keystroke in any of the four
+    /// tender boxes above - the same calculator the Application layer re-checks the bill against,
+    /// so this is never a number the bill can then disagree with.
+    /// </summary>
+    [ObservableProperty]
+    private string _tenderPreviewText = string.Empty;
+
+    /// <summary>
+    /// Quick-tender buttons for common note denominations (SRS FR-3.26). LKR notes (Q-01); there
+    /// is no FR-10 setting for this list to read instead (P1-T03's settings framework has none),
+    /// so it is fixed here rather than inventing one this task does not need.
+    /// </summary>
+    public IReadOnlyList<decimal> QuickCashDenominations { get; } = [20m, 50m, 100m, 500m, 1000m, 5000m];
+
     // ---- Help panel (UI-12) ----------------------------------------------------------------------
 
     /// <summary>The on-screen cheat sheet (SRS UI-12: "the ten most common tasks").</summary>
@@ -214,7 +299,7 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         F6  Recall               - bring back a held bill
         F7  Discount             - a percentage or amount off the selected line, or the whole bill
         F8  Customer             - attach a customer by name or phone, or clear it
-        F9  Pay                  - complete the bill for cash, tendered exactly
+        F9  Pay                  - cash, card, bank transfer or cheque, split as needed; Enter pays
         F10 Reprint               - not available yet (needs the receipt/print-queue task)
         F11 Stock                 - stock on hand for the selected or last-scanned item
         F12 Day close              - not available yet (Phase 3)
@@ -335,6 +420,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     public bool IsStockPanelOpen => _activePanel == SalesPanel.StockEnquiry;
 
     public bool IsOpenItemPanelOpen => _activePanel == SalesPanel.OpenItem;
+
+    public bool IsPaymentPanelOpen => _activePanel == SalesPanel.Payment;
 
     public bool IsAnyPanelOpen => _activePanel != SalesPanel.None;
 
@@ -661,13 +748,109 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         ClosePanel();
     }
 
-    // ---- F9 Pay (P1-T10 completes the tender dialog; this pays the exact cash amount) -----------
+    // ---- F9 Pay (P1-T10, SRS FR-3.16-FR-3.22, FR-3.24-FR-3.26) -----------------------------------
 
+    /// <summary>
+    /// Opens the payment panel, pre-filled with the exact total as a single cash tender - so the
+    /// one-tender fast path is still F9 then Enter, exactly as it was before this task, and a
+    /// second press of F9 (<see cref="TogglePanel"/>) closes it again without paying, the same as
+    /// every other panel.
+    /// </summary>
     [RelayCommand]
-    public async Task PayAsync(CancellationToken cancellationToken)
+    public void Pay()
+    {
+        if (_bill.Count == 0)
+        {
+            Status = "There is nothing on the bill to pay for.";
+            return;
+        }
+
+        TogglePanel(SalesPanel.Payment);
+
+        if (!IsPaymentPanelOpen)
+        {
+            return;
+        }
+
+        CashTenderText = Total;
+        CardTenderText = string.Empty;
+        BankTransferTenderText = string.Empty;
+        ChequeTenderText = string.Empty;
+        RefreshTenderPreview();
+    }
+
+    /// <summary>Adds one note to the cash tender box (SRS FR-3.26's quick-tender buttons).</summary>
+    [RelayCommand]
+    public void AddQuickCash(decimal denomination)
+    {
+        var running = SettingsTextToDecimal(CashTenderText) + denomination;
+        CashTenderText = running.ToString("0.00", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Recomputes the change/still-owed preview from whatever is currently typed, through the
+    /// same <c>Counterpoint.Domain.Sales.TenderCalculator</c> the Application layer checks the
+    /// bill against - never a separate calculation of its own (see the class remarks).
+    /// </summary>
+    private void RefreshTenderPreview()
+    {
+        var tenders = BuildTenderLines();
+
+        if (tenders.Count == 0)
+        {
+            TenderPreviewText = "Enter at least one amount tendered.";
+            return;
+        }
+
+        try
+        {
+            var plan = TenderCalculator.Calculate(Money.FromDecimal(SettingsTextToDecimal(Total)), tenders);
+            TenderPreviewText = plan.Change.IsZero
+                ? "Paid in full."
+                : "Change due: " + plan.Change.Amount.ToString("0.00", CultureInfo.InvariantCulture);
+        }
+        catch (InvalidOperationException exception)
+        {
+            TenderPreviewText = exception.Message;
+        }
+    }
+
+    private List<TenderLine> BuildTenderLines()
+    {
+        var lines = new List<TenderLine>(4);
+        AddTenderLine(lines, TenderTypes.Cash, CashTenderText);
+        AddTenderLine(lines, TenderTypes.Card, CardTenderText);
+        AddTenderLine(lines, TenderTypes.BankTransfer, BankTransferTenderText);
+        AddTenderLine(lines, TenderTypes.Cheque, ChequeTenderText);
+        return lines;
+    }
+
+    private static void AddTenderLine(List<TenderLine> lines, string tenderType, string typed)
+    {
+        var amount = SettingsTextToDecimal(typed);
+        if (amount > 0m)
+        {
+            lines.Add(new TenderLine(tenderType, Money.FromDecimal(amount)));
+        }
+    }
+
+    /// <summary>
+    /// Completes the sale with whatever is typed into the payment panel - the Application layer
+    /// is the authority on whether it adds up (SRS FR-3.30); this only builds the request and
+    /// shows what comes back, exactly the discipline every other command on this screen keeps.
+    /// </summary>
+    [RelayCommand]
+    public async Task CompletePaymentAsync(CancellationToken cancellationToken)
     {
         if (Busy || _bill.Count == 0)
         {
+            return;
+        }
+
+        var tenders = BuildTenderLines();
+        if (tenders.Count == 0)
+        {
+            Status = "Enter at least one amount tendered.";
             return;
         }
 
@@ -681,21 +864,23 @@ public sealed partial class SalesViewModel : NumericInputViewModel
                     return;
                 }
 
-                var quote = await _quoter.QuoteAsync(_bill, _pendingBillDiscount, cancellationToken).ConfigureAwait(true);
-
                 var completed = await _sales.CompleteAsync(
                     new CompleteSaleCommand(
                         session.UserId,
                         session.ShiftId,
                         _timeProvider.GetLocalNow(),
                         [.. _bill],
-                        [new TenderRequest(TenderTypes.Cash, quote.Total)],
+                        [.. tenders.Select(tender => new TenderRequest(tender.TenderType, tender.Tendered, tender.Reference))],
                         _customerId,
                         _pendingBillDiscount),
                     cancellationToken).ConfigureAwait(true);
 
                 ClearBillState();
-                Status = "Saved as " + completed.BillNo + ". The receipt is queued.";
+                Status = completed.Change.IsZero
+                    ? "Saved as " + completed.BillNo + ". The receipt is queued."
+                    : "Saved as " + completed.BillNo + ". Change due: "
+                        + completed.Change.Amount.ToString("0.00", CultureInfo.InvariantCulture)
+                        + ". The receipt is queued.";
             },
             cancellationToken).ConfigureAwait(true);
     }
@@ -1132,6 +1317,11 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         BillDiscountText = string.Empty;
         TaxText = "0.00";
         Total = "0.00";
+        CashTenderText = string.Empty;
+        CardTenderText = string.Empty;
+        BankTransferTenderText = string.Empty;
+        ChequeTenderText = string.Empty;
+        TenderPreviewText = string.Empty;
         ClosePanel();
         OnPropertyChanged(nameof(CurrentCustomerText));
     }
@@ -1158,6 +1348,7 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         OnPropertyChanged(nameof(IsCustomerPanelOpen));
         OnPropertyChanged(nameof(IsStockPanelOpen));
         OnPropertyChanged(nameof(IsOpenItemPanelOpen));
+        OnPropertyChanged(nameof(IsPaymentPanelOpen));
         OnPropertyChanged(nameof(IsAnyPanelOpen));
         OnPropertyChanged(nameof(DiscountTargetText));
     }

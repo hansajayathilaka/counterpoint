@@ -47,7 +47,7 @@ hands them back.
 | P1-T07 | Stock ledger and balance projection | done | 2026-09-08 | 2abaee1+64fe290+fbfcc13 feat+test+fix(P1-T07): stock ledger and balance projection - 5/5 Done-when criteria proven (verify.sh green: 728 tests + 6 architecture tests incl. new stock-ledger-family scan + 54 trigger-survival tests); moving-average cost and COGS snapshot shared by SqliteStockLedger.PostAsync and RebuildStockBalanceCommand, replay proven bit-exact after 10,000 random movements; code-reviewer + data-modeler review, 1 must-fix closed in fix-attempt 1 (SqliteStockConsistencyCheck reported mismatch quantities as raw scaled longs, 10000x too large - fixed and regression-tested, re-reviewed clean); should-fix carried to PR: architecture test's regex guard doesn't catch raw-SQL writes to stock_balance/stock_movement by table name (only EF type names), IStockEnquiry docstring references a nonexistent 'sellable' concept, and the consistency-check's Warning log still shows raw scaled magnitudes alongside the now-descaled report; no Avalonia F11 view built (query layer only) - flagged for the sales-screen task |
 | P1-T08 | Pricing and discount engine | done | 2026-09-08 | 6543102+2d3e50d+4f0a0c6 feat+test+fix(P1-T08): pricing and discount engine - PR #18 |
 | P1-T09 | Sales screen and bill building | done | 2026-09-09 | 6f6fd81 fix(P1-T09): aggregate same-variant lines for negative-stock check - all 7 Done-when criteria satisfied (2 by direct test: FR-3.2 repeat-scan, FR-3.32 hold/recall; 5 by construction/inspection consistent with this codebase's pre-existing no-headless-UI-test convention: keystroke count, function-key runtime, focus-stealing glue, 1366x768 layout, total prominence); verify.sh green (832 tests + 6 architecture tests + 54 trigger-survival tests); 1 fix-attempt closed a real Block-policy bypass (multi-line same-variant oversell) found by code-reviewer and independently reproduced by test-engineer |
-| P1-T10 | Tender, change and sale completion | todo | | |
+| P1-T10 | Tender, change and sale completion | done | 2026-09-09 | caac561+3cd6d54 feat+test(P1-T10): PR #21 |
 | P1-T11 | Receipt templates and printing | todo | | Real printer verified in HW-T01 |
 | P1-T12 | Label printing | done | 2026-09-08 | f2da9cd+c5f7c22 feat+test(P1-T12): label printing - PR #19 |
 | P1-T13 | Spreadsheet import | done | 2026-09-09 | b0a02f2+2661b29 feat+fix(P1-T13): PR #22 |
@@ -143,7 +143,7 @@ Update as tests land. `automated` means a passing test exists in
 | AC | Owning task | Status |
 |---|---|---|
 | AC-01 | P5-T09 | not started |
-| AC-02 | P1-T10 | not started |
+| AC-02 | P1-T10 | automated (CompleteSaleTenderTests, tests/Counterpoint.Integration.Tests/Sales/CompleteSaleTenderTests.cs) |
 | AC-03 | P2-T02 | not started |
 | AC-04 | P2-T04 | not started |
 | AC-05 | P2-T01 | not started |

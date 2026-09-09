@@ -41,7 +41,12 @@ public sealed class SalesScreenTests
         screen.Total.Should().Be("12.50", "the total comes from the Application layer, not from the screen");
         screen.Barcode.Should().BeEmpty("the scan box clears itself for the next item");
 
-        await screen.PayCommand.ExecuteAsync(null);
+        // F9 opens the payment panel pre-filled with a single cash tender for the exact total
+        // (P1-T10); Enter in that box - CompletePaymentCommand - is the fast path that keeps a
+        // one-tender bill at F9-then-Enter.
+        screen.PayCommand.Execute(null);
+        screen.CashTenderText.Should().Be("12.50");
+        await screen.CompletePaymentCommand.ExecuteAsync(null);
 
         screen.Status.Should().Be("Saved as INV-2026-000001. The receipt is queued.");
         screen.Lines.Should().BeEmpty("the bill is finished");
@@ -80,7 +85,8 @@ public sealed class SalesScreenTests
 
         screen.Barcode = FirstRunSeeder.SeededBarcode;
         await screen.ScanCommand.ExecuteAsync(null);
-        await screen.PayCommand.ExecuteAsync(null);
+        screen.PayCommand.Execute(null);
+        await screen.CompletePaymentCommand.ExecuteAsync(null);
 
         screen.Status.Should().StartWith("Saved as INV-2026-000001");
         (await fixture.CountAsync("SELECT COUNT(*) FROM sale;")).Should().Be(1);
