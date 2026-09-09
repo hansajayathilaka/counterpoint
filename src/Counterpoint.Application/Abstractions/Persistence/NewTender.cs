@@ -4,8 +4,10 @@ using Counterpoint.Domain.ValueObjects;
 namespace Counterpoint.Application.Abstractions.Persistence;
 
 /// <summary>
-/// One tender against a bill (SRS FR-3.24, FR-3.25). Tenders must sum to the bill total before
-/// anything is written; the handler asserts that rather than silently correcting it.
+/// One tender as it is actually recorded against a bill (SRS FR-3.24, FR-3.25) - what
+/// <c>Counterpoint.Domain.Sales.TenderCalculator</c> applied, never what a cash tender ran over
+/// by (SRS FR-3.26). These always sum to the bill total exactly; the handler computes that split
+/// before anything is written rather than trying to correct one that does not.
 /// </summary>
 /// <param name="TenderType">One of the <c>payment.tender_type</c> values, for example <c>CASH</c>.</param>
 /// <param name="Amount">The amount taken. Negative only for a refund out, which is P2's.</param>

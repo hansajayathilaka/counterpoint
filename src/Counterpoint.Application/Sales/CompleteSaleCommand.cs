@@ -12,7 +12,13 @@ namespace Counterpoint.Application.Sales;
 /// <param name="ShiftId">The open shift it belongs to. A closed shift is refused by the database (AC-11).</param>
 /// <param name="SoldAt">When the bill was completed. Its date is the trading day.</param>
 /// <param name="Lines">What is being sold. At least one.</param>
-/// <param name="Tenders">How it is being paid for. Must sum to the bill total.</param>
+/// <param name="Tenders">
+/// How it is being paid for - what was actually offered, in the order it was offered. A cash
+/// tender may be more than the bill total; the excess comes back as
+/// <see cref="CompletedSale.Change"/>, never as a second payment row (SRS FR-3.26). Every other
+/// tender type must not exceed what the bill still owes when it is taken
+/// (<c>Counterpoint.Domain.Sales.TenderCalculator</c>).
+/// </param>
 /// <param name="CustomerId">
 /// The customer to attach, or null for the default anonymous walk-in sale (SRS FR-3.21, FR-3.22).
 /// Attaching a customer does not change pricing in this phase - trade price tiers are Phase 5

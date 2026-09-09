@@ -11,6 +11,7 @@ using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Domain.Catalogue;
 using Counterpoint.Domain.Pricing;
+using Counterpoint.Domain.Sales;
 using Counterpoint.Domain.Services;
 using Counterpoint.Domain.ValueObjects;
 
@@ -42,10 +43,15 @@ namespace Counterpoint.Application.Sales;
 /// never computes a price or decides a policy - it only shows what this returns.
 /// </para>
 /// <para>
-/// Split tender, change and cash-drawer kick are P1-T10's; this still expects tenders to sum
-/// exactly to the total. Trade price tiers and quantity breaks are Phase 5 (out of scope in
-/// Phase 1) - <see cref="CompleteSaleCommand.CustomerId"/> attaches a customer for record-keeping
-/// only and does not change what a line prices at.
+/// Split tender and change (P1-T10, SRS FR-3.24-FR-3.26) go through
+/// <see cref="TenderCalculator"/>: every tender is applied to what the bill still owes, in the
+/// order offered, and a cash tender may run over - the excess comes back as
+/// <see cref="CompletedSale.Change"/>, never as a payment row. The cash-drawer kick itself is
+/// embedded in the receipt byte stream by <c>Counterpoint.Devices.Printing.EscPosSaleReceiptRenderer</c>
+/// (P0-T05) and dispatched by the print outbox, outside this transaction (CLAUDE.md invariant 7)
+/// - there is no separate device call here. Trade price tiers and quantity breaks are Phase 5
+/// (out of scope in Phase 1) - <see cref="CompleteSaleCommand.CustomerId"/> attaches a customer
+/// for record-keeping only and does not change what a line prices at.
 /// </para>
 /// </remarks>
 public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
@@ -132,7 +138,14 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             cancellationToken).ConfigureAwait(false);
 
         RequireBillBalances(bill);
-        RequireTendersMatch(command, bill.Total);
+
+        // The authoritative split: every tender applied to what the bill still owes, in the
+        // order offered, cash allowed to run over into change (SRS FR-3.24-FR-3.26). Computed
+        // before the transaction opens, same as the pricing above - it refuses here or it does
+        // not run at all.
+        var tenderPlan = TenderCalculator.Calculate(
+            bill.Total,
+            [.. (command.Tenders ?? []).Select(tender => new TenderLine(tender.TenderType, tender.Amount, tender.Reference))]);
 
         return await _unitOfWork.ExecuteInTransactionAsync(
             async token =>
@@ -164,7 +177,10 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                         .ConfigureAwait(false);
                 }
 
-                foreach (var tender in command.Tenders)
+                // Applied amounts, not what was offered: a payment row is what the bill was
+                // actually paid, never what a cash tender ran over by (SRS FR-3.26). This is
+                // what keeps sum(payment.amount) == sale.total exactly, for every split.
+                foreach (var tender in tenderPlan.Applied)
                 {
                     await _sales.InsertPaymentAsync(
                         saleId,
@@ -226,13 +242,13 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                 // stream. This is a pure in-memory byte transform - no device, no I/O. The
                 // printer itself is only ever touched by PrintWorker, outside any transaction
                 // (CLAUDE.md invariant 7).
-                var payload = _receipts.Render(bill.ToReceipt(billNo, command));
+                var payload = _receipts.Render(bill.ToReceipt(billNo, command.SoldAt, tenderPlan.Applied));
 
                 var printJobId = await _printJobs
                     .EnqueueAsync(new PrintJobRequest("SALE", saleId, payload), token)
                     .ConfigureAwait(false);
 
-                return new CompletedSale(saleId, billNo, bill.Total, printJobId);
+                return new CompletedSale(saleId, billNo, bill.Total, tenderPlan.Change, printJobId);
             },
             cancellationToken).ConfigureAwait(false);
     }
@@ -565,26 +581,6 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     }
 
     /// <summary>
-    /// Asserts the money adds up before anything is written. It refuses; it never corrects
-    /// (engineering guide §4.1).
-    /// </summary>
-    private static void RequireTendersMatch(CompleteSaleCommand command, Money total)
-    {
-        if (command.Tenders is null || command.Tenders.Count == 0)
-        {
-            throw new InvalidOperationException("A completed bill must be tendered.");
-        }
-
-        var tendered = command.Tenders.Aggregate(Money.Zero, (running, tender) => running + tender.Amount);
-        if (tendered != total)
-        {
-            throw new InvalidOperationException(string.Create(
-                CultureInfo.InvariantCulture,
-                $"The tenders come to {tendered} but the bill total is {total}. They must match exactly before the bill can be completed."));
-        }
-    }
-
-    /// <summary>
     /// The audit row's after-state. Written by hand rather than serialised so the text is
     /// stable byte for byte - it is about to be hashed into a chain.
     /// </summary>
@@ -610,9 +606,9 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         Money Cogs,
         IReadOnlyList<string> Warnings)
     {
-        internal SaleReceipt ToReceipt(string billNo, CompleteSaleCommand command) => new(
+        internal SaleReceipt ToReceipt(string billNo, DateTimeOffset soldAt, IReadOnlyList<AppliedTender> tenders) => new(
             billNo,
-            command.SoldAt,
+            soldAt,
             [.. Lines.Select(line => new SaleReceiptLine(
                 line.Description,
                 line.Quantity,
@@ -622,7 +618,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             Subtotal,
             Tax,
             Total,
-            [.. command.Tenders.Select(tender => new SaleReceiptTender(tender.TenderType, tender.Amount))]);
+            [.. tenders.Select(tender => new SaleReceiptTender(tender.TenderType, tender.Amount))]);
 
         internal IReadOnlyList<QuotedLine> ToQuotedLines() =>
             [.. Lines.Select(line => new QuotedLine(

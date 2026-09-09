@@ -57,6 +57,12 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<ICompleteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
         builder.Services.AddSingleton<IQuoteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
 
+        // P1-T10: bill cancellation (SRS FR-3.34) - owner-only, wired exactly as the catalogue
+        // maintenance interfaces below are (NFR-S2, AC-17).
+        builder.Services.AddSingleton<ICancelSale>(p => RoleAuthorisation.Decorate<ICancelSale>(
+            ActivatorUtilities.CreateInstance<CancelSaleHandler>(p),
+            p.GetRequiredService<ISession>()));
+
         // P1-T07: the stock enquiry screen (F11). No [RequiresRole] - "check stock" is a
         // cashier capability (Counterpoint.Domain.Security.Role) - so the whole result comes
         // back and StockEnquiryService itself strips cost for anyone who is not signed in as

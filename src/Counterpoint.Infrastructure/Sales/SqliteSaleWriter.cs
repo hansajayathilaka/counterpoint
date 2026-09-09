@@ -12,17 +12,21 @@ namespace Counterpoint.Infrastructure.Sales;
 
 /// <summary>
 /// Writes <c>sale</c>, <c>sale_line</c> and <c>payment</c>, and chains the bill's hash
-/// (CLAUDE.md invariants 5, 6 and 10).
+/// (CLAUDE.md invariants 5, 6 and 10). <see cref="CancelSaleAsync"/> is the one permitted update
+/// afterwards (SRS FR-3.34).
 /// </summary>
 /// <remarks>
-/// Every method joins the transaction already open on the flow, so the three tables of a bill
-/// commit together or not at all. The append-only triggers behind them are what make that true
-/// even for a repair session with <c>sqlite3</c>; nothing here is trusted to enforce it.
+/// Every method joins the transaction already open on the flow, so the tables of a bill commit
+/// together or not at all. The append-only triggers behind them are what make that true even for
+/// a repair session with <c>sqlite3</c>; nothing here is trusted to enforce it.
 /// </remarks>
 internal sealed class SqliteSaleWriter : ISaleWriter
 {
-    /// <summary>The only status a bill is ever written with. Cancellation is an update, later.</summary>
+    /// <summary>The only status a bill is ever <em>written</em> with. <see cref="CancelSaleAsync"/>
+    /// is the one place it ever becomes <c>CANCELLED</c>.</summary>
     private const string CompletedStatus = "COMPLETED";
+
+    private const string CancelledStatus = "CANCELLED";
 
     private readonly SqliteUnitOfWork _unitOfWork;
 
@@ -149,4 +153,36 @@ internal sealed class SqliteSaleWriter : ISaleWriter
             },
             cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task CancelSaleAsync(
+        long saleId,
+        long cancelledByUserId,
+        DateTimeOffset cancelledAt,
+        CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteInTransactionAsync<object?>(
+            async (_, _, token) =>
+            {
+                using var context = _unitOfWork.CreateDbContext();
+
+                // Loaded, not attached-and-patched: EF then knows every other column's original
+                // value and emits an UPDATE naming only the three that changed, which is what
+                // keeps this inside trg_sale_restricted_update's guard without having to trust
+                // this class to have listed the right columns by hand.
+                var row = await context.Set<Sale>()
+                    .FirstOrDefaultAsync(sale => sale.Id == saleId, token)
+                    .ConfigureAwait(false)
+                    ?? throw new InvalidOperationException(string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"Bill {saleId} was not found."));
+
+                row.Status = CancelledStatus;
+                row.CancelledBy = cancelledByUserId;
+                row.CancelledAt = cancelledAt;
+
+                await context.SaveChangesAsync(token).ConfigureAwait(false);
+
+                return null;
+            },
+            cancellationToken);
 }
