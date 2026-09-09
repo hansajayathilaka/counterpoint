@@ -1,5 +1,6 @@
 using System;
 using Counterpoint.Application.Abstractions.Devices;
+using Counterpoint.Devices.Labels;
 using Counterpoint.Devices.Printing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -26,11 +27,16 @@ public static class DevicesServiceCollectionExtensions
     /// What the shop's printer can be trusted to do. Null uses the standard 80 mm profile;
     /// <c>HW-T01</c> replaces it with the real unit's quirks.
     /// </param>
+    /// <param name="labelPrinterOptions">
+    /// Where the development label printer writes, and whether it should pretend to be broken.
+    /// Null uses the defaults.
+    /// </param>
     public static IServiceCollection AddCounterpointDevices(
         this IServiceCollection services,
         FileReceiptPrinterOptions? printerOptions = null,
         PrintWorkerOptions? workerOptions = null,
-        PrinterCapabilities? capabilities = null)
+        PrinterCapabilities? capabilities = null,
+        FileLabelPrinterOptions? labelPrinterOptions = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -44,6 +50,13 @@ public static class DevicesServiceCollectionExtensions
 
         services.AddSingleton(provider => new EscPosRenderer(provider.GetRequiredService<PrinterCapabilities>()));
         services.AddSingleton<ISaleReceiptRenderer, EscPosSaleReceiptRenderer>();
+
+        // P1-T12: the shelf-label printer - a separate device abstraction from the receipt
+        // printer above, because most shelf-label printers speak TSPL rather than ESC/POS. The
+        // Windows raw spooler adapter is HW-T03's, and it swaps in here and nowhere else.
+        services.AddSingleton(labelPrinterOptions ?? new FileLabelPrinterOptions());
+        services.AddSingleton<ILabelPrinter, FileLabelPrinter>();
+        services.AddSingleton<ILabelRenderer, TsplLabelRenderer>();
 
         services.TryAddSingleton(TimeProvider.System);
 

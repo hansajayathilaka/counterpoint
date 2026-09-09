@@ -115,6 +115,9 @@ internal sealed class SettingsService : ISettings, IDisposable
     /// <inheritdoc />
     public ReceiptSettings Receipt => Current.Receipt;
 
+    /// <inheritdoc />
+    public LabelSettings Label => Current.Label;
+
     /// <summary>True once <see cref="LoadAsync"/> has run.</summary>
     public bool IsLoaded => Volatile.Read(ref _loaded) is not null;
 

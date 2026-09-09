@@ -108,6 +108,17 @@ public static class SettingKeys
     public const string ReceiptShowTaxableValue = "receipt.show_taxable_value";
     public const string ReceiptShowTaxRegistrationNumber = "receipt.show_tax_registration_number";
 
+    // ---- FR-2.10, FR-2.12 Label layout ----------------------------------------------------
+    public const string LabelWidthMm = "label.width_mm";
+    public const string LabelHeightMm = "label.height_mm";
+    public const string LabelGapMm = "label.gap_mm";
+    public const string LabelShowProductName = "label.show_product_name";
+    public const string LabelShowCode = "label.show_code";
+    public const string LabelShowBarcode = "label.show_barcode";
+    public const string LabelShowUnit = "label.show_unit";
+    public const string LabelShowPrice = "label.show_price";
+    public const string LabelDefaultQuantityPerLabel = "label.default_quantity_per_label";
+
     /// <summary>
     /// When the first-run wizard finished, ISO-8601. Absent on a database that has never been
     /// set up, which is exactly how <c>IFirstRunSetup.IsRequiredAsync</c> knows.

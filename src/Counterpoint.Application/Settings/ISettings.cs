@@ -71,7 +71,10 @@ public interface ISettings
     /// <summary>FR-10.8 - the receipt template.</summary>
     public ReceiptSettings Receipt { get; }
 
-    /// <summary>All eight groups as one value, for a screen that edits several at once.</summary>
+    /// <summary>FR-2.10, FR-2.12 - the shelf label's size and content (P1-T12).</summary>
+    public LabelSettings Label { get; }
+
+    /// <summary>All nine groups as one value, for a screen that edits several at once.</summary>
     public SettingsSnapshot Current { get; }
 
     /// <summary>

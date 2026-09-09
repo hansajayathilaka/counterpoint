@@ -24,6 +24,7 @@ namespace Counterpoint.Application.Settings;
 /// <param name="Peripherals">FR-10.6.</param>
 /// <param name="Backup">FR-10.7.</param>
 /// <param name="Receipt">FR-10.8.</param>
+/// <param name="Label">FR-2.10, FR-2.12 - the shelf label's size and content (P1-T12).</param>
 public sealed record SettingsSnapshot(
     ShopProfileSettings Shop,
     FinancialSettings Financial,
@@ -32,4 +33,5 @@ public sealed record SettingsSnapshot(
     PolicySettings Policy,
     PeripheralSettings Peripherals,
     BackupSettings Backup,
-    ReceiptSettings Receipt);
+    ReceiptSettings Receipt,
+    LabelSettings Label);

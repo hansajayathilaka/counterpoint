@@ -92,6 +92,12 @@ public sealed partial class SalesViewModel : ViewModelBase
     /// </summary>
     public event EventHandler? CatalogueRequested;
 
+    /// <summary>
+    /// Raised when the owner asks for the label-printing screen (SRS FR-2.10, FR-2.12). Same
+    /// arrangement as <see cref="ManageUsersRequested"/>.
+    /// </summary>
+    public event EventHandler? LabelPrintRequested;
+
     /// <summary>The lines on the bill, in the order they were scanned.</summary>
     public ObservableCollection<SaleLineViewModel> Lines { get; } = [];
 
@@ -125,6 +131,16 @@ public sealed partial class SalesViewModel : ViewModelBase
     /// </remarks>
     public bool CanManageCatalogue => _session.CurrentUser?.Role == Role.Owner;
 
+    /// <summary>
+    /// Whether to show the print-labels button.
+    /// </summary>
+    /// <remarks>
+    /// A courtesy, as <see cref="CanManageCatalogue"/> is: <c>ILabelPrintService</c> carries
+    /// <c>[RequiresRole(Role.Owner)]</c>, so a cashier who reached the screen anyway would be
+    /// refused by the one command on it (SRS NFR-S2, AC-17).
+    /// </remarks>
+    public bool CanPrintLabels => _session.CurrentUser?.Role == Role.Owner;
+
     /// <summary>Asks for the user-management screen.</summary>
     [RelayCommand]
     public void ManageUsers() => ManageUsersRequested?.Invoke(this, EventArgs.Empty);
@@ -132,6 +148,10 @@ public sealed partial class SalesViewModel : ViewModelBase
     /// <summary>Asks for the catalogue reference-data screen.</summary>
     [RelayCommand]
     public void ManageCatalogue() => CatalogueRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Asks for the label-printing screen (SRS FR-2.10, FR-2.12).</summary>
+    [RelayCommand]
+    public void PrintLabels() => LabelPrintRequested?.Invoke(this, EventArgs.Empty);
 
     /// <summary>Asks for the settings screen.</summary>
     [RelayCommand]

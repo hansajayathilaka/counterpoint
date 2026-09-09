@@ -59,6 +59,11 @@ public static class SettingsValidation
 
         Range(snapshot.Backup.RetentionDays, 1, 3650, "How many days of backups are kept");
         Range(snapshot.Backup.RetentionCopies, 1, 10_000, "How many backup copies are kept");
+
+        Range(snapshot.Label.WidthMm, 10, 200, "The label width, in millimetres");
+        Range(snapshot.Label.HeightMm, 5, 200, "The label height, in millimetres");
+        Range(snapshot.Label.GapMm, 0, 20, "The gap between labels, in millimetres");
+        Range(snapshot.Label.DefaultQuantityPerLabel, 1, 999, "The default quantity per label");
     }
 
     private static void Series(DocumentNumbering series, string what)
