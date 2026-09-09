@@ -194,3 +194,4 @@ it stopped.
 
 - `2026-09-09T19:19:13Z` **P1-T11** start — Receipt templates and printing
 - `2026-09-09T20:16:51Z` **P1-T11** fix-attempt — 1: uncaught exception from owner-template directive/IR errors can roll back the sale transaction
+- `2026-09-09T20:27:50Z` **P1-T11** done — 64 files, 532+292+62+12 tests, 1 must-fix closed, 2 should-fix carried to PR #23
