@@ -293,13 +293,25 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         var cogs = Money.Zero;
         var lineNo = 1;
 
+        // Two separate lines can name the same product variant within one bill (SRS FR-3.2's
+        // CombineRepeatScans = false lets a repeat scan open a new line instead of folding into
+        // the existing one). Each line's on-hand snapshot from the catalogue is the same
+        // pre-sale balance - nothing has posted yet (stock posts after every line is priced) -
+        // so a negative-stock check that only ever looks at one line at a time never sees what
+        // earlier lines of the same variant, in this same bill, have already claimed against
+        // it. This accumulates that claim per variant as lines are priced, so the second and
+        // later line of a repeated variant is checked (and, for Warn, reports its message)
+        // against on-hand *net of what this bill already committed to it* - not the raw
+        // catalogue figure the first line saw.
+        var claimedByVariant = new Dictionary<long, Quantity>();
+
         foreach (var request in requests)
         {
             request.RequireWellFormed();
 
             var line = request.IsOpenItem
                 ? await PriceOpenItemAsync(request, lineNo, cancellationToken).ConfigureAwait(false)
-                : await PriceCatalogueLineAsync(request, lineNo, warnings, cancellationToken).ConfigureAwait(false);
+                : await PriceCatalogueLineAsync(request, lineNo, warnings, claimedByVariant, cancellationToken).ConfigureAwait(false);
 
             lineNo++;
             lines.Add(line);
@@ -347,6 +359,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         SaleLineRequest request,
         int lineNo,
         List<string> warnings,
+        Dictionary<long, Quantity> claimedByVariant,
         CancellationToken cancellationToken)
     {
         var variantId = request.ProductVariantId!.Value;
@@ -379,11 +392,25 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         var lineTax = Money.FromScaled(item.TaxRate.TaxOnNet(lineTotal).ToScaled());
 
         var postsStock = !ProductTypes.PostsNoStockMovement(item.ProductType);
-        var wentNegative = postsStock && quantityBase.Value > item.QtyOnHand.Value;
+
+        // Net of whatever earlier lines of this same variant, in this same bill, have already
+        // claimed against the catalogue's one pre-sale balance (see the comment on
+        // claimedByVariant in PriceAsync). The first line of a variant sees the raw balance,
+        // exactly as before; a repeated line sees it reduced by its own sibling lines.
+        var alreadyClaimed = claimedByVariant.TryGetValue(variantId, out var claimed)
+            ? claimed
+            : Quantity.Zero(item.QtyOnHand.UomId);
+        var qtyOnHandForThisLine = item.QtyOnHand - alreadyClaimed;
+        var wentNegative = postsStock && quantityBase.Value > qtyOnHandForThisLine.Value;
+
+        if (postsStock)
+        {
+            claimedByVariant[variantId] = alreadyClaimed + quantityBase;
+        }
 
         if (wentNegative)
         {
-            RequireStockPolicy(item.Description, quantityBase, item.QtyOnHand, item.UomSymbol, warnings);
+            RequireStockPolicy(item.Description, quantityBase, qtyOnHandForThisLine, item.UomSymbol, warnings);
         }
 
         return new PricedLine(

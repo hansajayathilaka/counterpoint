@@ -998,6 +998,24 @@ public sealed partial class SalesViewModel : NumericInputViewModel
             _lineUnitOptions.Clear();
             _lineUnitOptions.AddRange(unitOptionsBefore);
             _pendingBillDiscount = billDiscountBefore;
+
+            // Putting the model back is not enough on its own: the screen already re-rendered
+            // (or, for a line already on screen, the cashier's own edit already sits in the box)
+            // before the Application layer's refusal came back. Re-quote the reverted bill so
+            // every line's displayed quantity, unit and total goes back with it - otherwise a
+            // rejected edit leaves the box showing the very value that was just refused, which
+            // is exactly the disagreement between screen and charge this method exists to
+            // prevent. Any failure re-quoting a bill that priced cleanly a moment ago would be
+            // a second, unrelated bug; it must not hide the first one, so it is swallowed here.
+            try
+            {
+                await RefreshAsync(cancellationToken).ConfigureAwait(true);
+            }
+            catch
+            {
+                // Deliberately ignored - see remarks above.
+            }
+
             throw;
         }
     }

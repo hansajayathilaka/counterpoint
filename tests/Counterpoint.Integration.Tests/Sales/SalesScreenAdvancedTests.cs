@@ -205,6 +205,60 @@ public sealed class SalesScreenAdvancedTests
         _ = pieceId;
     }
 
+    /// <summary>
+    /// Audit gap (P1-T09 review): the "Block" policy is checked line-by-line against the
+    /// persisted on-hand balance (<c>CompleteSaleHandler.PriceCatalogueLineAsync</c>), never
+    /// against the quantity of the same variant already sitting on other lines of the same bill.
+    /// Two separate lines for the same variant only exist when <c>CombineRepeatScans</c> is off
+    /// (SRS FR-3.2) - each individually within on-hand stock, but their sum is not. If this
+    /// passes, Block does not aggregate same-variant lines within one bill and the cashier can
+    /// oversell past a policy whose entire purpose is to refuse exactly that (SRS FR-3.13,
+    /// Q-11) - a product defect, not a rounding artefact. This test intentionally asserts the
+    /// policy's documented promise; if it fails, that promise is not what the code delivers.
+    /// </summary>
+    [Fact]
+    public async Task FR_3_13_BlockAggregatesTheSameVariantAcrossSeparateLinesNotJustOneLineAtATime()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var (_, variantId, pieceId, _, barcode) = await SeedBoxedProductAsync(fixture);
+        await SeedOpeningStockAsync(fixture, variantId, pieceId, 5m);
+
+        await fixture.Resolve<ISettings>().UpdateAsync(s => s with
+        {
+            Policy = s.Policy with { CombineRepeatScans = false, NegativeStock = NegativeStockPolicy.Block },
+        });
+
+        var screen = BuildScreen(fixture);
+
+        // Two separate lines for the same variant, 3 pieces each - each alone is well within the
+        // 5 on hand, so if the check ever aggregates by variant it must be the second line, not
+        // the first, that trips it.
+        screen.Barcode = barcode;
+        await screen.ScanCommand.ExecuteAsync(null);
+        screen.Lines.Single().QuantityText = "3";
+        screen.Lines.Single().CommitQuantityCommand.Execute(null);
+        screen.Lines.Single().QuantityText.Should().Be("3", "3 of 5 on hand is not a negative-stock line");
+
+        screen.Barcode = barcode;
+        await screen.ScanCommand.ExecuteAsync(null);
+        screen.Lines.Should().HaveCount(2, "the setting is off, so the repeat scan is its own line");
+
+        var secondLine = screen.Lines[1];
+        secondLine.QuantityText = "3";
+        secondLine.CommitQuantityCommand.Execute(null);
+
+        // 3 + 3 = 6 pieces against 5 on hand: the shop's Block policy exists precisely to refuse
+        // this. Each line alone (3) never exceeds 5, so a check that does not aggregate by
+        // variant across the bill's own lines has nothing to trip on here.
+        screen.Status.Should().Contain(
+            "blocks",
+            "SRS FR-3.13/Q-11: Block must refuse an oversell reached by two lines of the same " +
+            "variant, not only by one line alone - otherwise splitting a scan across lines with " +
+            "CombineRepeatScans off is an unaudited way around the policy");
+        screen.Lines[1].QuantityText.Should().Be(
+            "1", "the refused edit must be rolled back, exactly like a single-line block is (see the sibling test above)");
+    }
+
     private static SalesViewModel BuildScreen(SaleFixture fixture) => new(
         fixture.Resolve<IScanItem>(),
         fixture.Resolve<IQuoteSale>(),
