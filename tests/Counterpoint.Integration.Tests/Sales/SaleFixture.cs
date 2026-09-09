@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
 using Counterpoint.Application.Pricing;
@@ -243,6 +244,13 @@ internal sealed class SaleFixture : IAsyncDisposable
         // exactly as IProductMaintenance above.
         services.AddSingleton<IBulkPriceUpdateService>(p => RoleAuthorisation.Decorate<IBulkPriceUpdateService>(
             ActivatorUtilities.CreateInstance<BulkPriceUpdateService>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P1-T13: spreadsheet catalogue import and export (SRS FR-2.22, FR-2.23) - wired exactly
+        // as CounterpointHostBuilderExtensions wires it, decorated-only, same as
+        // IBulkPriceUpdateService above (NFR-S2, AC-17).
+        services.AddSingleton<ICatalogueImportService>(p => RoleAuthorisation.Decorate<ICatalogueImportService>(
+            ActivatorUtilities.CreateInstance<CatalogueImportService>(p),
             p.GetRequiredService<ISession>()));
 
         // P1-T06: barcode administration - wired exactly as the composition root wires it

@@ -2,11 +2,13 @@ using System;
 using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Abstractions.Security;
+using Counterpoint.Application.Import;
 using Counterpoint.Application.Sales;
 using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Backup;
 using Counterpoint.Infrastructure.Catalogue;
 using Counterpoint.Infrastructure.Data;
+using Counterpoint.Infrastructure.Import;
 using Counterpoint.Infrastructure.Inventory;
 using Counterpoint.Infrastructure.Printing;
 using Counterpoint.Infrastructure.Sales;
@@ -135,6 +137,14 @@ public static class InfrastructureServiceCollectionExtensions
         // P1-T09: held bills (F5/F6, SRS FR-3.32, FR-3.33). No role requirement - holding and
         // recalling a bill is an ordinary cashier action.
         services.AddSingleton<IHeldBillService, SqliteHeldBillService>();
+
+        // P1-T13: spreadsheet catalogue import/export (SRS FR-2.22, FR-2.23). The reader/writer
+        // and the bulk export read carry no role requirement of their own - the same split
+        // IProductStore draws above - the owner-only ICatalogueImportService built on them is
+        // wired decorated in the composition root.
+        services.AddSingleton<ISpreadsheetReader, CompositeSpreadsheetReader>();
+        services.AddSingleton<ISpreadsheetWriter, CompositeSpreadsheetWriter>();
+        services.AddSingleton<ICatalogueExportQuery, SqliteCatalogueExportQuery>();
 
         // P0-T07: the one seam Counterpoint.Backup reaches a SQLCipher connection through,
         // because it may not reference this assembly (CLAUDE.md "Project boundaries").

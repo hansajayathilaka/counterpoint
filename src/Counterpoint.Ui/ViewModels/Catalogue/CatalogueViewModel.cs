@@ -25,7 +25,8 @@ public sealed partial class CatalogueViewModel : ViewModelBase
         TaxClassTabViewModel taxClass,
         SupplierTabViewModel supplier,
         CustomerTabViewModel customer,
-        ProductTabViewModel product)
+        ProductTabViewModel product,
+        ImportTabViewModel import)
     {
         ArgumentNullException.ThrowIfNull(category);
         ArgumentNullException.ThrowIfNull(brand);
@@ -34,6 +35,7 @@ public sealed partial class CatalogueViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(supplier);
         ArgumentNullException.ThrowIfNull(customer);
         ArgumentNullException.ThrowIfNull(product);
+        ArgumentNullException.ThrowIfNull(import);
 
         Category = category;
         Brand = brand;
@@ -42,6 +44,7 @@ public sealed partial class CatalogueViewModel : ViewModelBase
         Supplier = supplier;
         Customer = customer;
         Product = product;
+        Import = import;
     }
 
     public CategoryTabViewModel Category { get; }
@@ -59,6 +62,9 @@ public sealed partial class CatalogueViewModel : ViewModelBase
     /// <summary>P1-T05: products, variants and units (SRS FR-2.1-FR-2.8, FR-3.6, AC-08).</summary>
     public ProductTabViewModel Product { get; }
 
+    /// <summary>P1-T13: spreadsheet catalogue import and export (SRS FR-2.22, FR-2.23, AC-07, Q-08).</summary>
+    public ImportTabViewModel Import { get; }
+
     /// <summary>Loads every tab. Called once, when the window opens.</summary>
     [RelayCommand]
     public async Task LoadAsync(CancellationToken cancellationToken)
@@ -74,5 +80,9 @@ public sealed partial class CatalogueViewModel : ViewModelBase
         // pickers from the same lists the tabs above just loaded, so it reads them in a state
         // that already reflects anything those tabs seeded.
         await Product.RefreshAsync(cancellationToken).ConfigureAwait(true);
+
+        // The import tab needs only its saved mapping profiles - it has no reference-data list of
+        // its own to load.
+        await Import.RefreshAsync(cancellationToken).ConfigureAwait(true);
     }
 }

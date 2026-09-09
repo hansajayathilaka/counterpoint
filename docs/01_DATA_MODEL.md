@@ -1561,8 +1561,13 @@ a screen or a service reads `settings.Financial.DecimalPlaces` and gets an `int`
 `value_type` follows the column's CHECK constraint. `MONEY` holds the scaled 64-bit integer
 `Money.ToScaled()` produces (amount × 10 000); a rate is `INT` holding the fraction scaled the
 same way, which is the convention every rate column in this schema uses — `10000` is 100%.
-`JSON` is deliberately unused: a setting stored as a blob is one nothing can diff, audit or
-migrate a field at a time.
+`JSON` is deliberately unused by every key in the table below: a setting stored as a blob is one
+nothing can diff, audit or migrate a field at a time. The one sanctioned exception is
+`import.mapping_profiles` (P1-T13, `Application/Import/CatalogueImportService.cs`) — an
+open-ended, shop-named list of spreadsheet column-mapping profiles, not one of this framework's
+fixed `FR-10` groups, so there is no individual scalar field for a diff to land on in the first
+place; see that key's own remarks for why it is read and written directly through
+`ISettingStore` instead of a typed settings group.
 
 | Group (SRS) | Keys | `value_type` |
 |---|---|---|
