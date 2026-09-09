@@ -13,5 +13,9 @@ namespace Counterpoint.Application.Sales;
 /// <param name="SaleId">The bill's row id.</param>
 /// <param name="BillNo">The allocated bill number, for example <c>INV-2026-000001</c>.</param>
 /// <param name="Total">What the customer paid.</param>
+/// <param name="Change">
+/// What goes back to the customer in cash (SRS FR-3.26). Zero for an exact tender or a bill paid
+/// entirely by a tender type that cannot overpay.
+/// </param>
 /// <param name="PrintJobId">The queued receipt, so the UI can report on it later.</param>
-public sealed record CompletedSale(long SaleId, string BillNo, Money Total, long PrintJobId);
+public sealed record CompletedSale(long SaleId, string BillNo, Money Total, Money Change, long PrintJobId);

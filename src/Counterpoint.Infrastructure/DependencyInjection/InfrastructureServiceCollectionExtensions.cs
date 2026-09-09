@@ -77,6 +77,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IProductLookup, SqliteProductLookup>();
         services.AddSingleton<ITillSessionProvider, SqliteTillSessionProvider>();
         services.AddSingleton<ISaleWriter, SqliteSaleWriter>();
+
+        // P1-T10: reads a completed sale back for cancellation (SRS FR-3.34).
+        services.AddSingleton<ISaleLookup, SqliteSaleLookup>();
         services.AddSingleton<IStockLedger, SqliteStockLedger>();
 
         // P1-T07: the ledger's projection rebuild, its startup consistency check, and the

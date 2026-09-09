@@ -175,6 +175,12 @@ internal sealed class SaleFixture : IAsyncDisposable
         services.AddSingleton<ICompleteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
         services.AddSingleton<IQuoteSale>(p => p.GetRequiredService<CompleteSaleHandler>());
 
+        // P1-T10: bill cancellation (SRS FR-3.34), wired exactly as CounterpointHostBuilderExtensions
+        // wires it - decorated-only, same shape as IUserAdministration above (NFR-S2, AC-17).
+        services.AddSingleton<ICancelSale>(p => RoleAuthorisation.Decorate<ICancelSale>(
+            ActivatorUtilities.CreateInstance<CancelSaleHandler>(p),
+            p.GetRequiredService<ISession>()));
+
         // P1-T07: the stock enquiry screen's use case, wired exactly as the composition root
         // wires it.
         services.AddSingleton<IStockEnquiry, StockEnquiryService>();
