@@ -17,6 +17,7 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// <param name="BusinessDate">The trading day it belongs to - the grouping key for every rollup.</param>
 /// <param name="UserId">Who rang it up.</param>
 /// <param name="ShiftId">The open shift it belongs to.</param>
+/// <param name="CustomerId">The attached customer, or null for an anonymous walk-in sale (SRS FR-3.21, FR-3.22).</param>
 /// <param name="Subtotal">Sum of the line totals.</param>
 /// <param name="LineDiscount">Sum of the line discounts.</param>
 /// <param name="BillDiscount">Whole-bill discount, allocated across lines for reporting.</param>
@@ -30,6 +31,7 @@ public sealed record NewSale(
     DateOnly BusinessDate,
     long UserId,
     long ShiftId,
+    long? CustomerId,
     Money Subtotal,
     Money LineDiscount,
     Money BillDiscount,

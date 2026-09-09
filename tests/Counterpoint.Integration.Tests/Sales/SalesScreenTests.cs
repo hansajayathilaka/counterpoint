@@ -2,8 +2,10 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
+using Counterpoint.Application.Settings;
 using Counterpoint.Devices.Printing;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Ui.ViewModels;
@@ -35,7 +37,7 @@ public sealed class SalesScreenTests
 
         screen.Lines.Should().ContainSingle();
         screen.Lines[0].Description.Should().Be("Galvanised bolt M8");
-        screen.Lines[0].QuantityText.Should().Be("1 pc");
+        screen.Lines[0].QuantityText.Should().Be("1");
         screen.Total.Should().Be("12.50", "the total comes from the Application layer, not from the screen");
         screen.Barcode.Should().BeEmpty("the scan box clears itself for the next item");
 
@@ -90,5 +92,11 @@ public sealed class SalesScreenTests
         fixture.Resolve<ICompleteSale>(),
         fixture.Resolve<ITillSessionProvider>(),
         fixture.Resolve<ISession>(),
+        fixture.Resolve<ISettings>(),
+        fixture.Resolve<IProductSearchService>(),
+        fixture.Resolve<ICustomerStore>(),
+        fixture.Resolve<IUomStore>(),
+        fixture.Resolve<IStockEnquiry>(),
+        fixture.Resolve<IHeldBillService>(),
         fixture.Resolve<TimeProvider>());
 }

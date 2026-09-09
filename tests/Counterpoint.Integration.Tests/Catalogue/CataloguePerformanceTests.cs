@@ -76,6 +76,7 @@ public sealed class CataloguePerformanceTests
         {
             await SeedProductsAndVariantsAsync(
                 connection, transaction, BarcodeBenchmarkSkuCount, baseUomId, taxClassId, includeLocation: false);
+            await SeedProductUomsAsync(connection, transaction, BarcodeBenchmarkSkuCount, baseUomId);
             await SeedBarcodesAsync(connection, transaction, BarcodeBenchmarkSkuCount);
             return null;
         });
@@ -120,6 +121,7 @@ public sealed class CataloguePerformanceTests
         {
             await SeedProductsAndVariantsAsync(
                 connection, transaction, SearchBenchmarkSkuCount, baseUomId, taxClassId, includeLocation: true);
+            await SeedProductUomsAsync(connection, transaction, SearchBenchmarkSkuCount, baseUomId);
             return null;
         });
 
@@ -217,6 +219,32 @@ public sealed class CataloguePerformanceTests
 
                 // Money, scaled x10000 (CLAUDE.md invariant 1): 50000 is $5.00.
                 return $"({id},{productId},'{sku}',50000,'{SeedTimestamp}')";
+            });
+    }
+
+    /// <summary>
+    /// One base <c>product_uom</c> row per seeded product - not optional
+    /// (docs/01_DATA_MODEL.md §8, "at least one" half of the base-unit guard; P1-T09 builds
+    /// <c>Domain.Catalogue.Product</c> from these rows on every scan).
+    /// </summary>
+    private static async Task SeedProductUomsAsync(DbConnection connection, DbTransaction transaction, int count, long baseUomId)
+    {
+        const long ProductUomIdBase = 4_000_000;
+        const long ProductIdBase = 1_000_000;
+        const long BaseConversionFactor = 10_000; // UomConversion.Base, scaled x10000.
+
+        await ExecuteBatchedAsync(
+            connection,
+            transaction,
+            "INSERT INTO product_uom (id, product_id, uom_id, conversion_factor, is_base) VALUES ",
+            count,
+            SeedBatchSize,
+            i =>
+            {
+                var id = ProductUomIdBase + i;
+                var productId = ProductIdBase + i;
+
+                return $"({id},{productId},{baseUomId},{BaseConversionFactor},1)";
             });
     }
 

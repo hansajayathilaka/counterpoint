@@ -343,7 +343,8 @@ internal sealed class SqliteProductStore : IProductStore
             {
                 using var context = _unitOfWork.CreateDbContext();
 
-                var uomSymbols = await context.Set<Uom>().ToDictionaryAsync(row => row.Id, row => row.Symbol, token)
+                var uoms = await context.Set<Uom>()
+                    .ToDictionaryAsync(row => row.Id, row => (row.Symbol, row.DecimalPlaces), token)
                     .ConfigureAwait(false);
 
                 var rows = await context.Set<ProductUom>()
@@ -353,7 +354,11 @@ internal sealed class SqliteProductStore : IProductStore
                     .ConfigureAwait(false);
 
                 IReadOnlyList<ProductUomRecord> result =
-                    [.. rows.Select(row => ToRecord(row, uomSymbols.GetValueOrDefault(row.UomId, string.Empty)))];
+                    [.. rows.Select(row =>
+                    {
+                        var (symbol, decimalPlaces) = uoms.GetValueOrDefault(row.UomId, (string.Empty, 0));
+                        return ToRecord(row, symbol, decimalPlaces);
+                    })];
 
                 return result;
             },
@@ -374,13 +379,13 @@ internal sealed class SqliteProductStore : IProductStore
                     return null;
                 }
 
-                var symbol = await context.Set<Uom>()
+                var uom = await context.Set<Uom>()
                     .Where(u => u.Id == row.UomId)
-                    .Select(u => u.Symbol)
+                    .Select(u => new { u.Symbol, u.DecimalPlaces })
                     .FirstOrDefaultAsync(token)
                     .ConfigureAwait(false);
 
-                return ToRecord(row, symbol ?? string.Empty);
+                return ToRecord(row, uom?.Symbol ?? string.Empty, uom?.DecimalPlaces ?? 0);
             },
             cancellationToken);
 
@@ -578,8 +583,8 @@ internal sealed class SqliteProductStore : IProductStore
     private static ProductVariantRecord ToRecord(ProductVariant row) => new(
         row.Id, row.ProductId, row.Sku, DeserializeAttributes(row.Attributes), row.Price, row.Active);
 
-    private static ProductUomRecord ToRecord(ProductUom row, string uomSymbol) => new(
-        row.Id, row.ProductId, row.UomId, uomSymbol, UomConversion.FromScaled(row.ConversionFactor), row.SellingPrice, row.IsBase);
+    private static ProductUomRecord ToRecord(ProductUom row, string uomSymbol, int decimalPlaces) => new(
+        row.Id, row.ProductId, row.UomId, uomSymbol, UomConversion.FromScaled(row.ConversionFactor), row.SellingPrice, row.IsBase, decimalPlaces);
 
     private static string SerializeAttributes(IReadOnlyDictionary<string, string> attributes) =>
         attributes.Count == 0 ? "{}" : JsonSerializer.Serialize(attributes);

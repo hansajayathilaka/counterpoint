@@ -281,7 +281,8 @@ public sealed class SettingDefaultsTests
             Percentage.FromPercent(5m),
             Percentage.FromPercent(10m),
             NegativeStockPolicy.Block,
-            Percentage.FromPercent(2.5m)),
+            Percentage.FromPercent(2.5m),
+            CombineRepeatScans: false),
         new PeripheralSettings(
             "EPSON TM-T82",
             PaperWidthMm: 58,

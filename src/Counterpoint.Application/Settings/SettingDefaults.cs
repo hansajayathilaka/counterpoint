@@ -100,7 +100,8 @@ public static class SettingDefaults
         MaxLineDiscountRate: Percentage.OneHundredPercent,
         MaxBillDiscountRate: Percentage.OneHundredPercent,
         NegativeStock: NegativeStockPolicy.Allow,
-        RestockingFeeRate: Percentage.Zero);
+        RestockingFeeRate: Percentage.Zero,
+        CombineRepeatScans: true);
 
     /// <summary>
     /// FR-10.6. What the Linux fakes need, which is also what an uncommissioned Windows terminal

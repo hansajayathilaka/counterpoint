@@ -45,6 +45,9 @@
       <TextBlock Text="Restocking fee kept on a return, in percent" />
       <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding RestockingFeeRate}" />
 
+      <CheckBox Content="Scanning the same code again increases that line's quantity, instead of adding a second line"
+                IsChecked="{Binding CombineRepeatScans}" />
+
     </StackPanel>
   </ScrollViewer>
 

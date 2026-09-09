@@ -3,56 +3,291 @@
         xmlns:vm="using:Counterpoint.Ui.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="480"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
         x:Class="Counterpoint.Ui.Views.SalesWindow"
         x:DataType="vm:SalesViewModel"
+        Width="1280" Height="720" MinWidth="1024" MinHeight="640"
+        FontSize="16"
         Icon="/Assets/avalonia-logo.ico"
-        Title="Counterpoint">
+        Title="Counterpoint - Sales">
 
-  <!-- No styling, on purpose. The sales screen proper is P1-T09. -->
-  <DockPanel Margin="12">
+  <!--
+    SRS UI-01: fully keyboard and scanner operable, the mouse optional throughout. Every
+    function key of UI-02 is a Window-level KeyBinding, so it fires no matter which control
+    inside the window has focus - the same reason the scanner burst filter in the code-behind
+    intercepts at the Window, not at the scan box (P1-T09 "Do this" #4).
+  -->
+  <Window.KeyBindings>
+    <KeyBinding Gesture="F1" Command="{Binding HelpCommand}" />
+    <KeyBinding Gesture="F2" Command="{Binding NewSaleCommand}" />
+    <KeyBinding Gesture="F3" Command="{Binding SearchCommand}" />
+    <KeyBinding Gesture="F4" Command="{Binding ReturnCommand}" />
+    <KeyBinding Gesture="F5" Command="{Binding HoldCommand}" />
+    <KeyBinding Gesture="F6" Command="{Binding RecallCommand}" />
+    <KeyBinding Gesture="F7" Command="{Binding DiscountCommand}" />
+    <KeyBinding Gesture="F8" Command="{Binding CustomerCommand}" />
+    <KeyBinding Gesture="F9" Command="{Binding PayCommand}" />
+    <KeyBinding Gesture="F10" Command="{Binding ReprintCommand}" />
+    <KeyBinding Gesture="F11" Command="{Binding StockCommand}" />
+    <KeyBinding Gesture="F12" Command="{Binding DayCloseCommand}" />
+    <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
+  </Window.KeyBindings>
 
-    <TextBox DockPanel.Dock="Top"
-             Name="ScanBox"
-             Watermark="Scan or type a barcode, then press Enter"
-             Text="{Binding Barcode}">
-      <TextBox.KeyBindings>
-        <KeyBinding Gesture="Enter" Command="{Binding ScanCommand}" />
-      </TextBox.KeyBindings>
-    </TextBox>
+  <DockPanel>
 
-    <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Text="{Binding Status}" />
+    <!-- SRS UI-09: user, shift, backup, cloud and printer status, permanently visible. -->
+    <Border DockPanel.Dock="Top" Background="#1F2937" Padding="10,4">
+      <StackPanel Orientation="Horizontal" Spacing="18">
+        <TextBlock Text="{Binding StatusUserText}" Foreground="White" />
+        <TextBlock Text="{Binding StatusShiftText}" Foreground="White" />
+        <TextBlock Text="{Binding StatusBackupText}" Foreground="White" />
+        <TextBlock Text="{Binding StatusCloudText}" Foreground="White" />
+        <TextBlock Text="{Binding StatusPrinterText}" Foreground="White" />
+      </StackPanel>
+    </Border>
 
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0" Spacing="12">
-      <TextBlock Text="TOTAL" VerticalAlignment="Center" />
-      <TextBlock Text="{Binding Total}" FontSize="28" VerticalAlignment="Center" />
-      <Button Content="Pay (cash)" Command="{Binding PayCommand}" IsEnabled="{Binding !Busy}" />
-      <Button Content="_Users"
-              Command="{Binding ManageUsersCommand}"
-              IsVisible="{Binding CanManageUsers}" />
-      <Button Content="_Catalogue"
-              Command="{Binding ManageCatalogueCommand}"
-              IsVisible="{Binding CanManageCatalogue}" />
-      <Button Content="_Labels"
-              Command="{Binding PrintLabelsCommand}"
-              IsVisible="{Binding CanPrintLabels}" />
-      <Button Content="_Settings"
-              Command="{Binding OpenSettingsCommand}"
-              IsVisible="{Binding CanChangeSettings}" />
+    <!-- The status line for whatever just happened, plus the button row for screens reached the same way the walking-skeleton screen already offered them. -->
+    <StackPanel DockPanel.Dock="Bottom" Margin="10,4" Spacing="4">
+      <TextBlock TextWrapping="Wrap" Text="{Binding Status}" FontSize="15" />
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button Content="_Users" Command="{Binding ManageUsersCommand}" IsVisible="{Binding CanManageUsers}" />
+        <Button Content="_Catalogue" Command="{Binding ManageCatalogueCommand}" IsVisible="{Binding CanManageCatalogue}" />
+        <Button Content="_Labels" Command="{Binding PrintLabelsCommand}" IsVisible="{Binding CanPrintLabels}" />
+        <Button Content="_Settings" Command="{Binding OpenSettingsCommand}" IsVisible="{Binding CanChangeSettings}" />
+        <Button Content="Open item" Command="{Binding OpenItemCommand}" />
+      </StackPanel>
     </StackPanel>
 
-    <ListBox ItemsSource="{Binding Lines}" Margin="0,8,0,0">
-      <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="vm:SaleLineViewModel">
-          <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-            <TextBlock Grid.Column="0" Text="{Binding Description}" />
-            <TextBlock Grid.Column="1" Margin="12,0,0,0" Text="{Binding QuantityText}" />
-            <TextBlock Grid.Column="2" Margin="12,0,0,0" Text="{Binding UnitPriceText}" />
-            <TextBlock Grid.Column="3" Margin="12,0,0,0" Text="{Binding LineTotalText}" />
+    <!-- SRS UI-02: fixed, visible function keys, exactly as printed on the quick-reference card. -->
+    <UniformGrid DockPanel.Dock="Bottom" Columns="13" Margin="10,0">
+      <Button Content="F1 Help" Command="{Binding HelpCommand}" />
+      <Button Content="F2 New" Command="{Binding NewSaleCommand}" />
+      <Button Content="F3 Search" Command="{Binding SearchCommand}" />
+      <Button Content="F4 Return" Command="{Binding ReturnCommand}" />
+      <Button Content="F5 Hold" Command="{Binding HoldCommand}" />
+      <Button Content="F6 Recall" Command="{Binding RecallCommand}" />
+      <Button Content="F7 Discount" Command="{Binding DiscountCommand}" />
+      <Button Content="F8 Customer" Command="{Binding CustomerCommand}" />
+      <Button Content="F9 Pay" Command="{Binding PayCommand}" IsEnabled="{Binding !Busy}" FontWeight="Bold" />
+      <Button Content="F10 Reprint" Command="{Binding ReprintCommand}" />
+      <Button Content="F11 Stock" Command="{Binding StockCommand}" />
+      <Button Content="F12 Day close" Command="{Binding DayCloseCommand}" />
+      <Button Content="Esc Cancel" Command="{Binding CancelCommand}" />
+    </UniformGrid>
+
+    <!-- Everything between the status bar and the function keys: scan box, lines, total on the
+         left; whichever non-modal panel is open on the right (SRS UI-01: non-modal, so a scan
+         still lands on the bill even while one of these has focus). -->
+    <Grid ColumnDefinitions="*,Auto" Margin="10">
+
+      <DockPanel Grid.Column="0">
+
+        <!-- SRS FR-3.1: the cursor starts here; the code-behind also gives it focus on load and
+             after every scan. -->
+        <TextBox DockPanel.Dock="Top"
+                 Name="ScanBox"
+                 FontSize="20"
+                 Watermark="Scan or type a barcode, then press Enter"
+                 Text="{Binding Barcode}">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding ScanCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+
+        <!-- SRS UI-03: the running total is the most prominent element on the screen. -->
+        <Border DockPanel.Dock="Bottom" Background="#111827" Margin="0,10,0,0" Padding="16">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+            <TextBlock Grid.Column="0" Text="{Binding CurrentCustomerText}" Foreground="#9CA3AF" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Margin="16,0" HorizontalAlignment="Right">
+              <TextBlock Text="Subtotal" Foreground="#9CA3AF" FontSize="13" HorizontalAlignment="Right" />
+              <TextBlock Text="{Binding SubtotalText}" Foreground="White" HorizontalAlignment="Right" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="16,0" HorizontalAlignment="Right" IsVisible="{Binding HasBillDiscount}">
+              <TextBlock Text="Discount" Foreground="#9CA3AF" FontSize="13" HorizontalAlignment="Right" />
+              <TextBlock Text="{Binding BillDiscountText}" Foreground="#F87171" HorizontalAlignment="Right" />
+            </StackPanel>
+            <StackPanel Grid.Column="3" Margin="16,0" HorizontalAlignment="Right">
+              <TextBlock Text="Tax" Foreground="#9CA3AF" FontSize="13" HorizontalAlignment="Right" />
+              <TextBlock Text="{Binding TaxText}" Foreground="White" HorizontalAlignment="Right" />
+            </StackPanel>
+            <StackPanel Grid.Column="4" Margin="16,0,0,0" HorizontalAlignment="Right">
+              <TextBlock Text="TOTAL" Foreground="#9CA3AF" FontSize="15" HorizontalAlignment="Right" />
+              <TextBlock Text="{Binding Total}" Foreground="#34D399" FontSize="44" FontWeight="Bold" HorizontalAlignment="Right" />
+            </StackPanel>
           </Grid>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
+        </Border>
+
+        <!-- The bill lines. Quantity and unit are editable inline (SRS FR-3.5, FR-2.5, FR-3.7);
+             the price is never typed directly onto a catalogue line (FR-3.19 is owner-only and
+             this task builds no override dialog). -->
+        <ListBox Margin="0,10,0,10"
+                 ItemsSource="{Binding Lines}"
+                 SelectedItem="{Binding SelectedLine}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:SaleLineViewModel">
+              <Grid ColumnDefinitions="*,90,80,90,90,90,Auto" Margin="0,2">
+                <TextBlock Grid.Column="0" Text="{Binding Description}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBox Grid.Column="1" Text="{Binding QuantityText}" Margin="4,0">
+                  <TextBox.KeyBindings>
+                    <KeyBinding Gesture="Enter" Command="{Binding CommitQuantityCommand}" />
+                  </TextBox.KeyBindings>
+                </TextBox>
+                <ComboBox Grid.Column="2" Margin="4,0"
+                          IsVisible="{Binding CanSwitchUnit}"
+                          ItemsSource="{Binding UnitChoices}"
+                          SelectedItem="{Binding SelectedUnitSymbol}" />
+                <TextBlock Grid.Column="3" Text="{Binding UnitPriceText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="4" Text="{Binding DiscountText}" Foreground="#F87171" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="5" Text="{Binding LineTotalText}" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                <Button Grid.Column="6" Content="✕" Margin="4,0,0,0" Command="{Binding RemoveCommand}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+      </DockPanel>
+
+      <!-- The one non-modal side panel open at a time (SRS UI-01). A scan still lands on the
+           bill while one of these has focus - the code-behind's scanner filter intercepts at
+           the Window, regardless of which of these has focus. -->
+      <Border Grid.Column="1"
+              Width="360" Margin="10,0,0,0" Padding="12"
+              Background="#F3F4F6" BorderBrush="#D1D5DB" BorderThickness="1"
+              IsVisible="{Binding IsAnyPanelOpen}">
+        <Grid RowDefinitions="*">
+
+          <!-- F1 Help (SRS UI-12). -->
+          <ScrollViewer IsVisible="{Binding IsHelpPanelOpen}">
+            <TextBlock Text="{Binding HelpText}" FontFamily="monospace" TextWrapping="NoWrap" />
+          </ScrollViewer>
+
+          <!-- F3 Search (SRS FR-2.11, FR-3.3). -->
+          <DockPanel IsVisible="{Binding IsSearchPanelOpen}">
+            <TextBlock DockPanel.Dock="Top" Text="Search" FontWeight="Bold" Margin="0,0,0,6" />
+            <TextBox DockPanel.Dock="Top" Name="SearchBox" Watermark="Name, code or SKU" Text="{Binding SearchQuery}">
+              <TextBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding PickSearchResultCommand}" CommandParameter="{Binding SelectedSearchResult}" />
+              </TextBox.KeyBindings>
+            </TextBox>
+            <Button DockPanel.Dock="Bottom" Margin="0,6,0,0" Content="Add selected"
+                    Command="{Binding PickSearchResultCommand}" CommandParameter="{Binding SelectedSearchResult}" />
+            <ListBox ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchResult}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:SalesSearchResultViewModel">
+                  <StackPanel Margin="0,2">
+                    <TextBlock Text="{Binding ProductName}" FontWeight="Bold" />
+                    <TextBlock Text="{Binding Sku}" FontSize="12" Foreground="#6B7280" />
+                    <TextBlock Text="{Binding PriceText}" FontSize="12" />
+                    <TextBlock Text="{Binding StockText}" FontSize="12" Foreground="#6B7280" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+
+          <!-- F5 Hold (SRS FR-3.32). -->
+          <StackPanel IsVisible="{Binding IsHoldPanelOpen}" Spacing="8">
+            <TextBlock Text="Hold this bill" FontWeight="Bold" />
+            <TextBlock Text="Label" />
+            <TextBox Text="{Binding HoldLabel}" Watermark="e.g. 'Kamal - cable'">
+              <TextBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding ConfirmHoldCommand}" />
+              </TextBox.KeyBindings>
+            </TextBox>
+            <Button Content="Hold" Command="{Binding ConfirmHoldCommand}" />
+          </StackPanel>
+
+          <!-- F6 Recall (SRS FR-3.32, FR-3.33). -->
+          <DockPanel IsVisible="{Binding IsHeldBillsPanelOpen}">
+            <TextBlock DockPanel.Dock="Top" Text="Held bills" FontWeight="Bold" Margin="0,0,0,6" />
+            <Button DockPanel.Dock="Bottom" Margin="0,6,0,0" Content="Recall selected"
+                    Command="{Binding RecallSelectedCommand}" CommandParameter="{Binding SelectedHeldBill}" />
+            <ListBox ItemsSource="{Binding HeldBillRows}" SelectedItem="{Binding SelectedHeldBill}">
+              <ListBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding RecallSelectedCommand}" CommandParameter="{Binding SelectedHeldBill}" />
+              </ListBox.KeyBindings>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:HeldBillRowViewModel">
+                  <StackPanel Margin="0,2">
+                    <TextBlock Text="{Binding Label}" FontWeight="Bold" />
+                    <TextBlock Text="{Binding CreatedAtText}" FontSize="12" Foreground="#6B7280" />
+                    <TextBlock Text="{Binding LineCountText}" FontSize="12" Foreground="#6B7280" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+
+          <!-- F7 Discount (SRS FR-3.16, FR-3.17, FR-3.18). -->
+          <StackPanel IsVisible="{Binding IsDiscountPanelOpen}" Spacing="8">
+            <TextBlock Text="Discount" FontWeight="Bold" />
+            <TextBlock Text="{Binding DiscountTargetText}" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <RadioButton Content="Percent" GroupName="DiscountKind" IsChecked="{Binding DiscountIsPercent}" />
+              <RadioButton Content="Amount" GroupName="DiscountKind" IsChecked="{Binding !DiscountIsPercent}" />
+            </StackPanel>
+            <TextBox Text="{Binding DiscountValueText}" Watermark="e.g. 10">
+              <TextBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding ApplyDiscountCommand}" />
+              </TextBox.KeyBindings>
+            </TextBox>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Apply" Command="{Binding ApplyDiscountCommand}" />
+              <Button Content="Clear" Command="{Binding ClearDiscountCommand}" />
+            </StackPanel>
+          </StackPanel>
+
+          <!-- F8 Customer (SRS FR-3.21, FR-3.22). Trade pricing (FR-3.23) is Phase 5 - out of
+               scope in Phase 1 - so attaching a customer here is for record-keeping only. -->
+          <DockPanel IsVisible="{Binding IsCustomerPanelOpen}">
+            <TextBlock DockPanel.Dock="Top" Text="Customer" FontWeight="Bold" Margin="0,0,0,6" />
+            <TextBox DockPanel.Dock="Top" Watermark="Name or phone" Text="{Binding CustomerQuery}" />
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+              <Button Content="Attach selected" Command="{Binding PickCustomerCommand}" CommandParameter="{Binding SelectedCustomerResult}" />
+              <Button Content="Walk-in" Command="{Binding ClearCustomerCommand}" />
+            </StackPanel>
+            <ListBox ItemsSource="{Binding CustomerResults}" SelectedItem="{Binding SelectedCustomerResult}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:CustomerSearchResultViewModel">
+                  <StackPanel Margin="0,2">
+                    <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                    <TextBlock Text="{Binding Phone}" FontSize="12" Foreground="#6B7280" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+
+          <!-- F11 Stock enquiry (SRS FR-4, FR-3.11). -->
+          <ScrollViewer IsVisible="{Binding IsStockPanelOpen}">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Stock on hand" FontWeight="Bold" />
+              <TextBlock Text="{Binding StockEnquiryText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+
+          <!-- Open item (SRS FR-2.8) - a button, not one of the reserved UI-02 keys. -->
+          <StackPanel IsVisible="{Binding IsOpenItemPanelOpen}" Spacing="8">
+            <TextBlock Text="Open item" FontWeight="Bold" />
+            <TextBlock Text="Description" />
+            <TextBox Text="{Binding OpenItemDescription}" Watermark="e.g. Cut to size" />
+            <TextBlock Text="Quantity" />
+            <TextBox Text="{Binding OpenItemQuantityText}" />
+            <TextBlock Text="Unit" />
+            <ComboBox ItemsSource="{Binding OpenItemUnitChoices}" SelectedItem="{Binding OpenItemSelectedUnit}" />
+            <TextBlock Text="Price" />
+            <TextBox Text="{Binding OpenItemPriceText}">
+              <TextBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding AddOpenItemCommand}" />
+              </TextBox.KeyBindings>
+            </TextBox>
+            <Button Content="Add" Command="{Binding AddOpenItemCommand}" />
+          </StackPanel>
+
+        </Grid>
+      </Border>
+
+    </Grid>
 
   </DockPanel>
 

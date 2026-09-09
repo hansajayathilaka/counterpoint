@@ -56,7 +56,7 @@ internal sealed class SqliteSaleWriter : ISaleWriter
                     BillNo = sale.BillNo,
                     SoldAt = sale.SoldAt,
                     BusinessDate = sale.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                    CustomerId = null,
+                    CustomerId = sale.CustomerId,
                     UserId = sale.UserId,
                     ShiftId = sale.ShiftId,
                     Subtotal = sale.Subtotal,

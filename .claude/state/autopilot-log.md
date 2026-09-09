@@ -158,3 +158,16 @@ it stopped.
 - `2026-09-08T20:30:36Z` **P1-T12** done — 34+3 files, 819 tests, 2 review rounds (code-reviewer+device-integrator), 0 must-fix, PR #19
 
 **Run ended 2026-09-08T20:30:47Z** — 2 completed, 0 halted
+
+## Run 2026-09-09T02:21:42Z
+
+- branch: `claude/awesome-brahmagupta-xno8kf`
+- head: `f78943d`
+- budget: 1 task(s)
+
+- `2026-09-09T02:21:46Z` **P1-T09** start — Sales screen and bill building
+- `2026-09-09T03:27:27Z` **P1-T09** note — implementer committed and self-marked done outside the loop; reopening to run test-engineer + review before accepting
+- `2026-09-09T03:35:39Z` **P1-T09** fix-attempt — 1: code-reviewer found Block negative-stock policy bypassed by two same-variant lines in one bill (stale on-hand snapshot per line, no running balance across the bill) - CompleteSaleHandler.PriceAsync/PriceCatalogueLineAsync
+- `2026-09-09T04:07:07Z` **P1-T09** done — 3 files in fix + 42 files in feat, 832 tests, 2 review rounds (code-reviewer x2, data-modeler), 1 fix round
+
+**Run ended 2026-09-09T04:08:07Z** — 1 completed, 0 halted
