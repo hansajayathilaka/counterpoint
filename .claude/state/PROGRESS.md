@@ -50,7 +50,7 @@ hands them back.
 | P1-T10 | Tender, change and sale completion | todo | | |
 | P1-T11 | Receipt templates and printing | todo | | Real printer verified in HW-T01 |
 | P1-T12 | Label printing | done | 2026-09-08 | f2da9cd+c5f7c22 feat+test(P1-T12): label printing - PR #19 |
-| P1-T13 | Spreadsheet import | in-progress | | |
+| P1-T13 | Spreadsheet import | done | 2026-09-09 | b0a02f2+2661b29 feat+fix(P1-T13): PR #22 |
 | P1-T14 | Shift open (minimal) and dashboard | todo | | |
 | P1-T15 | Local and USB backup | todo | | |
 | P1-T16 | Phase 1 acceptance and software performance harness | todo | | Absolute NFR budgets in HW-T07; offline trading day HW-T09 |
@@ -148,7 +148,7 @@ Update as tests land. `automated` means a passing test exists in
 | AC-04 | P2-T04 | not started |
 | AC-05 | P2-T01 | not started |
 | AC-06 | P2-T02 | not started |
-| AC-07 | P1-T13 | not started |
+| AC-07 | P1-T13 | automated (CatalogueImportTests.AC_07_OneHundredSkusImportFromASpreadsheetWithValidationReportAndCorrectStockAndPrices, tests/Counterpoint.Integration.Tests/Import/CatalogueImportTests.cs) |
 | AC-08 | P2-T07 | not started |
 | AC-09 | P2-T09 | not started |
 | AC-10 | P2-T10 | not started |
