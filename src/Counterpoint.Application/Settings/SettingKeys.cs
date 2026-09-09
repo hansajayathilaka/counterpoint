@@ -71,6 +71,7 @@ public static class SettingKeys
     public const string PolicyMaxBillDiscountRate = "policy.max_bill_discount_rate";
     public const string PolicyNegativeStock = "policy.negative_stock";
     public const string PolicyRestockingFeeRate = "policy.restocking_fee_rate";
+    public const string PolicyCombineRepeatScans = "policy.combine_repeat_scans";
 
     // ---- FR-10.6 Peripherals -------------------------------------------------------------
     public const string PeripheralReceiptPrinterName = "peripheral.receipt_printer_name";

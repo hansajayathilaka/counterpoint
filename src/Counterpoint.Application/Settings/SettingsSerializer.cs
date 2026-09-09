@@ -262,6 +262,7 @@ public static class SettingsSerializer
         rows.Add(Scaled(SettingKeys.PolicyMaxBillDiscountRate, policy.MaxBillDiscountRate.ToScaled()));
         rows.Add(Text(SettingKeys.PolicyNegativeStock, SettingTokens.From(policy.NegativeStock)));
         rows.Add(Scaled(SettingKeys.PolicyRestockingFeeRate, policy.RestockingFeeRate.ToScaled()));
+        rows.Add(Boolean(SettingKeys.PolicyCombineRepeatScans, policy.CombineRepeatScans));
     }
 
     private static PolicySettings ReadPolicy(
@@ -278,7 +279,8 @@ public static class SettingsSerializer
             SettingTokens.ToNegativeStockPolicy(
                 ReadText(rows, SettingKeys.PolicyNegativeStock, string.Empty),
                 fallback.NegativeStock),
-            ReadPercentage(rows, SettingKeys.PolicyRestockingFeeRate, fallback.RestockingFeeRate));
+            ReadPercentage(rows, SettingKeys.PolicyRestockingFeeRate, fallback.RestockingFeeRate),
+            ReadBool(rows, SettingKeys.PolicyCombineRepeatScans, fallback.CombineRepeatScans));
 
     // ---- FR-10.6 Peripherals -----------------------------------------------------------------
 

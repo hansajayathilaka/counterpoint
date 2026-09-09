@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Counterpoint.Domain.Pricing;
 
 namespace Counterpoint.Application.Sales;
 
@@ -18,10 +19,19 @@ public interface IQuoteSale
     /// <summary>
     /// Prices the given lines at today's catalogue prices.
     /// </summary>
+    /// <param name="lines">The lines on the bill so far.</param>
+    /// <param name="billDiscount">
+    /// A whole-bill discount the cashier asked for (SRS FR-3.17), or null for none. Capped by the
+    /// shop's bill-discount limit (SRS FR-3.18); a request above the cap is refused (no owner
+    /// override path exists in this task).
+    /// </param>
+    /// <param name="cancellationToken">Cancels the read.</param>
     /// <exception cref="System.InvalidOperationException">
-    /// A line names a variant that is not in the catalogue, or a quantity that is not positive.
+    /// A line names a variant that is not in the catalogue, a quantity that is not positive, an
+    /// open item without a description or price, or a discount above its cap.
     /// </exception>
     public Task<SaleQuote> QuoteAsync(
         IReadOnlyList<SaleLineRequest> lines,
+        DiscountInput? billDiscount = null,
         CancellationToken cancellationToken = default);
 }

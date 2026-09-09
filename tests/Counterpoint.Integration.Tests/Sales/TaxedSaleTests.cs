@@ -205,6 +205,19 @@ public sealed class TaxedSaleTests
             context.Add(product);
             await context.SaveChangesAsync(token);
 
+            // A product's base product_uom row is not optional (docs/01_DATA_MODEL.md §8 -
+            // "at least one" half of the base-unit guard); IProductStore.CreateAsync inserts it
+            // together with the product in production, so this hand-seeded fixture does too.
+            context.Add(new ProductUom
+            {
+                ProductId = product.Id,
+                UomId = uomId,
+                ConversionFactor = UomConversion.Base.ToScaled(),
+                SellingPrice = null,
+                IsBase = true,
+            });
+            await context.SaveChangesAsync(token);
+
             var variant = new ProductVariant
             {
                 ProductId = product.Id,

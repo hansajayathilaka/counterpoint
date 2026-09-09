@@ -48,6 +48,9 @@ public sealed partial class PolicySettingsViewModel : SettingsGroupViewModel
     [ObservableProperty]
     private string _negativeStockChoice = string.Empty;
 
+    [ObservableProperty]
+    private bool _combineRepeatScans;
+
     /// <inheritdoc />
     public override string Title => "Policy";
 
@@ -108,6 +111,7 @@ public sealed partial class PolicySettingsViewModel : SettingsGroupViewModel
         MaxBillDiscountRate = SettingsText.FromPercentage(snapshot.Policy.MaxBillDiscountRate);
         NegativeStockChoice = _negativeStockPolicies.Label(snapshot.Policy.NegativeStock);
         RestockingFeeRate = SettingsText.FromPercentage(snapshot.Policy.RestockingFeeRate);
+        CombineRepeatScans = snapshot.Policy.CombineRepeatScans;
     }
 
     /// <inheritdoc />
@@ -125,7 +129,8 @@ public sealed partial class PolicySettingsViewModel : SettingsGroupViewModel
                 SettingsText.ToPercentage(MaxLineDiscountRate),
                 SettingsText.ToPercentage(MaxBillDiscountRate),
                 _negativeStockPolicies.Value(NegativeStockChoice),
-                SettingsText.ToPercentage(RestockingFeeRate)),
+                SettingsText.ToPercentage(RestockingFeeRate),
+                CombineRepeatScans),
         };
     }
 }

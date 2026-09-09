@@ -31,6 +31,10 @@ namespace Counterpoint.Application.Settings;
 /// <param name="RestockingFeeRate">
 /// Proportion of the refund the shop keeps on a return. Zero by default.
 /// </param>
+/// <param name="CombineRepeatScans">
+/// Whether scanning the same code twice in a row increments that line's quantity, rather than
+/// adding a second line for it (SRS FR-3.2 - "configurable"). True by default.
+/// </param>
 public sealed record PolicySettings(
     int ReturnWindowDays,
     bool AllowUnlinkedReturns,
@@ -39,4 +43,5 @@ public sealed record PolicySettings(
     Percentage MaxLineDiscountRate,
     Percentage MaxBillDiscountRate,
     NegativeStockPolicy NegativeStock,
-    Percentage RestockingFeeRate);
+    Percentage RestockingFeeRate,
+    bool CombineRepeatScans);

@@ -6,7 +6,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Application.Pricing;
 using Counterpoint.Application.Security;
+using Counterpoint.Application.Settings;
+using Counterpoint.Domain.Catalogue;
+using Counterpoint.Domain.Pricing;
 using Counterpoint.Domain.Services;
 using Counterpoint.Domain.ValueObjects;
 
@@ -32,10 +36,16 @@ namespace Counterpoint.Application.Sales;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the walking skeleton's version. It sells whole base units at the catalogue price
-/// with no discount and no tender beyond the exact amount. Discounts (P1-T08), unit conversion
-/// (P1-T05), split tender and change (P1-T10) and negative-stock policy (P1-T09) all land in
-/// the same shape, because the shape is what this task exists to establish.
+/// Prices in one call, sold in the next: unit conversion (SRS FR-2.4, FR-2.5, FR-3.6, FR-3.7),
+/// open items (FR-2.8), line and bill discounts (FR-3.16, FR-3.17) and the negative-stock policy
+/// (FR-3.13, FR-3.14, Q-11) all land here, in the Application layer, so the sales screen (P1-T09)
+/// never computes a price or decides a policy - it only shows what this returns.
+/// </para>
+/// <para>
+/// Split tender, change and cash-drawer kick are P1-T10's; this still expects tenders to sum
+/// exactly to the total. Trade price tiers and quantity breaks are Phase 5 (out of scope in
+/// Phase 1) - <see cref="CompleteSaleCommand.CustomerId"/> attaches a customer for record-keeping
+/// only and does not change what a line prices at.
 /// </para>
 /// </remarks>
 public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
@@ -45,6 +55,9 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
 
     /// <summary>The <c>stock_movement.movement_type</c> and <c>ref_doc_type</c> a bill posts.</summary>
     private const string SaleMovementType = "SALE";
+
+    /// <summary>SRS FR-3.14 - "every negative-stock occurrence must be logged".</summary>
+    private const string NegativeStockAuditAction = "NEGATIVE_STOCK_SALE";
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDocumentNumberAllocator _numbers;
@@ -56,6 +69,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     private readonly ISaleReceiptRenderer _receipts;
     private readonly IRoundingPolicy _rounding;
     private readonly ISession _session;
+    private readonly IDiscountAuthorisationService _discounts;
+    private readonly ISettings _settings;
 
     public CompleteSaleHandler(
         IUnitOfWork unitOfWork,
@@ -67,7 +82,9 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         IPrintJobOutbox printJobs,
         ISaleReceiptRenderer receipts,
         IRoundingPolicy rounding,
-        ISession session)
+        ISession session,
+        IDiscountAuthorisationService discounts,
+        ISettings settings)
     {
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(numbers);
@@ -79,6 +96,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         ArgumentNullException.ThrowIfNull(receipts);
         ArgumentNullException.ThrowIfNull(rounding);
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(discounts);
+        ArgumentNullException.ThrowIfNull(settings);
 
         _unitOfWork = unitOfWork;
         _numbers = numbers;
@@ -90,6 +109,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         _receipts = receipts;
         _rounding = rounding;
         _session = session;
+        _discounts = discounts;
+        _settings = settings;
     }
 
     /// <inheritdoc />
@@ -106,6 +127,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         // the writer lock should be held for the writes and nothing else (NFR-P3).
         var bill = await PriceAsync(
             command.Lines,
+            command.BillDiscount,
             DateOnly.FromDateTime(command.SoldAt.Date),
             cancellationToken).ConfigureAwait(false);
 
@@ -126,8 +148,9 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                         bill.BusinessDate,
                         command.UserId,
                         command.ShiftId,
+                        command.CustomerId,
                         bill.Subtotal,
-                        Money.Zero,
+                        bill.LineDiscount,
                         bill.BillDiscount,
                         bill.Tax,
                         bill.Rounding,
@@ -151,11 +174,17 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
 
                 foreach (var line in bill.Lines)
                 {
-                    // Every stock change goes through the ledger, which appends the movement and
-                    // advances the projection in this same transaction (CLAUDE.md invariant 3).
+                    // Open items and SERVICE/NON_INVENTORY products post no stock movement at all
+                    // (SRS FR-2.1-FR-2.8, FR-2.8); everything else goes through the one door stock
+                    // is ever allowed through (CLAUDE.md invariant 3).
+                    if (!line.PostsStock)
+                    {
+                        continue;
+                    }
+
                     await _stock.PostAsync(
                         new StockPosting(
-                            line.ProductVariantId,
+                            line.ProductVariantId!.Value,
                             SaleMovementType,
                             line.QuantityBase.Negate(),
                             line.UnitCost,
@@ -164,6 +193,22 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                             command.UserId,
                             command.SoldAt),
                         token).ConfigureAwait(false);
+
+                    if (line.WentNegative)
+                    {
+                        // SRS FR-3.14 - every negative-stock occurrence is logged, whether the
+                        // shop's policy (Q-11) is "allow" or "warn"; only "block" ever reaches
+                        // here having refused the line instead (RequireStockPolicy, below).
+                        await _audit.RecordAsync(
+                            new AuditEntry(
+                                command.SoldAt,
+                                command.UserId,
+                                NegativeStockAuditAction,
+                                "product_variant",
+                                line.ProductVariantId,
+                                AfterJson: NegativeStockAuditPayload(billNo, line)),
+                            token).ConfigureAwait(false);
+                    }
                 }
 
                 await _audit.RecordAsync(
@@ -195,11 +240,12 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     /// <inheritdoc />
     public async Task<SaleQuote> QuoteAsync(
         IReadOnlyList<SaleLineRequest> lines,
+        DiscountInput? billDiscount = null,
         CancellationToken cancellationToken = default)
     {
-        var bill = await PriceAsync(lines, DateOnly.MinValue, cancellationToken).ConfigureAwait(false);
+        var bill = await PriceAsync(lines, billDiscount, DateOnly.MinValue, cancellationToken).ConfigureAwait(false);
 
-        return new SaleQuote(bill.ToQuotedLines(), bill.Subtotal, bill.Tax, bill.Total);
+        return new SaleQuote(bill.ToQuotedLines(), bill.Subtotal, bill.BillDiscount, bill.Tax, bill.Total, bill.Warnings);
     }
 
     /// <summary>
@@ -220,9 +266,17 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     /// for the same reason, so the reconciliation identity is true by construction rather than
     /// by the line errors happening to cancel.
     /// </para>
+    /// <para>
+    /// Bill-level discount (SRS FR-3.17) is deliberately not spread across
+    /// <c>sale_line.line_total</c>: it changes the header's <c>bill_discount</c> and
+    /// <c>total</c> alone, so <c>sum(line_total) == subtotal</c> keeps holding over the lines as
+    /// stored. <c>Domain.Services.DiscountAllocator</c> exists for the day a report or a return
+    /// needs to know how much of a bill discount fell on one line; nothing in this phase needs it.
+    /// </para>
     /// </remarks>
     private async Task<PricedBill> PriceAsync(
         IReadOnlyList<SaleLineRequest> requests,
+        DiscountInput? billDiscount,
         DateOnly businessDate,
         CancellationToken cancellationToken)
     {
@@ -232,59 +286,204 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         }
 
         var lines = new List<PricedLine>(requests.Count);
+        var warnings = new List<string>();
         var subtotal = Money.Zero;
+        var lineDiscount = Money.Zero;
         var tax = Money.Zero;
         var cogs = Money.Zero;
         var lineNo = 1;
 
         foreach (var request in requests)
         {
-            if (request.Quantity <= 0m)
-            {
-                throw new InvalidOperationException(
-                    "A bill line must have a positive quantity. Removing an item is not a negative line.");
-            }
+            request.RequireWellFormed();
 
-            var item = await _catalogue.FindByVariantIdAsync(request.ProductVariantId, cancellationToken)
-                .ConfigureAwait(false)
-                ?? throw new InvalidOperationException(string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Product variant {request.ProductVariantId} is not in the catalogue, or is no longer sellable."));
+            var line = request.IsOpenItem
+                ? await PriceOpenItemAsync(request, lineNo, cancellationToken).ConfigureAwait(false)
+                : await PriceCatalogueLineAsync(request, lineNo, warnings, cancellationToken).ConfigureAwait(false);
 
-            var quantity = Quantity.FromDecimal(request.Quantity, item.BaseUomId);
+            lineNo++;
+            lines.Add(line);
 
-            // Rounding point one.
-            var lineTotal = _rounding.Round(item.UnitPrice * quantity.Value);
-
-            // Quantised to the storage scale here, once, so the value this line carries is the
-            // value sale_line.tax will hold - and the bill's tax is the sum of exactly those.
-            var lineTax = Money.FromScaled(item.TaxRate.TaxOnNet(lineTotal).ToScaled());
-
-            lines.Add(new PricedLine(
-                lineNo++,
-                item,
-                quantity,
-                lineTotal,
-                lineTax));
-
-            subtotal += lineTotal;
-            tax += lineTax;
-            cogs += item.UnitCost * quantity.Value;
+            subtotal += line.LineTotal;
+            lineDiscount += line.Discount;
+            tax += line.Tax;
+            cogs += line.UnitCost * line.QuantityBase.Value;
         }
 
-        // Rounding point two. What it moved is recorded rather than absorbed (SRS FR-3.20).
-        // The skeleton has no whole-bill discount yet (P1-T08); it is named rather than
-        // inlined so the identity below is the real one and not a special case of it.
-        var billDiscount = Money.Zero;
-        var total = _rounding.Round(subtotal - billDiscount + tax);
+        var billDiscountEvaluation = billDiscount is { } requestedBillDiscount
+            ? _discounts.AuthoriseBillDiscount(requestedBillDiscount, subtotal)
+            : new DiscountEvaluation(Money.Zero, Percentage.Zero, _settings.Policy.MaxBillDiscountRate, ExceedsCap: false);
+
+        // Rounding point two. The identity below is the real one, not a special case of it, even
+        // when there is no bill discount at all (billDiscountEvaluation.Amount is then zero).
+        var total = _rounding.Round(subtotal - billDiscountEvaluation.Amount + tax);
 
         // Derived from the scaled quantities, not from a decimal subtraction: rounding is the
         // column that has to make subtotal - bill_discount + tax + rounding = total add up in
         // the row as stored, so it is computed in the arithmetic the row is stored in.
         var rounding = Money.FromScaled(
-            total.ToScaled() - subtotal.ToScaled() + billDiscount.ToScaled() - tax.ToScaled());
+            total.ToScaled() - subtotal.ToScaled() + billDiscountEvaluation.Amount.ToScaled() - tax.ToScaled());
 
-        return new PricedBill(businessDate, lines, subtotal, billDiscount, tax, rounding, total, cogs);
+        return new PricedBill(
+            businessDate,
+            lines,
+            subtotal,
+            lineDiscount,
+            billDiscountEvaluation.Amount,
+            tax,
+            rounding,
+            total,
+            cogs,
+            warnings);
+    }
+
+    /// <summary>
+    /// Prices one catalogue line: resolves the selling unit's price (SRS FR-2.5, FR-3.7),
+    /// converts to base units and validates the product's quantity rules (FR-2.1-FR-2.8) through
+    /// <see cref="UomConverter"/>, applies the line discount if one was asked for (FR-3.16), and
+    /// checks the negative-stock policy (FR-3.13, FR-3.14, Q-11).
+    /// </summary>
+    private async Task<PricedLine> PriceCatalogueLineAsync(
+        SaleLineRequest request,
+        int lineNo,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        var variantId = request.ProductVariantId!.Value;
+
+        var item = await _catalogue.FindByVariantIdAsync(variantId, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException(string.Create(
+                CultureInfo.InvariantCulture,
+                $"Product variant {variantId} is not in the catalogue, or is no longer sellable."));
+
+        var product = item.ToProduct();
+        var uomId = request.UomId ?? item.BaseUomId;
+
+        // Validates the product's own quantity rule (STANDARD: whole units; DECIMAL: at most the
+        // unit's own decimal places) and converts to the base unit stock is always held in.
+        var quantityBase = UomConverter.ToBase(request.Quantity, uomId, product);
+        var quantitySold = Quantity.FromDecimal(request.Quantity, uomId);
+        var unitPrice = UomConverter.ResolvePrice(item.UnitPrice, uomId, product);
+
+        var grossAmount = unitPrice * quantitySold.Value;
+        var discountEvaluation = request.Discount is { } discount
+            ? _discounts.AuthoriseLineDiscount(discount, grossAmount, item.MaxDiscountRate)
+            : new DiscountEvaluation(Money.Zero, Percentage.Zero, item.MaxDiscountRate ?? _settings.Policy.MaxLineDiscountRate, ExceedsCap: false);
+
+        // Rounding point one.
+        var lineTotal = _rounding.Round(grossAmount - discountEvaluation.Amount);
+
+        // Quantised to the storage scale here, once, so the value this line carries is the
+        // value sale_line.tax will hold - and the bill's tax is the sum of exactly those.
+        var lineTax = Money.FromScaled(item.TaxRate.TaxOnNet(lineTotal).ToScaled());
+
+        var postsStock = !ProductTypes.PostsNoStockMovement(item.ProductType);
+        var wentNegative = postsStock && quantityBase.Value > item.QtyOnHand.Value;
+
+        if (wentNegative)
+        {
+            RequireStockPolicy(item.Description, quantityBase, item.QtyOnHand, item.UomSymbol, warnings);
+        }
+
+        return new PricedLine(
+            lineNo,
+            item.ProductVariantId,
+            item.Description,
+            item.UomSymbol,
+            quantitySold,
+            quantityBase,
+            unitPrice,
+            discountEvaluation.Amount,
+            item.TaxRate,
+            lineTax,
+            lineTotal,
+            item.UnitCost,
+            postsStock,
+            IsOpenItem: false,
+            wentNegative);
+    }
+
+    /// <summary>
+    /// Prices one open item line (SRS FR-2.8): a manually typed description and price, taxed at
+    /// the shop's default rate because there is no product tax class to read one from, and never
+    /// posting a stock movement because there is no variant to post one against.
+    /// </summary>
+    private Task<PricedLine> PriceOpenItemAsync(SaleLineRequest request, int lineNo, CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+
+        var uomId = request.UomId!.Value;
+        var unitPrice = request.OpenItemUnitPrice!.Value;
+        var quantity = Quantity.FromDecimal(request.Quantity, uomId);
+
+        var grossAmount = unitPrice * quantity.Value;
+        var discountEvaluation = request.Discount is { } discount
+            ? _discounts.AuthoriseLineDiscount(discount, grossAmount, productMaxDiscountRate: null)
+            : new DiscountEvaluation(Money.Zero, Percentage.Zero, _settings.Policy.MaxLineDiscountRate, ExceedsCap: false);
+
+        var lineTotal = _rounding.Round(grossAmount - discountEvaluation.Amount);
+        var taxRate = _settings.Tax.DefaultTaxRate;
+        var lineTax = Money.FromScaled(taxRate.TaxOnNet(lineTotal).ToScaled());
+
+        return Task.FromResult(new PricedLine(
+            lineNo,
+            ProductVariantId: null,
+            request.OpenItemDescription!,
+            UomSymbolForOpenItem(uomId),
+            quantity,
+            quantity,
+            unitPrice,
+            discountEvaluation.Amount,
+            taxRate,
+            lineTax,
+            lineTotal,
+            Money.Zero,
+            PostsStock: false,
+            IsOpenItem: true,
+            WentNegative: false));
+    }
+
+    /// <summary>
+    /// An open item has no product to read a unit symbol from - the receipt and the screen still
+    /// need something to print beside the quantity, so this names the unit by its id until the
+    /// caller resolves it. The sales screen (P1-T09) always has the symbol on hand from
+    /// <c>IUomStore</c> already and overwrites this on the DTO it builds for display; what
+    /// reaches <c>sale_line</c> is <c>uom_id</c> itself, not this text.
+    /// </summary>
+    private static string UomSymbolForOpenItem(long uomId) =>
+        string.Create(CultureInfo.InvariantCulture, $"uom {uomId}");
+
+    /// <summary>
+    /// Applies the shop's negative-stock policy (SRS FR-3.13, Q-11) to one line that would take
+    /// the balance below zero.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The policy is <see cref="NegativeStockPolicy.Block"/>.</exception>
+    private void RequireStockPolicy(
+        string description,
+        Quantity quantityBase,
+        Quantity qtyOnHand,
+        string uomSymbol,
+        List<string> warnings)
+    {
+        switch (_settings.Policy.NegativeStock)
+        {
+            case NegativeStockPolicy.Block:
+                throw new InvalidOperationException(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"'{description}' has only {qtyOnHand.Value} {uomSymbol} on hand. Selling {quantityBase.Value} {uomSymbol} would take stock below zero, and the shop's policy blocks that."));
+
+            case NegativeStockPolicy.Warn:
+                warnings.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"'{description}' will go to {qtyOnHand.Value - quantityBase.Value} {uomSymbol} on hand - below zero."));
+                break;
+
+            case NegativeStockPolicy.Allow:
+            default:
+                // Sold anyway, logged at completion regardless (FR-3.14) - nothing to say here.
+                break;
+        }
     }
 
     /// <summary>
@@ -325,27 +524,6 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     /// Asserts that the person completing the bill is the person the bill will be stamped with
     /// (SRS FR-1.1, FR-1.6).
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>sale.user_id</c> goes into an append-only, hash-chained row (CLAUDE.md invariants 5
-    /// and 6). Once it is committed there is no correcting it, and every cashier report and
-    /// every audit trail afterwards reads it as the truth about who sold what. So the one thing
-    /// that must never happen is a bill committed under somebody else's name.
-    /// </para>
-    /// <para>
-    /// It can happen today because the command's user id comes from the open shift - from
-    /// whoever opened it - rather than from the session. One person per shift made that
-    /// accidentally correct while there was one account in the whole shop; a second person
-    /// signing in and trading would have their bills filed under the shift opener.
-    /// </para>
-    /// <para>
-    /// <b>This is the guard, not the cure.</b> Stamping the bill with the cashier who is
-    /// actually signed in - and letting a till change hands without closing the shift - is the
-    /// sale path's own work in P1-T09 and P1-T10. Until then the shop trades one person to a
-    /// shift, and this makes that a rule the Application layer enforces rather than an
-    /// assumption the UI happens to satisfy.
-    /// </para>
-    /// </remarks>
     private void RequireTheSellerIsSignedIn(CompleteSaleCommand command)
     {
         var seller = _session.CurrentUser ?? throw new InvalidOperationException(
@@ -387,25 +565,32 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         CultureInfo.InvariantCulture,
         $$"""{"bill_no":"{{billNo}}","total":{{total.ToScaled()}}}""");
 
+    /// <summary>The negative-stock audit row's after-state (SRS FR-3.14).</summary>
+    private static string NegativeStockAuditPayload(string billNo, PricedLine line) => string.Create(
+        CultureInfo.InvariantCulture,
+        $$"""{"bill_no":"{{billNo}}","variant_id":{{line.ProductVariantId}},"qty_sold_base":{{line.QuantityBase.ToScaled()}}}""");
+
     /// <summary>A bill, priced and checked, ready to be written.</summary>
     private sealed record PricedBill(
         DateOnly BusinessDate,
         IReadOnlyList<PricedLine> Lines,
         Money Subtotal,
+        Money LineDiscount,
         Money BillDiscount,
         Money Tax,
         Money Rounding,
         Money Total,
-        Money Cogs)
+        Money Cogs,
+        IReadOnlyList<string> Warnings)
     {
         internal SaleReceipt ToReceipt(string billNo, CompleteSaleCommand command) => new(
             billNo,
             command.SoldAt,
             [.. Lines.Select(line => new SaleReceiptLine(
-                line.Item.Description,
+                line.Description,
                 line.Quantity,
-                line.Item.UomSymbol,
-                line.Item.UnitPrice,
+                line.UomSymbol,
+                line.UnitPrice,
                 line.LineTotal))],
             Subtotal,
             Tax,
@@ -415,43 +600,44 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         internal IReadOnlyList<QuotedLine> ToQuotedLines() =>
             [.. Lines.Select(line => new QuotedLine(
                 line.ProductVariantId,
-                line.Item.Description,
+                line.Description,
                 line.Quantity.Value,
-                line.Item.UomSymbol,
-                line.Item.UnitPrice,
-                line.LineTotal))];
+                line.UomSymbol,
+                line.UnitPrice,
+                line.Discount,
+                line.LineTotal,
+                line.IsOpenItem))];
     }
 
-    /// <summary>One priced bill line.</summary>
+    /// <summary>One priced bill line - a catalogue line or an open item (SRS FR-2.8).</summary>
     private sealed record PricedLine(
         int LineNo,
-        CatalogueItem Item,
+        long? ProductVariantId,
+        string Description,
+        string UomSymbol,
         Quantity Quantity,
+        Quantity QuantityBase,
+        Money UnitPrice,
+        Money Discount,
+        TaxRate TaxRate,
+        Money Tax,
         Money LineTotal,
-        Money Tax)
+        Money UnitCost,
+        bool PostsStock,
+        bool IsOpenItem,
+        bool WentNegative)
     {
-        internal long ProductVariantId => Item.ProductVariantId;
-
-        /// <summary>
-        /// The skeleton sells in the product's base unit, so the sold quantity and the base
-        /// quantity are the same value. Unit conversion (SRS FR-2.4, FR-3.7) is P1-T05's, and
-        /// it changes this line and nothing else in the transaction.
-        /// </summary>
-        internal Quantity QuantityBase => Quantity;
-
-        internal Money UnitCost => Item.UnitCost;
-
         internal NewSaleLine ToNewSaleLine() => new(
             LineNo,
-            Item.ProductVariantId,
-            Item.Description,
+            ProductVariantId,
+            Description,
             Quantity,
             QuantityBase,
-            Item.UnitPrice,
-            Money.Zero,
-            Item.TaxRate,
+            UnitPrice,
+            Discount,
+            TaxRate,
             Tax,
             LineTotal,
-            Item.UnitCost);
+            UnitCost);
     }
 }

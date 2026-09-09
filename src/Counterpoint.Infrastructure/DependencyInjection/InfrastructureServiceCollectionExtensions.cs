@@ -2,6 +2,7 @@ using System;
 using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Abstractions.Security;
+using Counterpoint.Application.Sales;
 using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Backup;
 using Counterpoint.Infrastructure.Catalogue;
@@ -127,6 +128,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IBarcodeSerialAllocator, SqliteBarcodeSerialAllocator>();
         services.AddSingleton<IProductSearchService, SqliteProductSearchService>();
         services.AddSingleton<IReindexSearchCommand, SqliteReindexSearchCommand>();
+
+        // P1-T09: held bills (F5/F6, SRS FR-3.32, FR-3.33). No role requirement - holding and
+        // recalling a bill is an ordinary cashier action.
+        services.AddSingleton<IHeldBillService, SqliteHeldBillService>();
 
         // P0-T07: the one seam Counterpoint.Backup reaches a SQLCipher connection through,
         // because it may not reference this assembly (CLAUDE.md "Project boundaries").
