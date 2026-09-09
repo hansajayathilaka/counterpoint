@@ -1,0 +1,140 @@
+﻿=== commands ===
+0000  ESC @        initialise
+0002  ESC t 0      select code page
+0005  ESC a 1      align centre
+0008  GS ! 11      character size (double width, double height)
+000B  ESC E 1      bold on
+000E  ESC E 0      bold off
+0011  GS ! 00      character size (normal width, normal height)
+0014  LF
+0015  ESC a 0      align left
+0018  TEXT         "------------------------------------------------"
+0048  LF
+0049  TEXT         "Bill No : INV-2026-000001"
+0062  LF
+0063  TEXT         "Date    : 2026-09-06   Time: 09:15"
+0085  LF
+0086  TEXT         "Cashier : Kamal"
+0095  LF
+0096  TEXT         "Customer: Walk-in"
+00A7  LF
+00A8  TEXT         "------------------------------------------------"
+00D8  LF
+00D9  TEXT         "Item                Qty   Rate    Amount"
+0101  LF
+0102  TEXT         "------------------------------------------------"
+0132  LF
+0133  TEXT         "Galvanised bolt M8"
+0145  LF
+0146  TEXT         "  2 pc @ 12.50                             25.00"
+0176  LF
+0177  TEXT         "------------------------------------------------"
+01A7  LF
+01A8  TEXT         "Sub total                                  25.00"
+01D8  LF
+01D9  TEXT         "Taxable value                              25.00"
+0209  LF
+020A  TEXT         "------------------------------------------------"
+023A  LF
+023B  GS ! 11      character size (double width, double height)
+023E  ESC E 1      bold on
+0241  TEXT         "TOTAL              25.00"
+0259  ESC E 0      bold off
+025C  GS ! 00      character size (normal width, normal height)
+025F  LF
+0260  TEXT         "------------------------------------------------"
+0290  LF
+0291  TEXT         "CASH                                       25.00"
+02C1  LF
+02C2  TEXT         "------------------------------------------------"
+02F2  LF
+02F3  TEXT         "Items: 1     Units: 2"
+0308  LF
+0309  ESC d 1      feed lines
+030C  ESC a 1      align centre
+030F  GS h 80      barcode height (dots)
+0312  GS w 2       barcode module width
+0315  GS H 2       barcode HRI position
+0318  GS f 0       barcode HRI font
+031B  GS k 73      barcode Code 128 "{BINV-2026-000001"
+0330  ESC d 1      feed lines
+0333  ESC a 0      align left
+0336  TEXT         "Returns accepted within 14 days with this bill."
+0365  LF
+0366  TEXT         "Cut goods & mixed paint are non-returnable."
+0391  LF
+0392  ESC a 1      align centre
+0395  TEXT         "Thank you - please come again"
+03B2  LF
+03B3  ESC a 0      align left
+03B6  TEXT         "------------------------------------------------"
+03E6  LF
+03E7  ESC p 0 25 250  drawer kick (pin 2)
+03EC  ESC d 4      feed lines
+03EF  GS V 1       partial cut
+
+=== bytes ===
+0000  1B 40 1B 74 00 1B 61 01 1D 21 11 1B 45 01 1B 45   |.@.t..a..!..E..E|
+0010  00 1D 21 00 0A 1B 61 00 2D 2D 2D 2D 2D 2D 2D 2D   |..!...a.--------|
+0020  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0030  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0040  2D 2D 2D 2D 2D 2D 2D 2D 0A 42 69 6C 6C 20 4E 6F   |--------.Bill No|
+0050  20 3A 20 49 4E 56 2D 32 30 32 36 2D 30 30 30 30   | : INV-2026-0000|
+0060  30 31 0A 44 61 74 65 20 20 20 20 3A 20 32 30 32   |01.Date    : 202|
+0070  36 2D 30 39 2D 30 36 20 20 20 54 69 6D 65 3A 20   |6-09-06   Time: |
+0080  30 39 3A 31 35 0A 43 61 73 68 69 65 72 20 3A 20   |09:15.Cashier : |
+0090  4B 61 6D 61 6C 0A 43 75 73 74 6F 6D 65 72 3A 20   |Kamal.Customer: |
+00A0  57 61 6C 6B 2D 69 6E 0A 2D 2D 2D 2D 2D 2D 2D 2D   |Walk-in.--------|
+00B0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+00C0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+00D0  2D 2D 2D 2D 2D 2D 2D 2D 0A 49 74 65 6D 20 20 20   |--------.Item   |
+00E0  20 20 20 20 20 20 20 20 20 20 20 20 20 51 74 79   |             Qty|
+00F0  20 20 20 52 61 74 65 20 20 20 20 41 6D 6F 75 6E   |   Rate    Amoun|
+0100  74 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |t.--------------|
+0110  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0120  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0130  2D 2D 0A 47 61 6C 76 61 6E 69 73 65 64 20 62 6F   |--.Galvanised bo|
+0140  6C 74 20 4D 38 0A 20 20 32 20 70 63 20 40 20 31   |lt M8.  2 pc @ 1|
+0150  32 2E 35 30 20 20 20 20 20 20 20 20 20 20 20 20   |2.50            |
+0160  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0170  20 32 35 2E 30 30 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D   | 25.00.---------|
+0180  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0190  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+01A0  2D 2D 2D 2D 2D 2D 2D 0A 53 75 62 20 74 6F 74 61   |-------.Sub tota|
+01B0  6C 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |l               |
+01C0  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+01D0  20 20 20 32 35 2E 30 30 0A 54 61 78 61 62 6C 65   |   25.00.Taxable|
+01E0  20 76 61 6C 75 65 20 20 20 20 20 20 20 20 20 20   | value          |
+01F0  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0200  20 20 20 20 32 35 2E 30 30 0A 2D 2D 2D 2D 2D 2D   |    25.00.------|
+0210  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0220  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0230  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 0A 1D 21 11 1B 45   |----------..!..E|
+0240  01 54 4F 54 41 4C 20 20 20 20 20 20 20 20 20 20   |.TOTAL          |
+0250  20 20 20 20 32 35 2E 30 30 1B 45 00 1D 21 00 0A   |    25.00.E..!..|
+0260  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0270  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0280  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0290  0A 43 41 53 48 20 20 20 20 20 20 20 20 20 20 20   |.CASH           |
+02A0  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+02B0  20 20 20 20 20 20 20 20 20 20 20 20 32 35 2E 30   |            25.0|
+02C0  30 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |0.--------------|
+02D0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+02E0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+02F0  2D 2D 0A 49 74 65 6D 73 3A 20 31 20 20 20 20 20   |--.Items: 1     |
+0300  55 6E 69 74 73 3A 20 32 0A 1B 64 01 1B 61 01 1D   |Units: 2..d..a..|
+0310  68 50 1D 77 02 1D 48 02 1D 66 00 1D 6B 49 11 7B   |hP.w..H..f..kI.{|
+0320  42 49 4E 56 2D 32 30 32 36 2D 30 30 30 30 30 31   |BINV-2026-000001|
+0330  1B 64 01 1B 61 00 52 65 74 75 72 6E 73 20 61 63   |.d..a.Returns ac|
+0340  63 65 70 74 65 64 20 77 69 74 68 69 6E 20 31 34   |cepted within 14|
+0350  20 64 61 79 73 20 77 69 74 68 20 74 68 69 73 20   | days with this |
+0360  62 69 6C 6C 2E 0A 43 75 74 20 67 6F 6F 64 73 20   |bill..Cut goods |
+0370  26 20 6D 69 78 65 64 20 70 61 69 6E 74 20 61 72   |& mixed paint ar|
+0380  65 20 6E 6F 6E 2D 72 65 74 75 72 6E 61 62 6C 65   |e non-returnable|
+0390  2E 0A 1B 61 01 54 68 61 6E 6B 20 79 6F 75 20 2D   |...a.Thank you -|
+03A0  20 70 6C 65 61 73 65 20 63 6F 6D 65 20 61 67 61   | please come aga|
+03B0  69 6E 0A 1B 61 00 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |in..a.----------|
+03C0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+03D0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+03E0  2D 2D 2D 2D 2D 2D 0A 1B 70 00 19 FA 1B 64 04 1D   |------..p....d..|
+03F0  56 01                                             |V.|

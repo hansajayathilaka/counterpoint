@@ -9,6 +9,15 @@
          configuration provider. See docs/adr/0005 and docs/adr/0006. -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <!-- P1-T11: the owner-editable receipt template engine (SRS FR-7.3, NFR-M1). -->
+    <PackageReference Include="Scriban" />
+    <!-- P1-T11: the barcode/QR raster fallback for a printer whose native GS k or GS ( k
+         cannot be trusted (SRS FR-7.4, PRT-04). Pure managed - no System.Drawing, so it
+         builds and runs on the Linux dev/CI track (CLAUDE.md "Development platform note"). -->
+    <PackageReference Include="ZXing.Net" />
+    <!-- P1-T11: the A4/A5 invoice, a separate renderer from the ESC/POS one over the same
+         data model (SRS FR-7.2, FR-7.9). -->
+    <PackageReference Include="QuestPDF" />
   </ItemGroup>
 
   <ItemGroup>

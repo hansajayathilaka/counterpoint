@@ -37,6 +37,7 @@ public partial class App : Avalonia.Application
     private readonly UserAdminViewModel? _userAdminViewModel;
     private readonly CatalogueViewModel? _catalogueViewModel;
     private readonly LabelPrintViewModel? _labelPrintViewModel;
+    private readonly PrintQueueViewModel? _printQueueViewModel;
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly FirstRunWizardViewModel? _firstRunViewModel;
     private readonly bool _firstRunRequired;
@@ -60,6 +61,7 @@ public partial class App : Avalonia.Application
         UserAdminViewModel userAdminViewModel,
         CatalogueViewModel catalogueViewModel,
         LabelPrintViewModel labelPrintViewModel,
+        PrintQueueViewModel printQueueViewModel,
         SettingsViewModel settingsViewModel,
         FirstRunWizardViewModel firstRunViewModel,
         bool firstRunRequired)
@@ -69,6 +71,7 @@ public partial class App : Avalonia.Application
         ArgumentNullException.ThrowIfNull(userAdminViewModel);
         ArgumentNullException.ThrowIfNull(catalogueViewModel);
         ArgumentNullException.ThrowIfNull(labelPrintViewModel);
+        ArgumentNullException.ThrowIfNull(printQueueViewModel);
         ArgumentNullException.ThrowIfNull(settingsViewModel);
         ArgumentNullException.ThrowIfNull(firstRunViewModel);
 
@@ -77,6 +80,7 @@ public partial class App : Avalonia.Application
         _userAdminViewModel = userAdminViewModel;
         _catalogueViewModel = catalogueViewModel;
         _labelPrintViewModel = labelPrintViewModel;
+        _printQueueViewModel = printQueueViewModel;
         _settingsViewModel = settingsViewModel;
         _firstRunViewModel = firstRunViewModel;
         _firstRunRequired = firstRunRequired;
@@ -168,6 +172,7 @@ public partial class App : Avalonia.Application
         _salesViewModel.ManageUsersRequested += (_, _) => ShowUsers(sales);
         _salesViewModel.CatalogueRequested += (_, _) => ShowCatalogue(sales);
         _salesViewModel.LabelPrintRequested += (_, _) => ShowLabelPrint(sales);
+        _salesViewModel.PrintQueueRequested += (_, _) => ShowPrintQueue(sales);
         _salesViewModel.SettingsRequested += (_, _) => ShowSettings(sales);
 
         var login = desktop.MainWindow;
@@ -216,6 +221,21 @@ public partial class App : Avalonia.Application
         }
 
         var window = new LabelPrintWindow { DataContext = _labelPrintViewModel };
+        window.Show(owner);
+    }
+
+    /// <summary>
+    /// Opens the print queue screen (P1-T11): pending and failed jobs, with a retry button.
+    /// </summary>
+    private void ShowPrintQueue(Window owner)
+    {
+        if (_printQueueViewModel is null)
+        {
+            return;
+        }
+
+        var window = new PrintQueueWindow { DataContext = _printQueueViewModel };
+        _printQueueViewModel.RefreshCommand.Execute(null);
         window.Show(owner);
     }
 

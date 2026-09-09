@@ -77,6 +77,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     private readonly ISession _session;
     private readonly IDiscountAuthorisationService _discounts;
     private readonly ISettings _settings;
+    private readonly ICustomerStore _customers;
 
     public CompleteSaleHandler(
         IUnitOfWork unitOfWork,
@@ -90,7 +91,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         IRoundingPolicy rounding,
         ISession session,
         IDiscountAuthorisationService discounts,
-        ISettings settings)
+        ISettings settings,
+        ICustomerStore customers)
     {
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(numbers);
@@ -104,6 +106,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(discounts);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(customers);
 
         _unitOfWork = unitOfWork;
         _numbers = numbers;
@@ -117,6 +120,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         _session = session;
         _discounts = discounts;
         _settings = settings;
+        _customers = customers;
     }
 
     /// <inheritdoc />
@@ -128,6 +132,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
 
         // First, before the catalogue is even read: a bill nobody can be held to is not a bill.
         RequireTheSellerIsSignedIn(command);
+        var seller = _session.CurrentUser!;
 
         // Priced before the transaction opens. Catalogue reads are not part of the write, and
         // the writer lock should be held for the writes and nothing else (NFR-P3).
@@ -138,6 +143,13 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             cancellationToken).ConfigureAwait(false);
 
         RequireBillBalances(bill);
+
+        // For the receipt only - never priced against, never a foreign key (CLAUDE.md invariant
+        // 8's cousin: the till trades the same whether the name resolves or not). Read here, with
+        // the pricing above, rather than inside the transaction (NFR-P3).
+        var customer = command.CustomerId is { } customerId
+            ? await _customers.FindByIdAsync(customerId, cancellationToken).ConfigureAwait(false)
+            : null;
 
         // The authoritative split: every tender applied to what the bill still owes, in the
         // order offered, cash allowed to run over into change (SRS FR-3.24-FR-3.26). Computed
@@ -242,10 +254,19 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                 // stream. This is a pure in-memory byte transform - no device, no I/O. The
                 // printer itself is only ever touched by PrintWorker, outside any transaction
                 // (CLAUDE.md invariant 7).
-                var payload = _receipts.Render(bill.ToReceipt(billNo, command.SoldAt, tenderPlan.Applied));
+                var payload = _receipts.Render(bill.ToReceipt(
+                    billNo,
+                    command.SoldAt,
+                    tenderPlan.Applied,
+                    tenderPlan.Change,
+                    seller.DisplayName,
+                    customer,
+                    _settings.Tax.TaxLabel));
 
                 var printJobId = await _printJobs
-                    .EnqueueAsync(new PrintJobRequest("SALE", saleId, payload), token)
+                    .EnqueueAsync(
+                        new PrintJobRequest("SALE", saleId, payload, Copies: _settings.Peripherals.ReceiptCopies),
+                        token)
                     .ConfigureAwait(false);
 
                 return new CompletedSale(saleId, billNo, bill.Total, tenderPlan.Change, printJobId);
@@ -606,19 +627,54 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         Money Cogs,
         IReadOnlyList<string> Warnings)
     {
-        internal SaleReceipt ToReceipt(string billNo, DateTimeOffset soldAt, IReadOnlyList<AppliedTender> tenders) => new(
-            billNo,
-            soldAt,
-            [.. Lines.Select(line => new SaleReceiptLine(
-                line.Description,
-                line.Quantity,
-                line.UomSymbol,
-                line.UnitPrice,
-                line.LineTotal))],
-            Subtotal,
-            Tax,
-            Total,
-            [.. tenders.Select(tender => new SaleReceiptTender(tender.TenderType, tender.Amount))]);
+        internal SaleReceipt ToReceipt(
+            string billNo,
+            DateTimeOffset soldAt,
+            IReadOnlyList<AppliedTender> tenders,
+            Money change,
+            string cashierName,
+            CustomerRecord? customer,
+            string taxLabel)
+        {
+            var discount = LineDiscount + BillDiscount;
+
+            return new SaleReceipt(
+                billNo,
+                soldAt,
+                [.. Lines.Select(line => new SaleReceiptLine(
+                    line.Description,
+                    line.Quantity,
+                    line.UomSymbol,
+                    line.UnitPrice,
+                    line.LineTotal))],
+                Subtotal,
+                discount,
+                Subtotal - discount,
+                Tax,
+                Total,
+                [.. tenders.Select(tender => new SaleReceiptTender(tender.TenderType, tender.Amount))],
+                change,
+                TaxBreakdown(taxLabel),
+                cashierName,
+                customer?.Name ?? "Walk-in",
+                string.Equals(customer?.Type, CustomerPriceTiers.TradeToken, StringComparison.Ordinal));
+        }
+
+        /// <summary>
+        /// One row per distinct tax rate the bill's catalogue lines actually used (SRS §10.1's
+        /// "Tax @ n%" row) - open items are taxed at the shop's default rate and fall into that
+        /// same group when it matches.
+        /// </summary>
+        private IReadOnlyList<SaleReceiptTaxLine> TaxBreakdown(string taxLabel) =>
+            [.. Lines
+                .GroupBy(line => line.TaxRate)
+                .OrderByDescending(group => group.Key.Rate)
+                .Select(group => new SaleReceiptTaxLine(
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{taxLabel} @ {group.Key.AsPercent:0.##}%"),
+                    Money.FromScaled(group.Sum(line => line.LineTotal.ToScaled())),
+                    Money.FromScaled(group.Sum(line => line.Tax.ToScaled()))))];
 
         internal IReadOnlyList<QuotedLine> ToQuotedLines() =>
             [.. Lines.Select(line => new QuotedLine(

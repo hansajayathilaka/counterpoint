@@ -1592,6 +1592,7 @@ place; see that key's own remarks for why it is read and written directly throug
 | | `backup.on_shift_close` (true) | `BOOL` |
 | Receipt template (FR-10.8) | `receipt.header_text`, `receipt.footer_text`, `receipt.policy_text` | `STRING` |
 | | `receipt.show_logo`, `receipt.show_bill_barcode`, `receipt.show_cashier_name`, `receipt.show_customer_name`, `receipt.show_item_and_unit_count`, `receipt.show_tax_summary`, `receipt.show_taxable_value`, `receipt.show_tax_registration_number` | `BOOL` |
+| | `receipt.template` — the Scriban body the sale receipt renders through (P1-T11, FR-7.3, NFR-M1); ships as the §10.1 specimen (`Application/Settings/ReceiptTemplateDefaults.cs`), owner-editable with no rebuild | `STRING` |
 | Label layout (FR-2.10, FR-2.12 — P1-T12) | `label.width_mm` (40), `label.height_mm` (30), `label.gap_mm` (2), `label.default_quantity_per_label` (1) | `INT` |
 | | `label.show_product_name`, `label.show_code`, `label.show_barcode`, `label.show_unit`, `label.show_price` (all true) | `BOOL` |
 | First run | `setup.completed_at` — ISO-8601. Its absence is how `IFirstRunSetup.IsRequiredAsync` knows the wizard has never run. | `STRING` |

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -59,7 +60,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _hasUnsavedChanges;
 
     public SettingsViewModel(ISettings settings, IBackupPassphraseStore passphrases)
-        : this(settings, passphrases, run => run())
+        : this(settings, passphrases, run => run(), preview: null)
     {
     }
 
@@ -68,10 +69,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     /// raised on whichever thread committed the write, which is not necessarily this one; the
     /// composition root passes Avalonia's dispatcher, and a headless test runs it where it stands.
     /// </param>
+    /// <param name="preview">
+    /// The receipt template's "render to screen" capability (P1-T11). Null runs the screen
+    /// without it - the template box still edits and saves, it simply has nothing to preview.
+    /// </param>
     public SettingsViewModel(
         ISettings settings,
         IBackupPassphraseStore passphrases,
-        Action<Action> onUiThread)
+        Action<Action> onUiThread,
+        IReceiptTemplatePreviewService? preview = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(passphrases);
@@ -81,6 +87,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
         _passphrases = passphrases;
         _onUiThread = onUiThread;
 
+        Receipt = preview is null ? new ReceiptSettingsViewModel() : new ReceiptSettingsViewModel(preview);
         Groups = [Shop, Financial, Tax, Numbering, Policy, Peripherals, Backup, Receipt];
 
         foreach (var group in Groups)
@@ -121,7 +128,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     public BackupSettingsViewModel Backup { get; } = new();
 
     /// <summary>FR-10.8.</summary>
-    public ReceiptSettingsViewModel Receipt { get; } = new();
+    public ReceiptSettingsViewModel Receipt { get; }
 
     /// <summary>The eight groups, in the order FR-10 lists them.</summary>
     public IReadOnlyList<SettingsGroupViewModel> Groups { get; }

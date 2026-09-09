@@ -2,6 +2,8 @@ using System;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Devices.Labels;
 using Counterpoint.Devices.Printing;
+using Counterpoint.Devices.Printing.A4;
+using Counterpoint.Devices.Printing.Templates;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -48,8 +50,24 @@ public static class DevicesServiceCollectionExtensions
         // Windows raw spooler adapter is HW-T01's, and it swaps in here and nowhere else.
         services.AddSingleton<IReceiptPrinter, FileReceiptPrinter>();
 
-        services.AddSingleton(provider => new EscPosRenderer(provider.GetRequiredService<PrinterCapabilities>()));
+        // P1-T11: the ZXing raster fallback for a printer whose native GS k / GS ( k cannot be
+        // trusted (SRS FR-7.4). Registered unconditionally - EscPosRenderer only reaches it when
+        // PrinterCapabilities.BarcodeMode is Raster, so this changes nothing for the default
+        // Native profile above.
+        services.AddSingleton<IBarcodeRasteriser, ZXingBarcodeRasteriser>();
+
+        services.AddSingleton(provider => new EscPosRenderer(
+            provider.GetRequiredService<PrinterCapabilities>(),
+            provider.GetRequiredService<IBarcodeRasteriser>()));
         services.AddSingleton<ISaleReceiptRenderer, EscPosSaleReceiptRenderer>();
+
+        // P1-T11: the A4/A5 invoice - a separate renderer over the same SaleReceipt data, never
+        // sharing a layout engine with the 80 mm thermal path above (SRS FR-7.2, FR-7.9).
+        services.AddSingleton<ISaleInvoiceRenderer, QuestPdfSaleInvoiceRenderer>();
+
+        // P1-T11: the settings screen's template preview - renders to text, never to the
+        // printer or the outbox.
+        services.AddSingleton<IReceiptTemplatePreviewService, ReceiptTemplatePreviewService>();
 
         // P1-T10: the cancellation slip (SRS FR-3.34) - the same renderer/capabilities pair as
         // the sale receipt above, over its own fixed layout.

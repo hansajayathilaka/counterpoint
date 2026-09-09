@@ -221,5 +221,7 @@ public sealed class LoginScreenTests
         fixture.Resolve<IUomStore>(),
         fixture.Resolve<IStockEnquiry>(),
         fixture.Resolve<IHeldBillService>(),
+        fixture.Resolve<IReprintReceipt>(),
+        fixture.Resolve<IPrintJobOutbox>(),
         fixture.Resolve<TimeProvider>());
 }

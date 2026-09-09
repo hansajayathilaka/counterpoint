@@ -319,7 +319,8 @@ public sealed class SettingDefaultsTests
             ShowItemAndUnitCount: false,
             ShowTaxSummary: false,
             ShowTaxableValue: false,
-            ShowTaxRegistrationNumber: false),
+            ShowTaxRegistrationNumber: false,
+            TemplateText: "TEXT|C|1|1|{{ shop.name }}"),
         new LabelSettings(
             WidthMm: 50,
             HeightMm: 25,

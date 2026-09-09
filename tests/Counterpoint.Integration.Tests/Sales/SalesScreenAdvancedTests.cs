@@ -271,6 +271,8 @@ public sealed class SalesScreenAdvancedTests
         fixture.Resolve<IUomStore>(),
         fixture.Resolve<IStockEnquiry>(),
         fixture.Resolve<IHeldBillService>(),
+        fixture.Resolve<IReprintReceipt>(),
+        fixture.Resolve<IPrintJobOutbox>(),
         fixture.Resolve<TimeProvider>());
 
     /// <summary>A standard product with a box unit alongside its base piece unit, and a barcode to scan (SRS FR-2.4, FR-2.5).</summary>

@@ -109,6 +109,13 @@ public static class SettingKeys
     public const string ReceiptShowTaxableValue = "receipt.show_taxable_value";
     public const string ReceiptShowTaxRegistrationNumber = "receipt.show_tax_registration_number";
 
+    /// <summary>
+    /// The Scriban template body the sale receipt renders through (P1-T11, SRS FR-7.3, NFR-M1).
+    /// Empty means "use the shop's shipped default" - see
+    /// <see cref="ReceiptTemplateDefaults.SalesBillTemplate"/>.
+    /// </summary>
+    public const string ReceiptTemplate = "receipt.template";
+
     // ---- FR-2.10, FR-2.12 Label layout ----------------------------------------------------
     public const string LabelWidthMm = "label.width_mm";
     public const string LabelHeightMm = "label.height_mm";

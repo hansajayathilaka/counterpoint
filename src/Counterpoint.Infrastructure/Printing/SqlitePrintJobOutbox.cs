@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -147,6 +148,53 @@ internal sealed class SqlitePrintJobOutbox : IPrintJobOutbox
             },
             cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<PrintQueueEntry>> ListQueueAsync(CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteInTransactionAsync<IReadOnlyList<PrintQueueEntry>>(
+            async (_, _, token) =>
+            {
+                using var context = _unitOfWork.CreateDbContext();
+
+                var rows = await context.Set<PrintJob>()
+                    .Where(job => job.Status == Pending || job.Status == Failed)
+                    .OrderBy(job => job.Id)
+                    .ToListAsync(token)
+                    .ConfigureAwait(false);
+
+                return rows
+                    .Select(row => new PrintQueueEntry(
+                        row.Id,
+                        row.DocType,
+                        row.DocId,
+                        row.Status,
+                        row.Attempts,
+                        row.LastError,
+                        row.CreatedAt))
+                    .ToList();
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task RetryAsync(long printJobId, CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteInTransactionAsync<object?>(
+            async (_, _, token) =>
+            {
+                using var context = _unitOfWork.CreateDbContext();
+
+                var row = await FindAsync(context, printJobId, token).ConfigureAwait(false);
+                if (row is not null && row.Status == Failed)
+                {
+                    row.Status = Pending;
+                    row.Attempts = 0;
+                    row.LastError = null;
+
+                    await context.SaveChangesAsync(token).ConfigureAwait(false);
+                }
+
+                return null;
+            },
+            cancellationToken);
 
     private static Task<PrintJob?> FindAsync(PosDbContext context, long printJobId, CancellationToken token) =>
         context.Set<PrintJob>().FirstOrDefaultAsync(job => job.Id == printJobId, token);
