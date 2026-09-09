@@ -443,10 +443,15 @@ internal sealed class CatalogueImportService : ICatalogueImportService
         }
 
         var cost = Money.Zero;
+        var costProvided = false;
         var costText = ColumnIndexResolver.Cell(row, columns.Cost);
-        if (!string.IsNullOrEmpty(costText) && !TryParseNonNegativeMoney(costText, out cost, out var costError))
+        if (!string.IsNullOrEmpty(costText))
         {
-            errors.Add(costError!);
+            costProvided = true;
+            if (!TryParseNonNegativeMoney(costText, out cost, out var costError))
+            {
+                errors.Add(costError!);
+            }
         }
 
         if (cost.IsPositive && price <= cost && errors.Count == 0)
@@ -555,6 +560,7 @@ internal sealed class CatalogueImportService : ICatalogueImportService
             Barcode = barcode,
             Price = price,
             Cost = cost,
+            CostProvided = costProvided,
             TargetQty = targetQty,
             ExistingProductId = existingProductId,
             ExistingVariantId = existingVariant?.Id,
@@ -616,6 +622,11 @@ internal sealed class CatalogueImportService : ICatalogueImportService
         long productId;
         long variantId;
         Quantity currentQty;
+
+        // Only set when this row updates a variant that already carries stock history - the one
+        // case a blank Cost column has an existing moving average worth protecting (see the
+        // fallback below, and CostProvided's remarks).
+        Money? currentCostAvg = null;
 
         if (plan.Outcome == ImportRowOutcome.Create)
         {
@@ -684,6 +695,7 @@ internal sealed class CatalogueImportService : ICatalogueImportService
                 variantId = existingVariantId;
 
                 var position = await _stockPositions.FindAsync(variantId, cancellationToken).ConfigureAwait(false);
+                currentCostAvg = position?.CostAvg;
 
                 // Deliberately not Quantity subtraction: IStockPositionReader's projection tags
                 // the value with the variant id, not the unit of measure, so only .Value is safe
@@ -722,12 +734,24 @@ internal sealed class CatalogueImportService : ICatalogueImportService
             var deltaValue = targetQty.Value - currentQty.Value;
             if (deltaValue != 0m)
             {
+                // A blank/unmapped Cost column (CostProvided false) must never be trusted as an
+                // inbound unit cost: StockLedgerMath.Apply blends whatever this posts into the
+                // variant's moving average on every positive delta (MovingAverageCost.Recompute),
+                // so posting Money.Zero here would silently drag an established cost_avg toward
+                // zero on a routine "just update quantities" re-import (P1-T13 defect). Falling
+                // back to the current moving average instead leaves it exactly where it was. A
+                // variant with no stock history yet (currentCostAvg still null - a brand new
+                // product, or a new variant on an existing one) has no average to protect, so the
+                // fallback is Money.Zero there too - the same "no cost given" starting point
+                // ProductMaintenanceService/product.cost_avg already uses for a fresh product.
+                var unitCost = plan.CostProvided ? plan.Cost : currentCostAvg ?? Money.Zero;
+
                 await _stockLedger.PostAsync(
                     new StockPosting(
                         variantId,
                         "OPENING",
                         Quantity.FromDecimal(deltaValue, targetQty.UomId),
-                        plan.Cost,
+                        unitCost,
                         ImportRefDocType,
                         RefDocId: null,
                         userId,
@@ -1007,6 +1031,14 @@ internal sealed class CatalogueImportService : ICatalogueImportService
         public Money Price { get; init; }
 
         public Money Cost { get; init; }
+
+        /// <summary>
+        /// True when the file's Cost column was mapped and this row's cell was not blank.
+        /// False means <see cref="Cost"/> is a placeholder (<see cref="Money.Zero"/>), not a value
+        /// the file actually gave - <see cref="CommitRowAsync"/> must not trust it as a moving-average
+        /// input (the P1-T13 blank-cost-corrupts-cost_avg defect).
+        /// </summary>
+        public bool CostProvided { get; init; }
 
         public Quantity? TargetQty { get; init; }
 

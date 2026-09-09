@@ -172,3 +172,4 @@ it stopped.
 
 **Run ended 2026-09-09T04:08:07Z** — 1 completed, 0 halted
 - `2026-09-09T07:40:39Z` **P1-T13** start — Spreadsheet import
+- `2026-09-09T12:11:49Z` **P1-T13** fix-attempt — 1: blank-cost cost_avg corruption on re-import (must-fix), stale docs/01_DATA_MODEL.md JSON-unused claim (must-fix)
