@@ -42,6 +42,17 @@
       <TextBlock Text="Copies kept regardless of age" />
       <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding RetentionCopies}" />
 
+      <TextBlock Text="Warn on the dashboard after this many days without a backup" />
+      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding WarnAfterDays}" />
+
+      <TextBlock Margin="0,12,0,0" FontSize="16" Text="Take a backup now" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="_Backup now" Command="{Binding BackupNowCommand}"
+                IsVisible="{Binding CanBackupNow}" IsEnabled="{Binding !BackupNowBusy}" />
+        <Button Content="_Restore from backup..." Command="{Binding OpenRestoreWizardCommand}" />
+      </StackPanel>
+      <TextBlock TextWrapping="Wrap" Text="{Binding BackupNowStatus}" />
+
       <TextBlock Margin="0,12,0,0" FontSize="16" Text="Backup passphrase" />
       <TextBlock TextWrapping="Wrap" Text="{Binding PassphraseStatus}" />
 

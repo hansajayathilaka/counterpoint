@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
 using Counterpoint.App.DependencyInjection;
@@ -6,6 +7,7 @@ using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Application.Settings.FirstRun;
+using Counterpoint.Backup.Restore;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Runtime;
 using Microsoft.Extensions.DependencyInjection;
@@ -96,6 +98,7 @@ internal static partial class Program
                 services.GetRequiredService<Ui.ViewModels.Labels.LabelPrintViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.PrintQueueViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Settings.SettingsViewModel>(),
+                services.GetRequiredService<Ui.ViewModels.Settings.RestoreWizardViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.FirstRun.FirstRunWizardViewModel>(),
                 firstRunRequired))
             .UsePlatformDetect()
@@ -107,6 +110,12 @@ internal static partial class Program
     /// </returns>
     private static async Task<bool> PrepareDatabaseAsync(IServiceProvider services)
     {
+        // Before the migrator, before anything else touches the file: a guided restore (P1-T15,
+        // SRS FR-11.12) stages the chosen backup rather than swapping the live database out from
+        // under a running process (CLAUDE.md "single named-mutex instance"), and this is the
+        // first moment after start-up that nothing has opened a connection to it yet.
+        ApplyPendingRestoreIfPresent(services);
+
         await services.GetRequiredService<MigrationRunner>()
             .ApplyPendingMigrationsAsync()
             .ConfigureAwait(false);
@@ -142,6 +151,59 @@ internal static partial class Program
             .IsRequiredAsync()
             .ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Moves a guided restore's staged database into place, if a P1-T15 restore left one behind
+    /// (SRS FR-11.12). No connection to <c>db/counterpoint.db</c> exists yet at this point in
+    /// start-up, so a plain file move is safe: nothing holds a lock on either file, and there is
+    /// no in-memory cache of the old database's contents anywhere in this process to invalidate.
+    /// </summary>
+    /// <remarks>
+    /// Deletes the WAL and shared-memory sidecar files the database being replaced may have left
+    /// behind first - they describe transactions against the <em>old</em> file's contents, and
+    /// applying them against the restored one would corrupt it rather than the crash-recovery
+    /// journal SQLite intends them to be.
+    /// </remarks>
+    private static void ApplyPendingRestoreIfPresent(IServiceProvider services)
+    {
+        var dataDirectory = PosDataDirectory.Resolve().EnsureCreated();
+        var stagedPath = PendingRestoreLocation.StagingFilePath(dataDirectory.SnapshotDirectory);
+
+        if (!File.Exists(stagedPath))
+        {
+            return;
+        }
+
+        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("GuidedRestore");
+
+        var liveDatabasePath = dataDirectory.DatabaseFilePath;
+
+        foreach (var sidecarSuffix in new[] { "-wal", "-shm" })
+        {
+            var sidecarPath = liveDatabasePath + sidecarSuffix;
+            if (File.Exists(sidecarPath))
+            {
+                File.Delete(sidecarPath);
+            }
+        }
+
+        File.Move(stagedPath, liveDatabasePath, overwrite: true);
+
+        var stagingDirectory = Path.GetDirectoryName(stagedPath);
+        if (stagingDirectory is not null && Directory.Exists(stagingDirectory))
+        {
+            Directory.Delete(stagingDirectory, recursive: true);
+        }
+
+        PendingRestoreApplied(logger, liveDatabasePath);
+    }
+
+    [LoggerMessage(
+        EventId = 7303,
+        Level = LogLevel.Warning,
+        Message = "A guided restore staged at the last shutdown has been applied to {DatabasePath}. "
+            + "This till is now trading on the restored data.")]
+    private static partial void PendingRestoreApplied(ILogger logger, string databasePath);
 
     /// <summary>
     /// Runs the P1-T07 consistency check and logs the outcome. Never throws: a diagnostic that

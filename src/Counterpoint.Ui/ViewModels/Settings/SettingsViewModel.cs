@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Security;
@@ -60,7 +61,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _hasUnsavedChanges;
 
     public SettingsViewModel(ISettings settings, IBackupPassphraseStore passphrases)
-        : this(settings, passphrases, run => run(), preview: null)
+        : this(settings, passphrases, run => run(), preview: null, manualBackup: null)
     {
     }
 
@@ -73,11 +74,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     /// The receipt template's "render to screen" capability (P1-T11). Null runs the screen
     /// without it - the template box still edits and saves, it simply has nothing to preview.
     /// </param>
+    /// <param name="manualBackup">
+    /// The owner's "Backup now" button (SRS FR-11.2, P1-T15). Null runs the Backup tab without it.
+    /// </param>
     public SettingsViewModel(
         ISettings settings,
         IBackupPassphraseStore passphrases,
         Action<Action> onUiThread,
-        IReceiptTemplatePreviewService? preview = null)
+        IReceiptTemplatePreviewService? preview = null,
+        IManualBackupTrigger? manualBackup = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(passphrases);
@@ -88,6 +93,9 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
         _onUiThread = onUiThread;
 
         Receipt = preview is null ? new ReceiptSettingsViewModel() : new ReceiptSettingsViewModel(preview);
+        Backup = new BackupSettingsViewModel(manualBackup);
+        Backup.RestoreRequested += (_, e) => RestoreWizardRequested?.Invoke(this, e);
+
         Groups = [Shop, Financial, Tax, Numbering, Policy, Peripherals, Backup, Receipt];
 
         foreach (var group in Groups)
@@ -105,6 +113,9 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
 
     /// <summary>Raised when the screen has nothing left to do and would like to be closed.</summary>
     public event EventHandler? CloseRequested;
+
+    /// <summary>Raised when the owner asks for the guided restore wizard (SRS FR-11.12).</summary>
+    public event EventHandler? RestoreWizardRequested;
 
     /// <summary>FR-10.1.</summary>
     public ShopProfileSettingsViewModel Shop { get; } = new();
@@ -125,7 +136,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     public PeripheralSettingsViewModel Peripherals { get; } = new();
 
     /// <summary>FR-10.7.</summary>
-    public BackupSettingsViewModel Backup { get; } = new();
+    public BackupSettingsViewModel Backup { get; }
 
     /// <summary>FR-10.8.</summary>
     public ReceiptSettingsViewModel Receipt { get; }

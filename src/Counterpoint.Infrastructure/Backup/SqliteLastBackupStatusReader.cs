@@ -17,7 +17,7 @@ internal sealed class SqliteLastBackupStatusReader : ILastBackupStatusReader
     private const string LastBackupSql =
         """
         SELECT taken_at AS TakenAt, usb_status AS UsbStatus, cloud_status AS CloudStatus,
-               verified_at AS VerifiedAt
+               verified_at AS VerifiedAt, last_error AS LastError
           FROM backup_record
          ORDER BY id DESC
          LIMIT 1;
@@ -46,7 +46,8 @@ internal sealed class SqliteLastBackupStatusReader : ILastBackupStatusReader
                     DateTimeOffset.Parse(row.TakenAt, CultureInfo.InvariantCulture),
                     row.UsbStatus,
                     row.CloudStatus,
-                    row.VerifiedAt is { } verifiedAt ? DateTimeOffset.Parse(verifiedAt, CultureInfo.InvariantCulture) : null);
+                    row.VerifiedAt is { } verifiedAt ? DateTimeOffset.Parse(verifiedAt, CultureInfo.InvariantCulture) : null,
+                    row.LastError);
         }
     }
 
@@ -60,5 +61,7 @@ internal sealed class SqliteLastBackupStatusReader : ILastBackupStatusReader
         public string CloudStatus { get; set; } = string.Empty;
 
         public string? VerifiedAt { get; set; }
+
+        public string? LastError { get; set; }
     }
 }

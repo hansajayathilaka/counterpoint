@@ -328,6 +328,7 @@ public static class SettingsSerializer
         rows.Add(Text(SettingKeys.BackupCloudAccount, backup.CloudAccount));
         rows.Add(Integer(SettingKeys.BackupRetentionDays, backup.RetentionDays));
         rows.Add(Integer(SettingKeys.BackupRetentionCopies, backup.RetentionCopies));
+        rows.Add(Integer(SettingKeys.BackupWarnAfterDays, backup.WarnAfterDays));
 
         // BackupSettings.PassphraseIsSet is not written. The passphrase lives in the operating
         // system's protected store and whether one exists is read from there, never from a row
@@ -349,7 +350,8 @@ public static class SettingsSerializer
             ReadText(rows, SettingKeys.BackupCloudAccount, fallback.CloudAccount),
             ReadInt(rows, SettingKeys.BackupRetentionDays, fallback.RetentionDays),
             ReadInt(rows, SettingKeys.BackupRetentionCopies, fallback.RetentionCopies),
-            fallback.PassphraseIsSet);
+            fallback.PassphraseIsSet,
+            ReadInt(rows, SettingKeys.BackupWarnAfterDays, fallback.WarnAfterDays));
 
     // ---- FR-10.8 Receipt template ------------------------------------------------------------
 

@@ -9,6 +9,8 @@ using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Security;
 using Counterpoint.Backup.Crypto;
 using Counterpoint.Backup.Format;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using ZstdSharp;
 
 namespace Counterpoint.Backup.Snapshots;
@@ -38,7 +40,7 @@ namespace Counterpoint.Backup.Snapshots;
 /// <see cref="Counterpoint.Application.Abstractions.Persistence.IUnitOfWork"/>.
 /// </para>
 /// </remarks>
-public sealed class SnapshotService
+public sealed partial class SnapshotService
 {
     private readonly IDatabaseSnapshotSource _snapshotSource;
     private readonly IBackupPassphraseStore _passphraseStore;
@@ -46,6 +48,7 @@ public sealed class SnapshotService
     private readonly SnapshotOptions _options;
     private readonly Argon2Parameters _argon2Parameters;
     private readonly TimeProvider _timeProvider;
+    private readonly ILogger<SnapshotService> _logger;
 
     public SnapshotService(
         IDatabaseSnapshotSource snapshotSource,
@@ -53,7 +56,8 @@ public sealed class SnapshotService
         IBackupRecordStore recordStore,
         SnapshotOptions options,
         Argon2Parameters argon2Parameters,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        ILogger<SnapshotService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(snapshotSource);
         ArgumentNullException.ThrowIfNull(passphraseStore);
@@ -68,10 +72,22 @@ public sealed class SnapshotService
         _options = options;
         _argon2Parameters = argon2Parameters;
         _timeProvider = timeProvider;
+        _logger = logger ?? NullLogger<SnapshotService>.Instance;
     }
 
+    /// <param name="usbDirectory">
+    /// The USB folder to copy the finished, encrypted file into, or null/blank for none
+    /// (SRS FR-11.3, P1-T15). Read fresh on every call rather than fixed at start-up in
+    /// <see cref="SnapshotOptions"/>, because whether a USB drive is plugged in - and where the
+    /// shop points at - can change between one backup and the next. Its absence, or the copy
+    /// failing, is a warning: <see cref="SnapshotResult.UsbWarning"/> says why, but the local
+    /// backup above has already succeeded and is recorded regardless (CLAUDE.md invariant 7).
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="InvalidOperationException">No backup passphrase has been set yet.</exception>
-    public async Task<SnapshotResult> CreateSnapshotAsync(CancellationToken cancellationToken = default)
+    public async Task<SnapshotResult> CreateSnapshotAsync(
+        string? usbDirectory = null,
+        CancellationToken cancellationToken = default)
     {
         var passphrase = _passphraseStore.TryGetPassphrase();
         if (string.IsNullOrEmpty(passphrase))
@@ -140,6 +156,8 @@ public sealed class SnapshotService
             var sizeBytes = new FileInfo(finalPath).Length;
             var checksumHex = Convert.ToHexString(checksum);
 
+            var (usbStatus, usbWarning) = TryCopyToUsb(finalPath, filename, usbDirectory);
+
             // Recorded only now that the file is safely on disk under its final name.
             await _recordStore.RecordAsync(
                 new NewBackupRecord(
@@ -149,11 +167,13 @@ public sealed class SnapshotService
                     checksumHex,
                     snapshot.SchemaVersion,
                     finalPath,
-                    UsbStatus: "NA",
-                    CloudStatus: "SKIPPED"),
+                    UsbStatus: usbStatus,
+                    CloudStatus: "SKIPPED",
+                    LastError: usbWarning),
                 cancellationToken).ConfigureAwait(false);
 
-            return new SnapshotResult(finalPath, filename, sizeBytes, checksumHex, snapshot.SchemaVersion, takenAt);
+            return new SnapshotResult(
+                finalPath, filename, sizeBytes, checksumHex, snapshot.SchemaVersion, takenAt, usbStatus, usbWarning);
         }
         finally
         {
@@ -163,4 +183,76 @@ public sealed class SnapshotService
             }
         }
     }
+
+    /// <summary>
+    /// Copies the already-finished, already-checksummed local backup file onto
+    /// <paramref name="usbDirectory"/>, if one is configured (SRS FR-11.3). Never throws: a
+    /// missing drive or a failed copy is a warning the local backup - already safely on disk by
+    /// the time this runs - must not be undone by (CLAUDE.md invariant 7, P1-T15 Done-when
+    /// "pointing the USB path at a missing location produces a warning and the local backup still
+    /// succeeds").
+    /// </summary>
+    private (string Status, string? Warning) TryCopyToUsb(string finishedLocalPath, string filename, string? usbDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(usbDirectory))
+        {
+            return ("NA", null);
+        }
+
+        if (!Directory.Exists(usbDirectory))
+        {
+            UsbPathMissing(_logger, usbDirectory);
+            return ("FAILED", "The USB folder " + usbDirectory + " could not be found. Plug the drive in and check the path in Settings.");
+        }
+
+        var destination = Path.Combine(usbDirectory, filename);
+        var writingDestination = destination + ".writing";
+
+        try
+        {
+            File.Copy(finishedLocalPath, writingDestination, overwrite: true);
+            File.Move(writingDestination, destination, overwrite: true);
+            return ("OK", null);
+        }
+#pragma warning disable CA1031 // A USB copy failure is a warning for every failure mode a
+        // removable drive can produce, not a specific one - CLAUDE.md
+        // invariant 7: it must never fail the local backup that already
+        // succeeded.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            UsbCopyFailed(_logger, usbDirectory, exception);
+
+            try
+            {
+                if (File.Exists(writingDestination))
+                {
+                    File.Delete(writingDestination);
+                }
+            }
+            catch (IOException)
+            {
+                // Best effort only - a stray .writing file on the USB drive is cleaned up by the
+                // next backup's overwrite, and is not itself a reason to escalate this failure.
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            return ("FAILED", "The USB copy failed: " + exception.Message);
+        }
+    }
+
+    [LoggerMessage(
+        EventId = 7401,
+        Level = LogLevel.Warning,
+        Message = "USB backup folder {UsbDirectory} was not found. The local backup still succeeded; "
+            + "plug the drive in and check the path in Settings.")]
+    private static partial void UsbPathMissing(ILogger logger, string usbDirectory);
+
+    [LoggerMessage(
+        EventId = 7402,
+        Level = LogLevel.Warning,
+        Message = "Copying the backup to USB folder {UsbDirectory} failed. The local backup still succeeded.")]
+    private static partial void UsbCopyFailed(ILogger logger, string usbDirectory, Exception exception);
 }

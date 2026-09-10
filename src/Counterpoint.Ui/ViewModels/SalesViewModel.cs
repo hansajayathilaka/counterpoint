@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Inventory;
@@ -320,6 +321,13 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     [ObservableProperty]
     private string _dashboardText = string.Empty;
 
+    /// <summary>
+    /// The last backup <see cref="RefreshDashboardAsync"/> read, or null before its first tick or
+    /// on a till that has never taken one. Backs <see cref="StatusBackupText"/>, which is always
+    /// visible, unlike <see cref="DashboardText"/> above it.
+    /// </summary>
+    private LastBackupStatus? _lastBackup;
+
     // ---- Help panel (UI-12) ----------------------------------------------------------------------
 
     /// <summary>The on-screen cheat sheet (SRS UI-12: "the ten most common tasks").</summary>
@@ -353,10 +361,13 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         : "No shift open";
 
     /// <summary>
-    /// Honest, not wired: the last-backup timestamp is P1-T15's (local/USB backup does not exist
-    /// yet in this task's dependency set), so this names what is missing rather than a number.
+    /// The status bar's permanent last-backup indicator (SRS FR-9.7, FR-11.7, P1-T15), with the
+    /// same escalating warning <see cref="DashboardText"/>'s "Last backup" line shows. Filled by
+    /// <see cref="RefreshDashboardAsync"/>, which <c>SalesWindow</c>'s low-frequency timer calls
+    /// whether or not the dashboard panel is open.
     /// </summary>
-    public string StatusBackupText { get; } = "Backup: not tracked yet";
+    public string StatusBackupText => "Backup: " + BuildLastBackupText(
+        _lastBackup, _settings.Current.Backup.WarnAfterDays, _timeProvider.GetUtcNow());
 
     public string StatusCloudText => "Cloud: " +
         (_settings.Current.Backup.CloudTarget == CloudBackupTarget.None ? "off" : _settings.Current.Backup.CloudTarget.ToString());
@@ -1145,9 +1156,11 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     }
 
     /// <summary>
-    /// Reloads <see cref="DashboardText"/> from <see cref="IDashboardQueries"/>. A no-op while the
-    /// panel is closed, so <c>SalesWindow</c>'s timer can call this unconditionally without
-    /// reading the database for a figure nobody is looking at.
+    /// Reloads <see cref="DashboardText"/> and <see cref="StatusBackupText"/> from
+    /// <see cref="IDashboardQueries"/>. <c>SalesWindow</c>'s timer calls this unconditionally, on
+    /// every tick, whether or not the dashboard panel is open - the status bar's backup indicator
+    /// is permanent (SRS FR-9.7, FR-11.7), even though <see cref="DashboardText"/> itself is only
+    /// worth recomputing while somebody is looking at the panel it fills.
     /// </summary>
     /// <remarks>
     /// Deliberately not routed through <see cref="RunAsync"/>: this never sets <see cref="Busy"/>
@@ -1160,15 +1173,17 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     [RelayCommand]
     public async Task RefreshDashboardAsync(CancellationToken cancellationToken)
     {
-        if (!IsDashboardPanelOpen)
-        {
-            return;
-        }
-
         try
         {
             var summary = await _dashboard.GetSummaryAsync(cancellationToken).ConfigureAwait(true);
-            DashboardText = BuildDashboardText(summary);
+
+            _lastBackup = summary.LastBackup;
+            OnPropertyChanged(nameof(StatusBackupText));
+
+            if (IsDashboardPanelOpen)
+            {
+                DashboardText = BuildDashboardText(summary, _settings.Current.Backup.WarnAfterDays, _timeProvider.GetUtcNow());
+            }
         }
         catch (InvalidOperationException)
         {
@@ -1180,7 +1195,7 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         }
     }
 
-    private static string BuildDashboardText(DashboardSummary summary)
+    private static string BuildDashboardText(DashboardSummary summary, int warnAfterDays, DateTimeOffset now)
     {
         var lines = new List<string>
         {
@@ -1191,12 +1206,41 @@ public sealed partial class SalesViewModel : NumericInputViewModel
                 ? cash.Amount.ToString("0.00", CultureInfo.InvariantCulture)
                 : "no shift open"),
             "Low stock items: " + summary.LowStockCount.ToString(CultureInfo.InvariantCulture),
-            "Last backup: " + (summary.LastBackup is { } backup
-                ? backup.TakenAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
-                : "none yet"),
+            "Last backup: " + BuildLastBackupText(summary.LastBackup, warnAfterDays, now),
         };
 
         return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// "2026-09-08 20:00", or that plus an escalating warning once <paramref name="warnAfterDays"/>
+    /// is exceeded (SRS FR-11.7's local half - P1-T15; the cloud figure FR-11.7 also names is
+    /// Phase 4's, tracked separately once the uploader exists). Doubling the configured limit
+    /// before calling it urgent is this screen's own escalation, not a separate setting: a shop
+    /// that has gone twice as long as it said it would tolerate is past "remember to do this
+    /// today" and into "something is actually wrong".
+    /// </summary>
+    private static string BuildLastBackupText(LastBackupStatus? lastBackup, int warnAfterDays, DateTimeOffset now)
+    {
+        if (lastBackup is null)
+        {
+            return "none yet - WARNING: no backup has ever been taken.";
+        }
+
+        var when = lastBackup.TakenAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+        var daysSince = (now - lastBackup.TakenAt).TotalDays;
+
+        if (daysSince < warnAfterDays)
+        {
+            return when;
+        }
+
+        var wholeDays = (int)Math.Floor(daysSince);
+        var severity = daysSince >= warnAfterDays * 2 ? "URGENT" : "WARNING";
+
+        return when + " - " + severity + ": " + wholeDays.ToString(CultureInfo.InvariantCulture)
+            + " day(s) since the last backup (the shop's own limit is "
+            + warnAfterDays.ToString(CultureInfo.InvariantCulture) + ").";
     }
 
     // ---- Esc Cancel ---------------------------------------------------------------------------
