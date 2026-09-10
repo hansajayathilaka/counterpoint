@@ -188,3 +188,5 @@ it stopped.
 - `2026-09-09T20:29:16Z` **P1-T14** start — Shift open (minimal) and dashboard
 - `2026-09-10T00:56:12Z` **P1-T14** fix-attempt — 1: FR-8.7's warn-on-close half was never implemented, only recovery-on-restart
 - `2026-09-10T01:05:36Z` **P1-T14** done — 33 files, 539 tests, 1 should-fix closed (FR-8.7 warn-on-close), 2 consider items carried to PR #24
+
+**Run ended 2026-09-10T01:05:52Z** — 2 completed, 0 halted
