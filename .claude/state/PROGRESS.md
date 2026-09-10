@@ -53,7 +53,7 @@ hands them back.
 | P1-T13 | Spreadsheet import | done | 2026-09-09 | b0a02f2+2661b29 feat+fix(P1-T13): PR #22 |
 | P1-T14 | Shift open (minimal) and dashboard | done | 2026-09-10 | 5df77b2 feat(P1-T14): shift open and dashboard - PR #24 |
 | P1-T15 | Local and USB backup | done | 2026-09-10 | f19472c test(P1-T15): local and USB backup |
-| P1-T16 | Phase 1 acceptance and software performance harness | done | 2026-09-10 | feat(P1-T16): phase 1 acceptance and software performance harness - tools/SeedGenerator (seed/verify/sell-loop), AC13/AC15/AC19 automated (100 real process kills, 500-bill gapless series, network-activity guard), PerformanceRegressionGuardTests vs docs/perf-regression-baseline.json; 949 tests green (verify.sh clean); docs/perf-baseline.md budgets stay unmeasured for HW-T07 |
+| P1-T16 | Phase 1 acceptance and software performance harness | done | 2026-09-10 | b7b2224 feat(P1-T16): phase 1 acceptance and software performance harness - tools/SeedGenerator (seed/verify/sell-loop), AC13/AC15/AC19 automated (100 real process kills, 500-bill gapless series, network-activity guard), PerformanceRegressionGuardTests vs docs/perf-regression-baseline.json; 949 tests green (verify.sh clean); docs/perf-baseline.md budgets stay unmeasured for HW-T07 |
 
 ## Phase 2 — Returns and inventory control (0/12)
 
