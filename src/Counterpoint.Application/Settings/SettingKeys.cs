@@ -72,6 +72,8 @@ public static class SettingKeys
     public const string PolicyNegativeStock = "policy.negative_stock";
     public const string PolicyRestockingFeeRate = "policy.restocking_fee_rate";
     public const string PolicyCombineRepeatScans = "policy.combine_repeat_scans";
+    public const string PolicyReceiptRequired = "policy.receipt_required";
+    public const string PolicyNonReturnableCategoryIds = "policy.non_returnable_category_ids";
 
     // ---- FR-10.6 Peripherals -------------------------------------------------------------
     public const string PeripheralReceiptPrinterName = "peripheral.receipt_printer_name";

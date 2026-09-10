@@ -144,6 +144,24 @@ public sealed class SettingDefaultsTests
         policy.MaxBillDiscountRate.Should().Be(Percentage.OneHundredPercent, "Q-12");
         policy.CashRefundLimit.Should().Be(Money.Zero, "zero means no limit");
         policy.ReturnWindowDays.Should().Be(14);
+        policy.ReceiptRequired.Should().BeTrue("Q-03: 14 days, receipt required");
+        policy.NonReturnableCategoryIds.Should().BeEmpty(
+            "nothing is non-returnable by category until the owner names one; product.non_returnable is per item");
+    }
+
+    [Fact]
+    public void FR_10_5_NonReturnableCategoryIdsAreStoredAsASortedCommaSeparatedList()
+    {
+        var withCategories = SettingDefaults.Snapshot with
+        {
+            Policy = SettingDefaults.Policy with { NonReturnableCategoryIds = [7, 3, 3, 12] },
+        };
+
+        var row = SettingsSerializer.ToRows(withCategories)
+            .Single(candidate => candidate.Key == SettingKeys.PolicyNonReturnableCategoryIds);
+
+        row.ValueType.Should().Be("STRING", "SettingValueTypes deliberately never uses JSON");
+        row.Value.Should().Be("3,7,12", "sorted and de-duplicated, so two equal sets always write the same row");
     }
 
     [Fact]
@@ -199,6 +217,7 @@ public sealed class SettingDefaultsTests
             [SettingKeys.PolicyNegativeStock] = new(string.Empty, "STRING"),
             [SettingKeys.BackupDailyTime] = new("half past nine", "STRING"),
             [SettingKeys.TaxDefaultRate] = new("-1", "INT"),
+            [SettingKeys.PolicyNonReturnableCategoryIds] = new("3,not-an-id,7", "STRING"),
         };
 
         var restored = SettingsSerializer.FromRows(corrupt, SettingDefaults.Snapshot);
@@ -211,6 +230,10 @@ public sealed class SettingDefaultsTests
             TaxRate.Zero,
             "a negative tax rate is not a tax rate; the till degrades rather than throwing "
             + "(CLAUDE.md invariant 7)");
+        restored.Policy.NonReturnableCategoryIds.Should().BeEquivalentTo(
+            SettingDefaults.Policy.NonReturnableCategoryIds,
+            "one unparseable id degrades the whole list to the default rather than silently "
+            + "dropping just that token (CLAUDE.md invariant 7)");
     }
 
     [Fact]
@@ -282,7 +305,9 @@ public sealed class SettingDefaultsTests
             Percentage.FromPercent(10m),
             NegativeStockPolicy.Block,
             Percentage.FromPercent(2.5m),
-            CombineRepeatScans: false),
+            CombineRepeatScans: false,
+            ReceiptRequired: false,
+            NonReturnableCategoryIds: [3, 7]),
         new PeripheralSettings(
             "EPSON TM-T82",
             PaperWidthMm: 58,

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Counterpoint.Domain.ValueObjects;
 
 namespace Counterpoint.Application.Settings;
@@ -35,6 +37,17 @@ namespace Counterpoint.Application.Settings;
 /// Whether scanning the same code twice in a row increments that line's quantity, rather than
 /// adding a second line for it (SRS FR-3.2 - "configurable"). True by default.
 /// </param>
+/// <param name="ReceiptRequired">
+/// Whether a return must be identified by its own bill number - scanned or typed - rather than
+/// only found by a date/customer/amount search (SRS FR-5.1, Q-03: "should have to previous bill
+/// no"). True by default. P2-T01's <c>ReturnPolicy.EvaluateReceiptRequirement</c> enforces it and
+/// requires an owner override when it is not met.
+/// </param>
+/// <param name="NonReturnableCategoryIds">
+/// <c>category.id</c> values the shop has declared wholly non-returnable (SRS FR-5.10), on top of
+/// the per-product <c>product.non_returnable</c> flag P1-T05 already carries. Empty by default -
+/// nothing is non-returnable by category until the owner says so.
+/// </param>
 public sealed record PolicySettings(
     int ReturnWindowDays,
     bool AllowUnlinkedReturns,
@@ -44,4 +57,56 @@ public sealed record PolicySettings(
     Percentage MaxBillDiscountRate,
     NegativeStockPolicy NegativeStock,
     Percentage RestockingFeeRate,
-    bool CombineRepeatScans);
+    bool CombineRepeatScans,
+    bool ReceiptRequired,
+    IReadOnlyList<long> NonReturnableCategoryIds)
+{
+    /// <summary>
+    /// Value equality for every field, <see cref="NonReturnableCategoryIds"/> included.
+    /// </summary>
+    /// <remarks>
+    /// A record's compiler-generated equality compares a collection property by reference, which
+    /// would make a setting that survives the round trip to <c>app_setting</c> rows and back
+    /// compare unequal to the value it started as - exactly the kind of drift NFR-L3 exists to
+    /// rule out. This override, plus the matching <see cref="GetHashCode"/>, is the fix: two
+    /// <see cref="PolicySettings"/> are equal when their category lists contain the same ids in
+    /// the same order. <see cref="SettingsSerializer"/> always stores and reads the list sorted,
+    /// so "same order" only matters to a caller that builds one by hand out of order.
+    /// </remarks>
+    public bool Equals(PolicySettings? other) =>
+        other is not null
+        && ReturnWindowDays == other.ReturnWindowDays
+        && AllowUnlinkedReturns == other.AllowUnlinkedReturns
+        && DefaultRefundMethod == other.DefaultRefundMethod
+        && CashRefundLimit == other.CashRefundLimit
+        && MaxLineDiscountRate == other.MaxLineDiscountRate
+        && MaxBillDiscountRate == other.MaxBillDiscountRate
+        && NegativeStock == other.NegativeStock
+        && RestockingFeeRate == other.RestockingFeeRate
+        && CombineRepeatScans == other.CombineRepeatScans
+        && ReceiptRequired == other.ReceiptRequired
+        && NonReturnableCategoryIds.SequenceEqual(other.NonReturnableCategoryIds);
+
+    /// <inheritdoc cref="Equals(PolicySettings?)" />
+    public override int GetHashCode()
+    {
+        var hash = new System.HashCode();
+        hash.Add(ReturnWindowDays);
+        hash.Add(AllowUnlinkedReturns);
+        hash.Add(DefaultRefundMethod);
+        hash.Add(CashRefundLimit);
+        hash.Add(MaxLineDiscountRate);
+        hash.Add(MaxBillDiscountRate);
+        hash.Add(NegativeStock);
+        hash.Add(RestockingFeeRate);
+        hash.Add(CombineRepeatScans);
+        hash.Add(ReceiptRequired);
+
+        foreach (var id in NonReturnableCategoryIds)
+        {
+            hash.Add(id);
+        }
+
+        return hash.ToHashCode();
+    }
+}

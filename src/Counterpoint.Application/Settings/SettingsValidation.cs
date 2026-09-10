@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using Counterpoint.Domain.ValueObjects;
 
@@ -50,6 +51,7 @@ public static class SettingsValidation
         Rate(snapshot.Policy.MaxLineDiscountRate, "The line discount limit");
         Rate(snapshot.Policy.MaxBillDiscountRate, "The bill discount limit");
         Rate(snapshot.Policy.RestockingFeeRate, "The restocking fee");
+        CategoryIds(snapshot.Policy.NonReturnableCategoryIds);
 
         Range(snapshot.Peripherals.PaperWidthMm, 1, 210, "The paper width, in millimetres");
         Range(snapshot.Peripherals.ReceiptCopies, 1, 9, "The number of receipt copies");
@@ -127,6 +129,21 @@ public static class SettingsValidation
             throw new ArgumentException(
                 string.Create(CultureInfo.CurrentCulture, $"{what} cannot be blank."),
                 nameof(value));
+        }
+    }
+
+    private static void CategoryIds(IReadOnlyList<long> categoryIds)
+    {
+        foreach (var id in categoryIds)
+        {
+            if (id <= 0)
+            {
+                throw new ArgumentException(
+                    string.Create(
+                        CultureInfo.CurrentCulture,
+                        $"A non-returnable category id must be a positive number; {id} was given."),
+                    nameof(categoryIds));
+            }
         }
     }
 

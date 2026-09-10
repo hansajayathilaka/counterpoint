@@ -10,6 +10,7 @@ using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
 using Counterpoint.Application.Pricing;
+using Counterpoint.Application.Returns;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -252,6 +253,11 @@ internal sealed class SaleFixture : IAsyncDisposable
         // the cap without needing anyone's role, and going over it is gated by OverrideToken, not
         // RequiresRoleAttribute - so it is registered plain, undecorated.
         services.AddSingleton<IDiscountAuthorisationService, DiscountAuthorisationService>();
+
+        // P2-T01: the return policy engine (SRS FR-5, BR-*, FR-10.5, Q-03), the same line as
+        // Counterpoint.App's CounterpointHostBuilderExtensions. Not owner-only either, for the
+        // same reason IDiscountAuthorisationService above is not.
+        services.AddSingleton<IReturnPolicyAuthorisationService, ReturnPolicyAuthorisationService>();
 
         // Bulk price update by category, brand or supplier (SRS FR-2.19) is owner only, wired
         // exactly as IProductMaintenance above.
