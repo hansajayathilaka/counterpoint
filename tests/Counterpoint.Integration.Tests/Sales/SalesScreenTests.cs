@@ -2,10 +2,12 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
+using Counterpoint.Application.Shifts;
 using Counterpoint.Devices.Printing;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Ui.ViewModels;
@@ -137,6 +139,8 @@ public sealed class SalesScreenTests
         fixture.Resolve<IUomStore>(),
         fixture.Resolve<IStockEnquiry>(),
         fixture.Resolve<IHeldBillService>(),
+        fixture.Resolve<IOpenShift>(),
+        fixture.Resolve<IDashboardQueries>(),
         fixture.Resolve<IReprintReceipt>(),
         fixture.Resolve<IPrintJobOutbox>(),
         fixture.Resolve<TimeProvider>());

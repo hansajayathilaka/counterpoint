@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
@@ -12,6 +13,7 @@ using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Application.Settings.FirstRun;
+using Counterpoint.Application.Shifts;
 using Counterpoint.Backup.DependencyInjection;
 using Counterpoint.Backup.Snapshots;
 using Counterpoint.Devices.DependencyInjection;
@@ -75,6 +77,18 @@ internal static class CounterpointHostBuilderExtensions
         // back and StockEnquiryService itself strips cost for anyone who is not signed in as
         // owner (CLAUDE.md invariant 8).
         builder.Services.AddSingleton<IStockEnquiry, StockEnquiryService>();
+
+        // P1-T14: opening a shift (SRS FR-8.1) - a cashier capability like ICompleteSale above,
+        // not owner-only, so it is registered plain. Built through ActivatorUtilities because its
+        // constructor takes the concrete Session, not ISession, exactly the seam
+        // AuthenticationService uses to record who is signed in (see Session's own remarks).
+        builder.Services.AddSingleton<IOpenShift>(p =>
+            ActivatorUtilities.CreateInstance<OpenShiftHandler>(p));
+
+        // P1-T14: the home-screen dashboard (SRS FR-9.7). No [RequiresRole] - none of its six
+        // figures is cost, margin or profit (FR-9.4 reserves those for the owner role), the same
+        // reasoning as IStockEnquiry above.
+        builder.Services.AddSingleton<IDashboardQueries, DashboardService>();
 
         builder.Services.AddCounterpointSecurity();
         builder.Services.AddCounterpointCatalogue();

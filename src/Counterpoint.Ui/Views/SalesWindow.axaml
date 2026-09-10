@@ -57,6 +57,10 @@
         <Button Content="_Print queue" Command="{Binding OpenPrintQueueCommand}" />
         <Button Content="_Settings" Command="{Binding OpenSettingsCommand}" IsVisible="{Binding CanChangeSettings}" />
         <Button Content="Open item" Command="{Binding OpenItemCommand}" />
+        <!-- SRS FR-8.1: shown only while the till has no open shift to trade in. -->
+        <Button Content="Open shift" Command="{Binding OpenShiftCommand}" IsVisible="{Binding CanOpenShift}" FontWeight="Bold" />
+        <!-- SRS FR-9.7: the compact home-screen dashboard. -->
+        <Button Content="Dashboard" Command="{Binding DashboardCommand}" />
       </StackPanel>
     </StackPanel>
 
@@ -265,6 +269,26 @@
             <StackPanel Spacing="6">
               <TextBlock Text="Stock on hand" FontWeight="Bold" />
               <TextBlock Text="{Binding StockEnquiryText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+
+          <!-- Open shift (SRS FR-8.1) - a button, not one of the reserved UI-02 keys. -->
+          <StackPanel IsVisible="{Binding IsOpenShiftPanelOpen}" Spacing="8">
+            <TextBlock Text="Open shift" FontWeight="Bold" />
+            <TextBlock Text="Opening cash float" />
+            <TextBox Text="{Binding OpeningFloatText}" Watermark="e.g. 5000">
+              <TextBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding ConfirmOpenShiftCommand}" />
+              </TextBox.KeyBindings>
+            </TextBox>
+            <Button Content="Open" Command="{Binding ConfirmOpenShiftCommand}" />
+          </StackPanel>
+
+          <!-- Dashboard (SRS FR-9.7) - a button, not one of the reserved UI-02 keys. -->
+          <ScrollViewer IsVisible="{Binding IsDashboardPanelOpen}">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Dashboard" FontWeight="Bold" />
+              <TextBlock Text="{Binding DashboardText}" TextWrapping="Wrap" />
             </StackPanel>
           </ScrollViewer>
 

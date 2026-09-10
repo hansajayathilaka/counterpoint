@@ -44,8 +44,28 @@ public partial class SalesWindow : Window
     /// </summary>
     private static readonly TimeSpan IdleCommitDelay = TimeSpan.FromMilliseconds(80);
 
+    /// <summary>
+    /// How often the dashboard panel re-reads its figures while it is open (SRS FR-9.7, P1-T14
+    /// "Risks": a timer, never on every keystroke). Independent of <see cref="_idleTimer"/> and
+    /// the scanner path above - a low-frequency background read on its own read connection, which
+    /// cannot compete with the single write connection a scan-to-line or a sale is using
+    /// (NFR-P1, NFR-P2).
+    /// </summary>
+    private static readonly TimeSpan DashboardRefreshInterval = TimeSpan.FromSeconds(30);
+
     private ScannerKeystrokeFilter? _filter;
     private DispatcherTimer? _idleTimer;
+    private DispatcherTimer? _dashboardTimer;
+
+    /// <summary>
+    /// Whether the shift-open warning (SRS FR-8.7) has already been shown for this close attempt.
+    /// Set once the first <see cref="OnClosing"/> cancels the close to show it, so a second close
+    /// - the cashier's own confirmation, the same "press again to confirm" idiom
+    /// <c>SalesViewModel.NewSale</c> already uses for clearing a bill - goes through unopposed.
+    /// This is the warning FR-8.7 asks for, not a hard stop: nothing here can trap a cashier who
+    /// closes twice.
+    /// </summary>
+    private bool _shiftOpenWarningShown;
 
     public SalesWindow()
     {
@@ -56,6 +76,52 @@ public partial class SalesWindow : Window
 
         // SRS FR-3.1: "the cursor placed in the scan/search field by default."
         Opened += (_, _) => ScanBox.Focus();
+
+        Opened += (_, _) => StartDashboardTimer();
+        Closed += (_, _) => _dashboardTimer?.Stop();
+
+        Closing += OnClosing;
+    }
+
+    /// <summary>
+    /// SRS FR-8.7's warning half: if a shift is open when the cashier closes the app - the window
+    /// X, Alt+F4, a shutdown, however this Avalonia app's close is triggered - cancel the first
+    /// attempt, show <see cref="SalesViewModel.ShutdownWarning"/> as the status line, and let a
+    /// second close through. The decision itself (<c>ShutdownWarning</c>) lives on the viewmodel
+    /// precisely so a test can drive it without a real window; this handler only sequences it.
+    /// </summary>
+    private void OnClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (_shiftOpenWarningShown || ViewModel is not { } viewModel || viewModel.ShutdownWarning is not { } warning)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        _shiftOpenWarningShown = true;
+        viewModel.Status = warning;
+    }
+
+    /// <summary>
+    /// Ticks <see cref="SalesViewModel.RefreshDashboardCommand"/> on a low-frequency timer.
+    /// <c>RefreshDashboardAsync</c> itself is a no-op while the panel is closed, so this never
+    /// reads the database for a figure nobody is looking at, and it never touches anything the
+    /// scanner path above depends on.
+    /// </summary>
+    private void StartDashboardTimer()
+    {
+        _dashboardTimer ??= new DispatcherTimer { Interval = DashboardRefreshInterval };
+        _dashboardTimer.Tick -= OnDashboardTimerTick;
+        _dashboardTimer.Tick += OnDashboardTimerTick;
+        _dashboardTimer.Start();
+    }
+
+    private void OnDashboardTimerTick(object? sender, EventArgs e)
+    {
+        if (ViewModel is { } viewModel && viewModel.RefreshDashboardCommand.CanExecute(null))
+        {
+            _ = viewModel.RefreshDashboardCommand.ExecuteAsync(null);
+        }
     }
 
     private SalesViewModel? ViewModel => DataContext as SalesViewModel;

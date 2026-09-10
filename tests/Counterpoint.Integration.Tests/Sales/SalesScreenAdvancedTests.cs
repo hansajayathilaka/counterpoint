@@ -4,10 +4,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
+using Counterpoint.Application.Shifts;
 using Counterpoint.Domain.Catalogue;
 using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data;
@@ -271,6 +273,8 @@ public sealed class SalesScreenAdvancedTests
         fixture.Resolve<IUomStore>(),
         fixture.Resolve<IStockEnquiry>(),
         fixture.Resolve<IHeldBillService>(),
+        fixture.Resolve<IOpenShift>(),
+        fixture.Resolve<IDashboardQueries>(),
         fixture.Resolve<IReprintReceipt>(),
         fixture.Resolve<IPrintJobOutbox>(),
         fixture.Resolve<TimeProvider>());
