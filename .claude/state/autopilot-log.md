@@ -211,3 +211,5 @@ it stopped.
 - `2026-09-10T06:23:37Z` **P1-T15** done — 48 files, 6 new test files (940 tests total), 2 review rounds (code-reviewer, data-modeler) clean of must-fix; 2 should-fix carried to PR (restore schema-version guard, WarnAfterDays round-trip fixture gap); retention pruning deferred to P4-T04 per its own dedicated spec
 
 **Run ended 2026-09-10T06:24:20Z** — 1 completed, 0 halted
+- `2026-09-10T15:21:15Z` **P2-T01** start — Return policy engine
+- `2026-09-10T15:54:22Z` **P2-T01** done — 20 files, 32 tests (24 domain + 8 integration), review clean, PR #27

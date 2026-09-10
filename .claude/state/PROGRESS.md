@@ -59,7 +59,7 @@ hands them back.
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
-| P2-T01 | Return policy engine | todo | | |
+| P2-T01 | Return policy engine | done | 2026-09-10 | 7f9e7db feat(P2-T01): return policy engine - PR #27 |
 | P2-T02 | Linked returns | todo | | |
 | P2-T03 | Unlinked returns | todo | | |
 | P2-T04 | Exchanges | todo | | |
@@ -146,7 +146,7 @@ Update as tests land. `automated` means a passing test exists in
 | AC-02 | P1-T10 | automated (CompleteSaleTenderTests, tests/Counterpoint.Integration.Tests/Sales/CompleteSaleTenderTests.cs) |
 | AC-03 | P2-T02 | not started |
 | AC-04 | P2-T04 | not started |
-| AC-05 | P2-T01 | not started |
+| AC-05 | P2-T01 | automated (a non-returnable item is denied and proceeds only with an audited owner override; ReturnPolicyAuthorisationServiceTests.AC_05_ANonReturnableItemIsDeniedAndProceedsOnlyWithAnOwnerOverrideWhichIsAudited, tests/Counterpoint.Integration.Tests/Returns/ReturnPolicyAuthorisationServiceTests.cs - denies without override, obtains an owner override token, retries successfully, asserts an audit_log row names the owner and the requesting cashier, and confirms the token is single-use) |
 | AC-06 | P2-T02 | not started |
 | AC-07 | P1-T13 | automated (CatalogueImportTests.AC_07_OneHundredSkusImportFromASpreadsheetWithValidationReportAndCorrectStockAndPrices, tests/Counterpoint.Integration.Tests/Import/CatalogueImportTests.cs) |
 | AC-08 | P2-T07 | not started |
