@@ -25,6 +25,9 @@
     <ProjectReference Include="..\..\src\Counterpoint.Backup\Counterpoint.Backup.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Devices\Counterpoint.Devices.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj" />
+    <!-- P1-T16: PerformanceDatasetSeeder and HashChainVerifier, so the regression guard and the
+         AC-15 process-kill test reuse exactly what `scripts/seed.sh` and `/perf-gate` run. -->
+    <ProjectReference Include="..\..\tools\SeedGenerator\Counterpoint.SeedGenerator.csproj" />
     <!-- The viewmodel, so the scan-to-Pay loop can be driven end to end without a display.
          Counterpoint.Ui references Application and Domain only, so this pulls no adapter in. -->
     <ProjectReference Include="..\..\src\Counterpoint.Ui\Counterpoint.Ui.csproj" />

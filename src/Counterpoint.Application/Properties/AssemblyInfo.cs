@@ -15,3 +15,9 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Counterpoint")]
 [assembly: InternalsVisibleTo("Counterpoint.Integration.Tests")]
 [assembly: InternalsVisibleTo("Counterpoint.Acceptance.Tests")]
+
+// P1-T16: tools/SeedGenerator's --sell-loop mode is a fourth, minimal composition root - the
+// process AC-15's acceptance test spawns and kills mid-transaction - and needs the same seam to
+// build SettingsService (also internal, for the same reason) in order to complete a real sale
+// through CompleteSaleHandler.
+[assembly: InternalsVisibleTo("Counterpoint.SeedGenerator")]
