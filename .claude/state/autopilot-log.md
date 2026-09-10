@@ -185,3 +185,13 @@ it stopped.
 - `2026-09-09T12:25:27Z` **P1-T13** done — 30 tests (512 total), 1 fix-attempt closed 2 must-fix (cost_avg corruption, stale doc), review clean, PR #22
 
 **Run ended 2026-09-09T12:26:25Z** — 2 completed, 0 halted
+
+## Run 2026-09-09T19:19:11Z
+
+- branch: `claude/autopilot-i75n9e`
+- head: `b8d0c7c`
+- budget: 2 task(s)
+
+- `2026-09-09T19:19:13Z` **P1-T11** start — Receipt templates and printing
+- `2026-09-09T20:16:51Z` **P1-T11** fix-attempt — 1: uncaught exception from owner-template directive/IR errors can roll back the sale transaction
+- `2026-09-09T20:27:50Z` **P1-T11** done — 64 files, 532+292+62+12 tests, 1 must-fix closed, 2 should-fix carried to PR #23

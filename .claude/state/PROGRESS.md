@@ -48,7 +48,7 @@ hands them back.
 | P1-T08 | Pricing and discount engine | done | 2026-09-08 | 6543102+2d3e50d+4f0a0c6 feat+test+fix(P1-T08): pricing and discount engine - PR #18 |
 | P1-T09 | Sales screen and bill building | done | 2026-09-09 | 6f6fd81 fix(P1-T09): aggregate same-variant lines for negative-stock check - all 7 Done-when criteria satisfied (2 by direct test: FR-3.2 repeat-scan, FR-3.32 hold/recall; 5 by construction/inspection consistent with this codebase's pre-existing no-headless-UI-test convention: keystroke count, function-key runtime, focus-stealing glue, 1366x768 layout, total prominence); verify.sh green (832 tests + 6 architecture tests + 54 trigger-survival tests); 1 fix-attempt closed a real Block-policy bypass (multi-line same-variant oversell) found by code-reviewer and independently reproduced by test-engineer |
 | P1-T10 | Tender, change and sale completion | done | 2026-09-09 | caac561+3cd6d54 feat+test(P1-T10): PR #21 |
-| P1-T11 | Receipt templates and printing | todo | | Real printer verified in HW-T01 |
+| P1-T11 | Receipt templates and printing | done | 2026-09-09 | 1e6c860 feat(P1-T11): receipt templates and printing - PR #23 |
 | P1-T12 | Label printing | done | 2026-09-08 | f2da9cd+c5f7c22 feat+test(P1-T12): label printing - PR #19 |
 | P1-T13 | Spreadsheet import | done | 2026-09-09 | b0a02f2+2661b29 feat+fix(P1-T13): PR #22 |
 | P1-T14 | Shift open (minimal) and dashboard | todo | | |
@@ -157,7 +157,7 @@ Update as tests land. `automated` means a passing test exists in
 | AC-13 | P1-T16 (software), HW-T09 (on hardware) | not started |
 | AC-14 | P4-T06 (clean VM), HW-T08 (replacement hardware) | not started |
 | AC-15 | P1-T16 (software), HW-T09 (on terminal) | not started |
-| AC-16 | P1-T11 (fake), HW-T01 (real printer) | not started |
+| AC-16 | P1-T11 (fake), HW-T01 (real printer) | automated (fake half; proven by CompleteSaleTests.AC_16_ABrokenPrinterDoesNotStopASaleOrRetryForEver and SalesScreenTests.AC_16_ABrokenPrinterIsInvisibleToTheCashierCompletingTheBill; real-printer half pending HW-T01) |
 | AC-17 | P1-T02 | automated (authorisation half; cost/margin projections land with P3-T04/P3-T05) |
 | AC-18 | P1-T16 (regression guard), HW-T07 (absolute budgets) | not started |
 | AC-19 | P1-T16 | not started |

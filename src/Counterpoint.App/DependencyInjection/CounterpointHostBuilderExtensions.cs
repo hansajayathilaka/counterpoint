@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia.Threading;
+using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Import;
@@ -63,6 +64,11 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<ICancelSale>(p => RoleAuthorisation.Decorate<ICancelSale>(
             ActivatorUtilities.CreateInstance<CancelSaleHandler>(p),
             p.GetRequiredService<ISession>()));
+
+        // P1-T11: reprint (SRS FR-3.36, FR-7.5, FR-7.6). Any signed-in cashier may reprint
+        // (SRS §3.3 ROLE-1), so this is undecorated, the same shape as ICompleteSale above.
+        builder.Services.AddSingleton<IReprintReceipt>(
+            p => ActivatorUtilities.CreateInstance<ReprintReceiptHandler>(p));
 
         // P1-T07: the stock enquiry screen (F11). No [RequiresRole] - "check stock" is a
         // cashier capability (Counterpoint.Domain.Security.Role) - so the whole result comes
@@ -127,6 +133,9 @@ internal static class CounterpointHostBuilderExtensions
             p.GetRequiredService<ISession>()));
         builder.Services.AddSingleton<LabelPrintViewModel>();
 
+        // P1-T11: the print queue screen (pending and failed print_job rows, with retry).
+        builder.Services.AddSingleton<PrintQueueViewModel>();
+
         // The settings screen is handed the one thing it cannot get from Counterpoint.Ui: a way
         // back onto the thread the window lives on. ISettings.Changed is raised by whichever
         // thread committed the write, and a viewmodel that reloaded itself from a thread-pool
@@ -134,7 +143,8 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton(provider => new SettingsViewModel(
             provider.GetRequiredService<ISettings>(),
             provider.GetRequiredService<IBackupPassphraseStore>(),
-            action => Dispatcher.UIThread.Post(action)));
+            action => Dispatcher.UIThread.Post(action),
+            provider.GetRequiredService<IReceiptTemplatePreviewService>()));
 
         return builder;
     }

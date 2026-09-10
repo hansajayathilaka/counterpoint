@@ -94,6 +94,7 @@ internal static partial class Program
                 services.GetRequiredService<Ui.ViewModels.UserAdminViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Catalogue.CatalogueViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Labels.LabelPrintViewModel>(),
+                services.GetRequiredService<Ui.ViewModels.PrintQueueViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Settings.SettingsViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.FirstRun.FirstRunWizardViewModel>(),
                 firstRunRequired))

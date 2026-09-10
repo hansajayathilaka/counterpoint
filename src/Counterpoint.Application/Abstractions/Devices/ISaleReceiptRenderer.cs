@@ -20,5 +20,11 @@ namespace Counterpoint.Application.Abstractions.Devices;
 public interface ISaleReceiptRenderer
 {
     /// <summary>Renders one bill.</summary>
-    public byte[] Render(SaleReceipt receipt);
+    /// <param name="receipt">What to print.</param>
+    /// <param name="isDuplicate">
+    /// True for a reprint (SRS FR-7.5, FR-7.6): the printed copy carries a "DUPLICATE" line and
+    /// the caller is expected to have logged the reprint separately (CLAUDE.md invariant 5 - an
+    /// <c>audit_log</c> row, never a flag on the original <c>sale</c>).
+    /// </param>
+    public byte[] Render(SaleReceipt receipt, bool isDuplicate = false);
 }

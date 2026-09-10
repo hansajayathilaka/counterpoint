@@ -366,6 +366,7 @@ public static class SettingsSerializer
         rows.Add(Boolean(SettingKeys.ReceiptShowTaxSummary, receipt.ShowTaxSummary));
         rows.Add(Boolean(SettingKeys.ReceiptShowTaxableValue, receipt.ShowTaxableValue));
         rows.Add(Boolean(SettingKeys.ReceiptShowTaxRegistrationNumber, receipt.ShowTaxRegistrationNumber));
+        rows.Add(Text(SettingKeys.ReceiptTemplate, receipt.TemplateText));
     }
 
     private static ReceiptSettings ReadReceipt(
@@ -381,7 +382,8 @@ public static class SettingsSerializer
             ReadBool(rows, SettingKeys.ReceiptShowItemAndUnitCount, fallback.ShowItemAndUnitCount),
             ReadBool(rows, SettingKeys.ReceiptShowTaxSummary, fallback.ShowTaxSummary),
             ReadBool(rows, SettingKeys.ReceiptShowTaxableValue, fallback.ShowTaxableValue),
-            ReadBool(rows, SettingKeys.ReceiptShowTaxRegistrationNumber, fallback.ShowTaxRegistrationNumber));
+            ReadBool(rows, SettingKeys.ReceiptShowTaxRegistrationNumber, fallback.ShowTaxRegistrationNumber),
+            ReadText(rows, SettingKeys.ReceiptTemplate, fallback.TemplateText));
 
     // ---- FR-2.10, FR-2.12 Label layout ----------------------------------------------------
 

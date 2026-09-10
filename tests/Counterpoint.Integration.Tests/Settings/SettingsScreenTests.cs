@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
+using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -509,12 +510,33 @@ public sealed class SettingsScreenTests
         (await authentication.LogInAsync("priya", "counter1")).Succeeded.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task FR_7_3_TheTemplatePreviewRendersToScreenWithoutQueuingOrPrintingAnything()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var screen = Open(fixture);
+
+        screen.Receipt.TemplateText = "TEXT|C|1|1|A preview-only layout";
+        screen.Receipt.PreviewCommand.Execute(null);
+
+        screen.Receipt.PreviewText.Should().Contain("A preview-only layout");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM print_job;")).Should().Be(
+            0, "a preview must never queue a print job");
+        (await fixture.ScalarAsync("SELECT value FROM app_setting WHERE key = 'receipt.template';"))
+            .Should().NotBe(
+                "TEXT|C|1|1|A preview-only layout",
+                "a preview must never save the settings row either - only Save does that");
+    }
+
     /// <summary>Builds the screen and opens it, which is what re-reads the settings in force.</summary>
     private static SettingsViewModel Open(SaleFixture fixture)
     {
         var screen = new SettingsViewModel(
             fixture.Resolve<ISettings>(),
-            fixture.Resolve<IBackupPassphraseStore>());
+            fixture.Resolve<IBackupPassphraseStore>(),
+            run => run(),
+            fixture.Resolve<IReceiptTemplatePreviewService>());
 
         screen.LoadCommand.Execute(null);
         return screen;

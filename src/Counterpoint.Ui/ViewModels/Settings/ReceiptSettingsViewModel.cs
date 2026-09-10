@@ -1,5 +1,7 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Settings;
 
 namespace Counterpoint.Ui.ViewModels.Settings;
@@ -15,6 +17,23 @@ namespace Counterpoint.Ui.ViewModels.Settings;
 /// </remarks>
 public sealed partial class ReceiptSettingsViewModel : SettingsGroupViewModel
 {
+    private readonly IReceiptTemplatePreviewService? _preview;
+
+    /// <summary>For the XAML previewer, which resolves nothing from a container.</summary>
+    public ReceiptSettingsViewModel()
+    {
+    }
+
+    /// <param name="preview">
+    /// Renders a candidate template to screen without printing (P1-T11's "Template preview in
+    /// settings that renders to screen without printing"). Null only for the XAML previewer.
+    /// </param>
+    public ReceiptSettingsViewModel(IReceiptTemplatePreviewService preview)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+        _preview = preview;
+    }
+
     [ObservableProperty]
     private string _headerText = string.Empty;
 
@@ -48,6 +67,29 @@ public sealed partial class ReceiptSettingsViewModel : SettingsGroupViewModel
     [ObservableProperty]
     private bool _showTaxRegistrationNumber;
 
+    [ObservableProperty]
+    private string _templateText = string.Empty;
+
+    [ObservableProperty]
+    private string _previewText = string.Empty;
+
+    /// <summary>
+    /// Renders <see cref="TemplateText"/> to screen against the §10.1 specimen bill - never to
+    /// the printer, never through the print outbox (P1-T11).
+    /// </summary>
+    [RelayCommand]
+    public void Preview()
+    {
+        if (_preview is null)
+        {
+            return;
+        }
+
+        PreviewText = string.Join(
+            Environment.NewLine,
+            _preview.Preview(TemplateText));
+    }
+
     /// <inheritdoc />
     public override string Title => "Receipt";
 
@@ -70,6 +112,7 @@ public sealed partial class ReceiptSettingsViewModel : SettingsGroupViewModel
         ShowTaxSummary = snapshot.Receipt.ShowTaxSummary;
         ShowTaxableValue = snapshot.Receipt.ShowTaxableValue;
         ShowTaxRegistrationNumber = snapshot.Receipt.ShowTaxRegistrationNumber;
+        TemplateText = snapshot.Receipt.TemplateText;
     }
 
     /// <inheritdoc />
@@ -90,7 +133,11 @@ public sealed partial class ReceiptSettingsViewModel : SettingsGroupViewModel
                 ShowItemAndUnitCount,
                 ShowTaxSummary,
                 ShowTaxableValue,
-                ShowTaxRegistrationNumber),
+                ShowTaxRegistrationNumber,
+
+                // Blank means "use the shipped default" (ReceiptTemplateDefaults.SalesBillTemplate)
+                // - an owner clearing the box reverts to the specimen rather than saving nothing.
+                string.IsNullOrWhiteSpace(TemplateText) ? ReceiptTemplateDefaults.SalesBillTemplate : TemplateText),
         };
     }
 }

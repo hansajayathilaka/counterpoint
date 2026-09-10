@@ -35,6 +35,24 @@
       <CheckBox Content="The shop's tax registration number"
                 IsChecked="{Binding ShowTaxRegistrationNumber}" />
 
+      <!-- FR-7.3, NFR-M1: the layout itself, owner-editable without a code change. Blank means
+           "use the shipped default" (the §10.1 specimen). -->
+      <TextBlock Margin="0,8,0,0" FontSize="16" Text="Bill layout template (advanced)" />
+      <TextBox Height="140" AcceptsReturn="True" FontFamily="monospace" TextWrapping="NoWrap"
+               Text="{Binding TemplateText}" />
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="_Preview" Command="{Binding PreviewCommand}" />
+        <TextBlock VerticalAlignment="Center"
+                   Text="Renders to this box only - nothing is queued or printed." />
+      </StackPanel>
+
+      <Border BorderThickness="1" Padding="8">
+        <ScrollViewer Height="220">
+          <TextBlock TextWrapping="Wrap" FontFamily="monospace" Text="{Binding PreviewText}" />
+        </ScrollViewer>
+      </Border>
+
     </StackPanel>
   </ScrollViewer>
 
