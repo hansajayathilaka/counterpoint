@@ -46,6 +46,7 @@ internal sealed class SqliteBackupRecordStore : IBackupRecordStore
                     LocalPath = record.LocalPath,
                     UsbStatus = record.UsbStatus,
                     CloudStatus = record.CloudStatus,
+                    LastError = record.LastError,
                 });
 
                 await context.SaveChangesAsync(token).ConfigureAwait(false);

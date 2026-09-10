@@ -1,10 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Versions come from Directory.Packages.props. -->
+  <!-- Versions come from Directory.Packages.props.
+       ILogger only - never a logging implementation. See docs/adr/0005. -->
   <ItemGroup>
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
     <PackageReference Include="ZstdSharp.Port" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- P1-T15: BackgroundService for the daily/shift-close backup scheduler (SRS FR-11.1). -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

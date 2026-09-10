@@ -55,38 +55,8 @@ public sealed class RestoreService
         ArgumentException.ThrowIfNullOrEmpty(passphrase);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationFilePath);
 
-        BackupFileHeader header;
-        byte[] tag;
-        byte[] checksum;
-        byte[] aad;
-        byte[] ciphertext;
-
-        await using (var source = new FileStream(backupFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-        {
-            (header, tag, checksum, aad) = await BackupFileHeader.ReadAsync(source, cancellationToken)
-                .ConfigureAwait(false);
-
-            ciphertext = new byte[source.Length - source.Position];
-            var read = 0;
-            while (read < ciphertext.Length)
-            {
-                var n = await source.ReadAsync(ciphertext.AsMemory(read), cancellationToken).ConfigureAwait(false);
-                if (n == 0)
-                {
-                    throw new BackupRestoreException(
-                        "This backup file is shorter than its own header says - it is truncated.");
-                }
-
-                read += n;
-            }
-        }
-
-        var actualChecksum = SHA256.HashData(ciphertext);
-        if (!CryptographicOperations.FixedTimeEquals(actualChecksum, checksum))
-        {
-            throw new BackupRestoreException(
-                "This backup file is damaged: its stored checksum does not match its contents.");
-        }
+        var (header, tag, aad, ciphertext) = await ReadAndVerifyChecksumAsync(backupFilePath, cancellationToken)
+            .ConfigureAwait(false);
 
         var key = PassphraseKeyDerivation.DeriveKey(passphrase, header.Salt, header.Argon2);
         byte[] compressed;
@@ -136,5 +106,70 @@ public sealed class RestoreService
             header.TakenAt,
             verification.RowCountsByTable,
             verification.TotalRowCount);
+    }
+
+    /// <summary>
+    /// Reads the header and verifies the checksum of <paramref name="backupFilePath"/>, without
+    /// touching the passphrase or decrypting anything - what the guided restore wizard needs to
+    /// show the data date before it asks for one (SRS FR-11.12: "verify checksum" and "show what
+    /// date the data will be restored to" come before "prompt for the passphrase").
+    /// </summary>
+    /// <exception cref="BackupRestoreException">
+    /// The file is not a Counterpoint backup, is truncated, or its checksum does not match its
+    /// contents.
+    /// </exception>
+    public static async Task<BackupPreview> PreviewAsync(string backupFilePath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(backupFilePath);
+
+        var (header, _, _, _) = await ReadAndVerifyChecksumAsync(backupFilePath, cancellationToken)
+            .ConfigureAwait(false);
+
+        return new BackupPreview(header.TakenAt, header.SchemaVersion);
+    }
+
+    /// <summary>
+    /// Reads the header from <paramref name="backupFilePath"/> and verifies its checksum, shared
+    /// by <see cref="RestoreAsync"/> and <see cref="PreviewAsync"/> so the two can never check the
+    /// checksum two different ways.
+    /// </summary>
+    private static async Task<(BackupFileHeader Header, byte[] Tag, byte[] Aad, byte[] Ciphertext)> ReadAndVerifyChecksumAsync(
+        string backupFilePath,
+        CancellationToken cancellationToken)
+    {
+        BackupFileHeader header;
+        byte[] tag;
+        byte[] checksum;
+        byte[] aad;
+        byte[] ciphertext;
+
+        await using (var source = new FileStream(backupFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            (header, tag, checksum, aad) = await BackupFileHeader.ReadAsync(source, cancellationToken)
+                .ConfigureAwait(false);
+
+            ciphertext = new byte[source.Length - source.Position];
+            var read = 0;
+            while (read < ciphertext.Length)
+            {
+                var n = await source.ReadAsync(ciphertext.AsMemory(read), cancellationToken).ConfigureAwait(false);
+                if (n == 0)
+                {
+                    throw new BackupRestoreException(
+                        "This backup file is shorter than its own header says - it is truncated.");
+                }
+
+                read += n;
+            }
+        }
+
+        var actualChecksum = SHA256.HashData(ciphertext);
+        if (!CryptographicOperations.FixedTimeEquals(actualChecksum, checksum))
+        {
+            throw new BackupRestoreException(
+                "This backup file is damaged: its stored checksum does not match its contents.");
+        }
+
+        return (header, tag, aad, ciphertext);
     }
 }

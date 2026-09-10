@@ -95,6 +95,7 @@ public static class SettingKeys
     public const string BackupCloudAccount = "backup.cloud_account";
     public const string BackupRetentionDays = "backup.retention_days";
     public const string BackupRetentionCopies = "backup.retention_copies";
+    public const string BackupWarnAfterDays = "backup.warn_after_days";
 
     // ---- FR-10.8 Receipt template --------------------------------------------------------
     public const string ReceiptHeaderText = "receipt.header_text";

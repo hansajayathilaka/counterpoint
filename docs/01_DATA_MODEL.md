@@ -1588,7 +1588,7 @@ place; see that key's own remarks for why it is read and written directly throug
 | | `peripheral.paper_width_mm` (80), `peripheral.receipt_copies` (1), `peripheral.drawer_kick_pin` (2), `peripheral.scanner_minimum_length` (4), `peripheral.scale_baud_rate` (9600) | `INT` |
 | | `peripheral.open_drawer_on_cash_sale` (true), `peripheral.scale_enabled` (false) | `BOOL` |
 | Backup (FR-10.7) | `backup.daily_time` (`20:00`), `backup.local_path`, `backup.usb_path`, `backup.cloud_target` (`GOOGLE_DRIVE` — Q-D), `backup.cloud_account` | `STRING` |
-| | `backup.retention_days` (30), `backup.retention_copies` (14) | `INT` |
+| | `backup.retention_days` (30), `backup.retention_copies` (14), `backup.warn_after_days` (2 — P1-T15, the local half of FR-11.7; the cloud figure FR-11.7 also names is Phase 4's) | `INT` |
 | | `backup.on_shift_close` (true) | `BOOL` |
 | Receipt template (FR-10.8) | `receipt.header_text`, `receipt.footer_text`, `receipt.policy_text` | `STRING` |
 | | `receipt.show_logo`, `receipt.show_bill_barcode`, `receipt.show_cashier_name`, `receipt.show_customer_name`, `receipt.show_item_and_unit_count`, `receipt.show_tax_summary`, `receipt.show_taxable_value`, `receipt.show_tax_registration_number` | `BOOL` |

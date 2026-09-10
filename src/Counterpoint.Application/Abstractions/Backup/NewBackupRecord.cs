@@ -16,6 +16,13 @@ namespace Counterpoint.Application.Abstractions.Backup;
 /// <c>PENDING</c>, <c>OK</c>, <c>FAILED</c> or <c>SKIPPED</c> - <c>SKIPPED</c> until Phase 4 builds
 /// the uploader (FR-11.5, CLAUDE.md "Not cloud-dependent").
 /// </param>
+/// <param name="LastError">
+/// Why <paramref name="UsbStatus"/> is <c>FAILED</c> - the USB path was not present, or the copy
+/// failed partway - or null when there is nothing to say (P1-T15, FR-11.3). Reuses
+/// <c>backup_record.last_error</c>, the same generic "what went wrong" column Phase 4's cloud
+/// retry uses; nothing here writes <c>attempts</c> or <c>cloud_key</c>, which stay at the schema's
+/// defaults until then.
+/// </param>
 public sealed record NewBackupRecord(
     string Filename,
     DateTimeOffset TakenAt,
@@ -24,4 +31,5 @@ public sealed record NewBackupRecord(
     string SchemaVer,
     string LocalPath,
     string UsbStatus,
-    string CloudStatus);
+    string CloudStatus,
+    string? LastError = null);

@@ -8,6 +8,7 @@ using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Labels;
 using Counterpoint.Ui.ViewModels.Settings;
 using Counterpoint.Ui.Views;
+using Counterpoint.Ui.Views.Settings;
 
 namespace Counterpoint.Ui;
 
@@ -39,6 +40,7 @@ public partial class App : Avalonia.Application
     private readonly LabelPrintViewModel? _labelPrintViewModel;
     private readonly PrintQueueViewModel? _printQueueViewModel;
     private readonly SettingsViewModel? _settingsViewModel;
+    private readonly RestoreWizardViewModel? _restoreWizardViewModel;
     private readonly FirstRunWizardViewModel? _firstRunViewModel;
     private readonly bool _firstRunRequired;
 
@@ -63,6 +65,7 @@ public partial class App : Avalonia.Application
         LabelPrintViewModel labelPrintViewModel,
         PrintQueueViewModel printQueueViewModel,
         SettingsViewModel settingsViewModel,
+        RestoreWizardViewModel restoreWizardViewModel,
         FirstRunWizardViewModel firstRunViewModel,
         bool firstRunRequired)
     {
@@ -73,6 +76,7 @@ public partial class App : Avalonia.Application
         ArgumentNullException.ThrowIfNull(labelPrintViewModel);
         ArgumentNullException.ThrowIfNull(printQueueViewModel);
         ArgumentNullException.ThrowIfNull(settingsViewModel);
+        ArgumentNullException.ThrowIfNull(restoreWizardViewModel);
         ArgumentNullException.ThrowIfNull(firstRunViewModel);
 
         _loginViewModel = loginViewModel;
@@ -82,6 +86,7 @@ public partial class App : Avalonia.Application
         _labelPrintViewModel = labelPrintViewModel;
         _printQueueViewModel = printQueueViewModel;
         _settingsViewModel = settingsViewModel;
+        _restoreWizardViewModel = restoreWizardViewModel;
         _firstRunViewModel = firstRunViewModel;
         _firstRunRequired = firstRunRequired;
     }
@@ -251,7 +256,41 @@ public partial class App : Avalonia.Application
         }
 
         var window = new SettingsWindow { DataContext = _settingsViewModel };
+        _settingsViewModel.RestoreWizardRequested -= OnRestoreWizardRequested;
+        _settingsViewModel.RestoreWizardRequested += OnRestoreWizardRequested;
         _settingsViewModel.LoadCommand.Execute(null);
+        window.Show(owner);
+
+        void OnRestoreWizardRequested(object? sender, EventArgs e) => ShowRestoreWizard(window);
+    }
+
+    /// <summary>
+    /// Opens the guided restore wizard (SRS FR-11.12), owned by the settings window it was asked
+    /// for from.
+    /// </summary>
+    private void ShowRestoreWizard(Window owner)
+    {
+        if (_restoreWizardViewModel is null)
+        {
+            return;
+        }
+
+        _restoreWizardViewModel.Reset();
+
+        var window = new RestoreWizardWindow { DataContext = _restoreWizardViewModel };
+
+        // A restore stages its result rather than touching the live database (see
+        // PendingRestoreLocation's own remarks) - the till has to be closed and started again for
+        // it to take effect, which only the desktop lifetime, not a viewmodel, may decide to do.
+        void OnRestartRequested(object? sender, EventArgs e)
+        {
+            _restoreWizardViewModel.RestartRequested -= OnRestartRequested;
+            _desktop?.Shutdown();
+        }
+
+        _restoreWizardViewModel.RestartRequested += OnRestartRequested;
+        window.Closed += (_, _) => _restoreWizardViewModel.RestartRequested -= OnRestartRequested;
+
         window.Show(owner);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia.Threading;
+using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
@@ -158,7 +159,11 @@ internal static class CounterpointHostBuilderExtensions
             provider.GetRequiredService<ISettings>(),
             provider.GetRequiredService<IBackupPassphraseStore>(),
             action => Dispatcher.UIThread.Post(action),
-            provider.GetRequiredService<IReceiptTemplatePreviewService>()));
+            provider.GetRequiredService<IReceiptTemplatePreviewService>(),
+            provider.GetRequiredService<IManualBackupTrigger>()));
+
+        // P1-T15: the guided restore wizard (SRS FR-11.12).
+        builder.Services.AddSingleton<RestoreWizardViewModel>();
 
         return builder;
     }

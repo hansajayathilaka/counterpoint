@@ -32,6 +32,12 @@ namespace Counterpoint.Application.Settings;
 /// screen's point of view: setting it goes through the first-run wizard or
 /// <c>IBackupPassphraseStore</c>, never through a settings row.
 /// </param>
+/// <param name="WarnAfterDays">
+/// How many days without a successful local backup the dashboard and status bar tolerate before
+/// they start warning (P1-T15, FR-11.7's local half - the cloud figure FR-11.7 also names is
+/// Phase 4's). Trailing, with a default, so a caller built against the eight-argument constructor
+/// this record used to have still compiles.
+/// </param>
 public sealed record BackupSettings(
     TimeOnly DailyBackupTime,
     bool BackupOnShiftClose,
@@ -41,4 +47,5 @@ public sealed record BackupSettings(
     string CloudAccount,
     int RetentionDays,
     int RetentionCopies,
-    bool PassphraseIsSet);
+    bool PassphraseIsSet,
+    int WarnAfterDays = 2);

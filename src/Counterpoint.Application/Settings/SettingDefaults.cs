@@ -137,7 +137,8 @@ public static class SettingDefaults
         RetentionCopies: 14,
 
         // Never persisted. Read from the protected store at load; false until one is set.
-        PassphraseIsSet: false);
+        PassphraseIsSet: false,
+        WarnAfterDays: 2);
 
     /// <summary>
     /// FR-10.8. The wording of the SRS §10.1 specimen bill, which is what the shop sees printed
