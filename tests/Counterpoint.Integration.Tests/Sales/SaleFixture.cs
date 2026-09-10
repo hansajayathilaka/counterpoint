@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
@@ -13,6 +14,7 @@ using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Application.Settings.FirstRun;
+using Counterpoint.Application.Shifts;
 using Counterpoint.Backup.DependencyInjection;
 using Counterpoint.Backup.Snapshots;
 using Counterpoint.Devices.DependencyInjection;
@@ -186,6 +188,13 @@ internal sealed class SaleFixture : IAsyncDisposable
         // wires it.
         services.AddSingleton<IStockEnquiry, StockEnquiryService>();
 
+        // P1-T14: opening a shift (SRS FR-8.1) and the home-screen dashboard (SRS FR-9.7), wired
+        // exactly as CounterpointHostBuilderExtensions wires them - IOpenShift undecorated,
+        // through ActivatorUtilities because OpenShiftHandler's constructor takes the concrete
+        // Session, not ISession.
+        services.AddSingleton<IOpenShift>(p => ActivatorUtilities.CreateInstance<OpenShiftHandler>(p));
+        services.AddSingleton<IDashboardQueries, DashboardService>();
+
         // Security, wired exactly as the composition root wires it - in particular
         // IUserAdministration resolves only to the role-decorated instance, so a test cannot
         // accidentally prove AC-17 against an object the real application would never hand out.
@@ -354,6 +363,25 @@ internal sealed class SaleFixture : IAsyncDisposable
     /// <summary>Opens a plain read connection so a test can assert against the raw rows.</summary>
     internal Task<DbConnection> OpenReadConnectionAsync() =>
         _services.GetRequiredService<IPosConnectionFactory>().OpenReadConnectionAsync();
+
+    /// <summary>
+    /// Runs a write statement on the single write connection, outside any Application-layer
+    /// handler - for reaching a state only a raw repair-session UPDATE can (P1-T14: closing the
+    /// seeded shift directly, since P3-T01's shift-close handler does not exist yet, is exactly
+    /// the column-scoped update <c>trg_shift_restricted_update</c> and
+    /// <c>trg_shift_close_fields_together</c> already permit).
+    /// </summary>
+    internal async Task ExecuteAsync(string sql)
+    {
+        var factory = _services.GetRequiredService<IPosConnectionFactory>();
+        var lease = await factory.AcquireWriteConnectionAsync().ConfigureAwait(false);
+        await using (lease.ConfigureAwait(false))
+        {
+            await using var command = lease.Connection.CreateCommand();
+            command.CommandText = sql;
+            await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+    }
 
     /// <summary>Runs a scalar query and returns it as invariant-culture text, or null.</summary>
     internal async Task<string?> ScalarAsync(string sql)

@@ -8,10 +8,12 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
+using Counterpoint.Application.Shifts;
 using Counterpoint.Domain.Pricing;
 using Counterpoint.Domain.Sales;
 using Counterpoint.Domain.Security;
@@ -32,6 +34,8 @@ public enum SalesPanel
     StockEnquiry,
     OpenItem,
     Payment,
+    OpenShift,
+    Dashboard,
 }
 
 /// <summary>
@@ -84,6 +88,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     private readonly IUomStore _uoms;
     private readonly IStockEnquiry _stockEnquiry;
     private readonly IHeldBillService _heldBills;
+    private readonly IOpenShift _openShift;
+    private readonly IDashboardQueries _dashboard;
     private readonly TimeProvider _timeProvider;
 
     private readonly List<SaleLineRequest> _bill = [];
@@ -286,6 +292,25 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     /// </summary>
     public IReadOnlyList<decimal> QuickCashDenominations { get; } = [20m, 50m, 100m, 500m, 1000m, 5000m];
 
+    // ---- Open shift panel (SRS FR-8.1) -------------------------------------------------------------
+
+    private string _openingFloatText = string.Empty;
+
+    /// <summary>The cash counted into the drawer before trading starts, typed by the cashier.</summary>
+    public string OpeningFloatText
+    {
+        get => _openingFloatText;
+        set => SetNumeric(ref _openingFloatText, value, allowDecimal: true);
+    }
+
+    /// <summary>Whether the till has no open shift to trade in - the button that opens this panel is only shown then.</summary>
+    public bool CanOpenShift => _session.ShiftId is null;
+
+    // ---- Dashboard panel (SRS FR-9.7) ---------------------------------------------------------------
+
+    [ObservableProperty]
+    private string _dashboardText = string.Empty;
+
     // ---- Help panel (UI-12) ----------------------------------------------------------------------
 
     /// <summary>The on-screen cheat sheet (SRS UI-12: "the ten most common tasks").</summary>
@@ -304,6 +329,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         F11 Stock                 - stock on hand for the selected or last-scanned item
         F12 Day close              - not available yet (Phase 3)
         Esc Cancel                  - close whatever panel is open, or clear the scan box
+        Open shift                  - shown only when no shift is open; enter the cash float and start trading
+        Dashboard                    - today's sales, bill count, average bill, cash in drawer, low stock, last backup
         """;
 
     // ---- Status bar (SRS UI-09) --------------------------------------------------------------------
@@ -329,6 +356,23 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         ? "Printer: file (development)"
         : "Printer: " + _settings.Current.Peripherals.ReceiptPrinterName;
 
+    // ---- Closing with a shift open (SRS FR-8.7) ------------------------------------------------
+    // FR-8.7 is two halves: recover an open shift cleanly on restart (ITillSessionProvider,
+    // AuthenticationService.LogInAsync - already in place before this) and warn if the app is
+    // closed with a shift open (this). The recovery path already makes closing with a shift open
+    // safe, so this is a plain-language warning (SRS UI-06), never a hard stop - SalesWindow's
+    // code-behind reads this on Window.Closing and decides what to do with it; nothing here
+    // refuses or delays anything itself, keeping the decision testable without a real window.
+
+    /// <summary>
+    /// The sentence to show a cashier who is about to close the app with a shift still open, or
+    /// null when there is nothing to warn about.
+    /// </summary>
+    public string? ShutdownWarning => _session.ShiftId is null
+        ? null
+        : "A shift is still open. Closing now is fine - it will recover automatically next time "
+            + "you sign in - but make sure this is intentional. Close again to confirm.";
+
     // ---- What the scanner keystroke filter (SalesWindow's code-behind) reads ------------------
     // Exposed rather than handed the whole ISettings: the window's job is reading real key
     // events off real hardware, not deciding a business rule, so it gets exactly the two numbers
@@ -353,6 +397,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         IUomStore uoms,
         IStockEnquiry stockEnquiry,
         IHeldBillService heldBills,
+        IOpenShift openShift,
+        IDashboardQueries dashboard,
         TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(scanner);
@@ -366,6 +412,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         ArgumentNullException.ThrowIfNull(uoms);
         ArgumentNullException.ThrowIfNull(stockEnquiry);
         ArgumentNullException.ThrowIfNull(heldBills);
+        ArgumentNullException.ThrowIfNull(openShift);
+        ArgumentNullException.ThrowIfNull(dashboard);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         _scanner = scanner;
@@ -379,6 +427,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         _uoms = uoms;
         _stockEnquiry = stockEnquiry;
         _heldBills = heldBills;
+        _openShift = openShift;
+        _dashboard = dashboard;
         _timeProvider = timeProvider;
     }
 
@@ -422,6 +472,10 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     public bool IsOpenItemPanelOpen => _activePanel == SalesPanel.OpenItem;
 
     public bool IsPaymentPanelOpen => _activePanel == SalesPanel.Payment;
+
+    public bool IsOpenShiftPanelOpen => _activePanel == SalesPanel.OpenShift;
+
+    public bool IsDashboardPanelOpen => _activePanel == SalesPanel.Dashboard;
 
     public bool IsAnyPanelOpen => _activePanel != SalesPanel.None;
 
@@ -947,6 +1001,128 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     [RelayCommand]
     public void DayClose() => Status = "Day close is not available yet - it needs shift management and the Z report (Phase 3).";
 
+    // ---- Open shift (SRS FR-8.1) - a button, not one of the reserved UI-02 keys --------------------
+    // A sale cannot be made without an open shift (SRS FR-8.1, C-01) - CompletePaymentAsync above
+    // already refuses one when ITillSessionProvider finds none open. This is what lets the
+    // cashier get out of that state without restarting the till.
+
+    [RelayCommand]
+    public void OpenShift()
+    {
+        if (!CanOpenShift)
+        {
+            return;
+        }
+
+        OpeningFloatText = string.Empty;
+        TogglePanel(SalesPanel.OpenShift);
+    }
+
+    [RelayCommand]
+    public async Task ConfirmOpenShiftAsync(CancellationToken cancellationToken)
+    {
+        if (_session.CurrentUser is not { } user)
+        {
+            Status = "Nobody is signed in.";
+            return;
+        }
+
+        var amount = SettingsTextToDecimal(OpeningFloatText);
+
+        await RunAsync(
+            async () =>
+            {
+                var opened = await _openShift.OpenAsync(
+                    new OpenShiftCommand(user.Id, Money.FromDecimal(amount), _timeProvider.GetLocalNow()),
+                    cancellationToken).ConfigureAwait(true);
+
+                ClosePanel();
+                Status = "Opened shift " + opened.ShiftNo + ".";
+
+                // Session.ShiftId already changed (OpenShiftHandler set it inside the same call),
+                // but nothing on this screen is bound to it through change notification, so the
+                // status bar and this button's visibility are told by hand, the same as every
+                // other figure this viewmodel computes from a service it does not own.
+                OnPropertyChanged(nameof(StatusShiftText));
+                OnPropertyChanged(nameof(CanOpenShift));
+
+                await RefreshDashboardAsync(cancellationToken).ConfigureAwait(true);
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    // ---- Dashboard (SRS FR-9.7) - a button, not one of the reserved UI-02 keys --------------------
+    // Refreshed when the panel opens and on SalesWindow's low-frequency timer while it stays open
+    // (P1-T14 "Risks": scoped to today and refreshed on a timer, never on every keystroke, so it
+    // cannot compete with the scan path for the single write connection - this is a read-only
+    // query on a read connection either way).
+
+    [RelayCommand]
+    public async Task DashboardAsync(CancellationToken cancellationToken)
+    {
+        TogglePanel(SalesPanel.Dashboard);
+
+        if (IsDashboardPanelOpen)
+        {
+            await RefreshDashboardAsync(cancellationToken).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Reloads <see cref="DashboardText"/> from <see cref="IDashboardQueries"/>. A no-op while the
+    /// panel is closed, so <c>SalesWindow</c>'s timer can call this unconditionally without
+    /// reading the database for a figure nobody is looking at.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not routed through <see cref="RunAsync"/>: this never sets <see cref="Busy"/>
+    /// (a background dashboard tick must not grey out F9 Pay while a bill is being built) and it
+    /// never writes to <see cref="Status"/> (a failed background refresh is not something worth
+    /// interrupting the cashier's screen to report). Caught and quietly skipped instead - the
+    /// same "never block the sale" spirit as CLAUDE.md invariant 7, applied to a screen refresh
+    /// that has no business holding up or announcing itself over anything else on this screen.
+    /// </remarks>
+    [RelayCommand]
+    public async Task RefreshDashboardAsync(CancellationToken cancellationToken)
+    {
+        if (!IsDashboardPanelOpen)
+        {
+            return;
+        }
+
+        try
+        {
+            var summary = await _dashboard.GetSummaryAsync(cancellationToken).ConfigureAwait(true);
+            DashboardText = BuildDashboardText(summary);
+        }
+        catch (InvalidOperationException)
+        {
+            // Left showing whatever it last showed - a stale figure is a better background-tick
+            // failure than a blank panel or an unobserved exception.
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private static string BuildDashboardText(DashboardSummary summary)
+    {
+        var lines = new List<string>
+        {
+            "Today's sales: " + summary.TodaysSales.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+            "Bills: " + summary.BillCount.ToString(CultureInfo.InvariantCulture),
+            "Average bill: " + summary.AverageBill.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+            "Cash in drawer: " + (summary.CashInDrawer is { } cash
+                ? cash.Amount.ToString("0.00", CultureInfo.InvariantCulture)
+                : "no shift open"),
+            "Low stock items: " + summary.LowStockCount.ToString(CultureInfo.InvariantCulture),
+            "Last backup: " + (summary.LastBackup is { } backup
+                ? backup.TakenAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+                : "none yet"),
+        };
+
+        return string.Join('\n', lines);
+    }
+
     // ---- Esc Cancel ---------------------------------------------------------------------------
 
     [RelayCommand]
@@ -1349,6 +1525,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         OnPropertyChanged(nameof(IsStockPanelOpen));
         OnPropertyChanged(nameof(IsOpenItemPanelOpen));
         OnPropertyChanged(nameof(IsPaymentPanelOpen));
+        OnPropertyChanged(nameof(IsOpenShiftPanelOpen));
+        OnPropertyChanged(nameof(IsDashboardPanelOpen));
         OnPropertyChanged(nameof(IsAnyPanelOpen));
         OnPropertyChanged(nameof(DiscountTargetText));
     }

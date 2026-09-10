@@ -2,10 +2,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
+using Counterpoint.Application.Shifts;
 using Counterpoint.Domain.Security;
 using Counterpoint.Integration.Tests.Sales;
 using Counterpoint.Ui.ViewModels;
@@ -221,5 +223,7 @@ public sealed class LoginScreenTests
         fixture.Resolve<IUomStore>(),
         fixture.Resolve<IStockEnquiry>(),
         fixture.Resolve<IHeldBillService>(),
+        fixture.Resolve<IOpenShift>(),
+        fixture.Resolve<IDashboardQueries>(),
         fixture.Resolve<TimeProvider>());
 }

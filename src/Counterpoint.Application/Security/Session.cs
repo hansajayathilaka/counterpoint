@@ -8,10 +8,12 @@ namespace Counterpoint.Application.Security;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The mutators are <c>internal</c>: only <see cref="AuthenticationService"/>, in this assembly,
-/// can change who is signed in, and it does so only after a password has verified and an audit
-/// row has been written. Everything else - every viewmodel, every other service - is handed
-/// <see cref="ISession"/> and can read the answer but not write it.
+/// The mutators are <c>internal</c>: only <see cref="AuthenticationService"/> and
+/// <see cref="Counterpoint.Application.Shifts.OpenShiftHandler"/>, both in this assembly, can
+/// change who is signed in or which shift they are trading in, and each does so only after its
+/// own write has committed - a verified sign-in, or a shift actually opened. Everything else -
+/// every viewmodel, every other service - is handed <see cref="ISession"/> and can read the
+/// answer but not write it.
 /// </para>
 /// <para>
 /// Guarded by a lock even though there is one user: the sign-in happens on the UI thread while a
@@ -75,6 +77,20 @@ public sealed class Session : ISession
         {
             _currentUser = null;
             _shiftId = null;
+        }
+    }
+
+    /// <summary>
+    /// Records the shift a session has just opened. Called only by
+    /// <see cref="Counterpoint.Application.Shifts.OpenShiftHandler"/>, after the shift row has
+    /// committed - so a cashier who signs in with no shift open, then opens one, sees it without
+    /// a fresh sign-in/sign-out cycle (P1-T14).
+    /// </summary>
+    internal void SetShiftId(long shiftId)
+    {
+        lock (_gate)
+        {
+            _shiftId = shiftId;
         }
     }
 }

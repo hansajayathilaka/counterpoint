@@ -185,3 +185,5 @@ it stopped.
 - `2026-09-09T12:25:27Z` **P1-T13** done — 30 tests (512 total), 1 fix-attempt closed 2 must-fix (cost_avg corruption, stale doc), review clean, PR #22
 
 **Run ended 2026-09-09T12:26:25Z** — 2 completed, 0 halted
+- `2026-09-09T20:29:16Z` **P1-T14** start — Shift open (minimal) and dashboard
+- `2026-09-10T00:56:12Z` **P1-T14** fix-attempt — 1: FR-8.7's warn-on-close half was never implemented, only recovery-on-restart

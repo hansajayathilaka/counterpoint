@@ -7,6 +7,7 @@ using Counterpoint.Application.Sales;
 using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Backup;
 using Counterpoint.Infrastructure.Catalogue;
+using Counterpoint.Infrastructure.Dashboard;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Import;
 using Counterpoint.Infrastructure.Inventory;
@@ -79,6 +80,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IProductLookup, SqliteProductLookup>();
         services.AddSingleton<ITillSessionProvider, SqliteTillSessionProvider>();
         services.AddSingleton<ISaleWriter, SqliteSaleWriter>();
+
+        // P1-T14: opening a shift (SRS FR-8.1) and the home-screen dashboard (SRS FR-9.7).
+        services.AddSingleton<IShiftWriter, SqliteShiftWriter>();
+        services.AddSingleton<IDashboardReader, SqliteDashboardReader>();
+        services.AddSingleton<ILastBackupStatusReader, SqliteLastBackupStatusReader>();
 
         // P1-T10: reads a completed sale back for cancellation (SRS FR-3.34).
         services.AddSingleton<ISaleLookup, SqliteSaleLookup>();
