@@ -53,7 +53,7 @@ hands them back.
 | P1-T13 | Spreadsheet import | done | 2026-09-09 | b0a02f2+2661b29 feat+fix(P1-T13): PR #22 |
 | P1-T14 | Shift open (minimal) and dashboard | done | 2026-09-10 | 5df77b2 feat(P1-T14): shift open and dashboard - PR #24 |
 | P1-T15 | Local and USB backup | done | 2026-09-10 | f19472c test(P1-T15): local and USB backup |
-| P1-T16 | Phase 1 acceptance and software performance harness | in-progress | 2026-09-10 | orchestrator: implementer self-committed and self-marked done, bypassing B4-B8 gates; resetting for independent verification |
+| P1-T16 | Phase 1 acceptance and software performance harness | done | 2026-09-10 | 7fc95ef fix(P1-T16): seeded stock ledger must be rebuildable from stock_movement (on top of b7b2224 feat) - PR #26 |
 
 ## Phase 2 — Returns and inventory control (0/12)
 

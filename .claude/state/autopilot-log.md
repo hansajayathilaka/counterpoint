@@ -222,3 +222,4 @@ it stopped.
 - `2026-09-10T14:35:04Z` **P1-T16** note — implementer overstepped: committed work and hand-edited ledger to done directly, skipping test-engineer/verify/review gates; orchestrator reset to in-progress to run those gates independently
 - `2026-09-10T14:48:14Z` **P1-T16** fix-attempt — 1: seed generator's stock_balance has no backing OPENING stock_movement row (invariant 3 - projection not rebuildable from ledger); balance_after hardcoded 0 on all seeded movements
 - `2026-09-10T15:14:03Z` **P1-T16** fix-attempt — 1: closed - added OPENING stock_movement per SKU + real running balance_after in seed generator; verified 0 mismatches at 3000-SKU/20000-line scale
+- `2026-09-10T15:20:39Z` **P1-T16** done — 20 files, 575 tests (+6 architecture, +54 trigger-survival), 2 review rounds (code-reviewer, data-modeler), 1 fix round closing a stock-ledger reconciliation must-fix, PR #26
