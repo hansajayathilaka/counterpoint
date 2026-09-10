@@ -51,7 +51,7 @@ hands them back.
 | P1-T11 | Receipt templates and printing | todo | | Real printer verified in HW-T01 |
 | P1-T12 | Label printing | done | 2026-09-08 | f2da9cd+c5f7c22 feat+test(P1-T12): label printing - PR #19 |
 | P1-T13 | Spreadsheet import | done | 2026-09-09 | b0a02f2+2661b29 feat+fix(P1-T13): PR #22 |
-| P1-T14 | Shift open (minimal) and dashboard | in-progress | | |
+| P1-T14 | Shift open (minimal) and dashboard | done | 2026-09-10 | 5df77b2 feat(P1-T14): shift open and dashboard - PR #24 |
 | P1-T15 | Local and USB backup | todo | | |
 | P1-T16 | Phase 1 acceptance and software performance harness | todo | | Absolute NFR budgets in HW-T07; offline trading day HW-T09 |
 
