@@ -234,6 +234,22 @@ internal static class PerformanceDatasetSeeder
             i => $"({VariantIdBase + i},{OpeningQtyBase},{prices[i] * 7L / 10L},'{timestamp}')",
             token).ConfigureAwait(false);
 
+        // stock_balance is a projection; it must be rebuildable from stock_movement (CLAUDE.md
+        // invariant 3). Every seeded variant's opening quantity above is backed here by a real
+        // OPENING movement - ref_doc_type/ref_doc_id following FirstRunSeeder.SeedOpeningStockAsync's
+        // convention (an opening count answers to no document, so ref_doc_id is NULL) - so
+        // RebuildStockBalanceCommand/SqliteStockConsistencyCheck find a ledger that actually
+        // accounts for the balance, not a number the ledger has never heard of. One movement id per
+        // SKU, reserved below StockMovementIdBase's SALE range (see SeedHistoricalBillsAsync).
+        await ExecuteBatchedAsync(
+            connection, transaction,
+            "INSERT INTO stock_movement (id, product_variant_id, movement_type, qty_base, unit_cost, "
+            + "ref_doc_type, ref_doc_id, balance_after, user_id, occurred_at, note) VALUES ",
+            skuCount, SeedBatchSize,
+            i => $"({StockMovementIdBase + i},{VariantIdBase + i},'OPENING',{OpeningQtyBase},{prices[i] * 7L / 10L},"
+                + $"'OPENING',NULL,{OpeningQtyBase},1,'{timestamp}',NULL)",
+            token).ConfigureAwait(false);
+
         return prices;
     }
 
@@ -306,11 +322,22 @@ internal static class PerformanceDatasetSeeder
         var saleId = SaleIdBase;
         var lineId = SaleLineIdBase;
         var paymentId = PaymentIdBase;
-        var movementId = StockMovementIdBase;
+
+        // The OPENING row SeedCatalogueAsync writes per SKU claims StockMovementIdBase ..
+        // StockMovementIdBase + skuCount - 1; the SALE movements below start one past that range so
+        // no id collides with it.
+        var movementId = StockMovementIdBase + skuCount;
         var auditId = AuditLogIdBase;
 
         var billNo = 0L;
         var shiftSequenceNumber = SkeletonShiftSequenceNumber;
+
+        // The real running on-hand balance per variant, seeded at OpeningQtyBase (the same
+        // quantity the OPENING movement above recorded) and decremented as each SALE movement below
+        // is generated, in the same chronological order it is applied - so balance_after is a true
+        // fact per row (docs/01_DATA_MODEL.md), not the placeholder 0 this used to write.
+        var runningBalance = new long[skuCount];
+        Array.Fill(runningBalance, OpeningQtyBase);
 
         // An even share of the lines per day, the remainder folded into the last day - not
         // perfectly flat (NextVariantIndex already gives the catalogue a popularity skew), just
@@ -370,9 +397,11 @@ internal static class PerformanceDatasetSeeder
                         $"({lineId},{saleId},{line + 1},{VariantIdBase + variantIndex},'Hardware Item {variantIndex:000000}',"
                         + $"{qtyBase},{baseUomId},{qtyBase},{unitPrice},0,0,0,{lineTotal},{unitCost},0,NULL)");
 
+                    runningBalance[variantIndex] -= qtyBase;
+
                     movementBatch.Add(
                         $"({movementId},{VariantIdBase + variantIndex},'SALE',{-qtyBase},{unitCost},"
-                        + $"'SALE',{saleId},0,{UserId},'{soldAt}',NULL)");
+                        + $"'SALE',{saleId},{runningBalance[variantIndex]},{UserId},'{soldAt}',NULL)");
 
                     lineId++;
                     movementId++;
