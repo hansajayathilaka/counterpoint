@@ -1,36 +1,49 @@
 using System;
-using System.Collections.Generic;
-using System.Globalization;
 using Counterpoint.Application.Abstractions.Devices;
+using Counterpoint.Application.Settings;
+using Counterpoint.Devices.Printing.Templates;
 using Counterpoint.Domain.Services;
-using Counterpoint.Domain.ValueObjects;
+using Microsoft.Extensions.Logging;
 
 namespace Counterpoint.Devices.Printing;
 
 /// <summary>
-/// Turns a completed bill into ESC/POS bytes, through the receipt IR and
+/// Turns a completed bill into ESC/POS bytes, through the owner-editable Scriban template
+/// (SRS FR-7.1, FR-7.3, FR-7.4, FR-7.5, FR-7.6, NFR-M1), the receipt IR and
 /// <see cref="EscPosRenderer"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A fixed layout, deliberately. The owner-editable Scriban template, the shop header and
-/// footer out of settings and the return-policy paragraph are all P1-T11; what this task needs
-/// is the wire from a committed bill to a byte stream, and a layout that would have to be
-/// thrown away is not worth writing twice.
+/// <b>The pipeline:</b> <see cref="Render"/> builds a <see cref="ReceiptTemplateModel"/> from the
+/// bill and the shop's settings (<see cref="ReceiptTemplateModelBuilder"/>), renders
+/// <c>settings.Receipt.TemplateText</c> against it through
+/// <see cref="ScribanReceiptTemplateEngine"/>, turns the rendered text into
+/// <see cref="ReceiptNode"/>s through <see cref="ReceiptDirectiveParser"/>, and hands those to
+/// <see cref="EscPosRenderer"/> for the bytes. P0-T05's <c>SpecimenReceipt</c> built the IR by
+/// hand because the layout it needed did not exist yet; this is that layout, read from the
+/// database on every call, so an owner's edit changes the next bill printed with no rebuild.
 /// </para>
 /// <para>
-/// Pure: no device, no file, no clock. It is therefore safe to call inside the sale
-/// transaction, which is where the bill number becomes available (CLAUDE.md invariant 7 bans
-/// the <i>printer call</i>, not the rendering).
+/// <b>A broken template degrades; it never blocks a sale.</b> If the stored template fails to
+/// parse, throws while rendering, or parses fine but emits a directive the parser or the ESC/POS
+/// writer rejects (an oversized <c>BARCODE|</c> payload, say), this logs a warning and falls back
+/// to <see cref="ReceiptTemplateDefaults.SalesBillTemplate"/> - the same §10.1 specimen a fresh
+/// install ships with (CLAUDE.md invariant 7's spirit: an owner's typo in Settings is not
+/// grounds to stop the till printing).
+/// </para>
+/// <para>
+/// Pure: no device, no file, no clock. It is therefore safe to call inside the sale transaction,
+/// which is where the bill number becomes available (CLAUDE.md invariant 7 bans the <i>printer
+/// call</i>, not the rendering). <see cref="ISettings.Current"/> is a field read off an in-memory
+/// cache (<c>SettingsService</c>), not a database round trip.
 /// </para>
 /// </remarks>
-public sealed class EscPosSaleReceiptRenderer : ISaleReceiptRenderer
+public sealed partial class EscPosSaleReceiptRenderer : ISaleReceiptRenderer
 {
-    /// <summary>Tender type that opens the drawer (SRS FR-7.7).</summary>
-    private const string CashTender = "CASH";
-
     private readonly EscPosRenderer _renderer;
     private readonly IRoundingPolicy _rounding;
+    private readonly ISettings _settings;
+    private readonly ILogger<EscPosSaleReceiptRenderer> _logger;
 
     /// <summary>Creates the renderer.</summary>
     /// <param name="renderer">The ESC/POS byte renderer for the shop's printer.</param>
@@ -38,86 +51,81 @@ public sealed class EscPosSaleReceiptRenderer : ISaleReceiptRenderer
     /// The shop's rounding rule. Used only to decide how many decimal places to print - the
     /// amounts arriving here are already rounded (CLAUDE.md invariant 2).
     /// </param>
-    public EscPosSaleReceiptRenderer(EscPosRenderer renderer, IRoundingPolicy rounding)
+    /// <param name="settings">
+    /// The shop's settings - the template body itself, the shop profile, and the receipt toggles
+    /// the template reads (SRS FR-10.8).
+    /// </param>
+    /// <param name="logger">Where a broken owner-edited template is warned about.</param>
+    public EscPosSaleReceiptRenderer(
+        EscPosRenderer renderer,
+        IRoundingPolicy rounding,
+        ISettings settings,
+        ILogger<EscPosSaleReceiptRenderer> logger)
     {
         ArgumentNullException.ThrowIfNull(renderer);
         ArgumentNullException.ThrowIfNull(rounding);
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _renderer = renderer;
         _rounding = rounding;
+        _settings = settings;
+        _logger = logger;
     }
 
     /// <inheritdoc />
-    public byte[] Render(SaleReceipt receipt)
+    public byte[] Render(SaleReceipt receipt, bool isDuplicate = false)
     {
         ArgumentNullException.ThrowIfNull(receipt);
 
-        var nodes = new List<ReceiptNode>
-        {
-            new ReceiptNode.TextLine("SALES BILL", TextAlign.Centre, Bold: true, DoubleHeight: true),
-            new ReceiptNode.Divider(),
-            new ReceiptNode.TextLine("Bill No : " + receipt.BillNo),
-            new ReceiptNode.TextLine(
-                "Date    : " + receipt.SoldAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)),
-            new ReceiptNode.Divider(),
-        };
+        var settings = _settings.Current;
+        var model = ReceiptTemplateModelBuilder.Build(receipt, settings, _rounding, isDuplicate);
 
-        foreach (var line in receipt.Lines)
+        var effective = string.IsNullOrWhiteSpace(settings.Receipt.TemplateText)
+            ? ReceiptTemplateDefaults.SalesBillTemplate
+            : settings.Receipt.TemplateText;
+
+        try
         {
-            nodes.Add(new ReceiptNode.TextLine(line.Description));
-            nodes.Add(new ReceiptNode.Columns(
-                "  " + FormatQuantity(line) + " @ " + FormatAmount(line.UnitPrice),
-                FormatAmount(line.LineTotal)));
+            return RunPipeline(effective, model);
         }
-
-        nodes.Add(new ReceiptNode.Divider());
-        nodes.Add(new ReceiptNode.Columns("Sub total", FormatAmount(receipt.Subtotal)));
-        nodes.Add(new ReceiptNode.Columns("Tax", FormatAmount(receipt.Tax)));
-        nodes.Add(new ReceiptNode.Columns(
-            "TOTAL",
-            FormatAmount(receipt.Total),
-            Bold: true,
-            DoubleHeight: true,
-            DoubleWidth: true));
-        nodes.Add(new ReceiptNode.Divider());
-
-        var cashTendered = false;
-        foreach (var tender in receipt.Tenders)
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
-            nodes.Add(new ReceiptNode.Columns(tender.TenderType, FormatAmount(tender.Amount)));
-            cashTendered |= string.Equals(tender.TenderType, CashTender, StringComparison.Ordinal);
+            if (ReferenceEquals(effective, ReceiptTemplateDefaults.SalesBillTemplate))
+            {
+                // The shipped default itself does not render - a bug in this codebase, not an
+                // owner's edit. Nothing safe is left to fall back to.
+                throw;
+            }
+
+            TemplateFellBackToDefault(ex);
+            return RunPipeline(ReceiptTemplateDefaults.SalesBillTemplate, model);
         }
+    }
 
-        nodes.Add(new ReceiptNode.Feed(1));
-        nodes.Add(new ReceiptNode.Barcode(receipt.BillNo));
-        nodes.Add(new ReceiptNode.Feed(1));
-        nodes.Add(new ReceiptNode.TextLine("Thank you - please come again", TextAlign.Centre));
-
-        if (cashTendered)
-        {
-            // Only a cash tender opens the drawer. A card sale that popped it would be a
-            // reconciliation problem, not a convenience.
-            nodes.Add(new ReceiptNode.Kick());
-        }
-
-        nodes.Add(new ReceiptNode.Cut());
+    /// <summary>
+    /// The whole per-attempt pipeline: Scriban render, directive parse, IR render to bytes.
+    /// </summary>
+    /// <remarks>
+    /// A single unit so that <see cref="Render"/> can fall back to the shipped default for any
+    /// failure anywhere in it - not just a Scriban syntax error, but an owner-edited template
+    /// that parses fine yet emits a directive <see cref="ReceiptDirectiveParser"/> or
+    /// <see cref="EscPosRenderer"/> rejects (for example a <c>BARCODE|</c> line whose interpolated
+    /// data is empty or over 255 bytes). None of that is grounds to stop the till printing
+    /// (CLAUDE.md invariant 7).
+    /// </remarks>
+    private byte[] RunPipeline(string templateText, ReceiptTemplateModel model)
+    {
+        var renderedText = ScribanReceiptTemplateEngine.Render(templateText, model);
+        var nodes = ReceiptDirectiveParser.Parse(renderedText);
 
         return _renderer.Render(new ReceiptDocument(nodes));
     }
 
-    /// <summary>
-    /// Money as the customer reads it. Formatting only - it does not round, because the amounts
-    /// were rounded at the two points that are allowed to.
-    /// </summary>
-    private string FormatAmount(Money amount)
-    {
-        var format = _rounding.DecimalPlaces > 0
-            ? "0." + new string('0', _rounding.DecimalPlaces)
-            : "0";
-
-        return amount.Amount.ToString(format, CultureInfo.InvariantCulture);
-    }
-
-    private static string FormatQuantity(SaleReceiptLine line) =>
-        line.Quantity.Value.ToString("0.####", CultureInfo.InvariantCulture) + " " + line.UomSymbol;
+    [LoggerMessage(
+        EventId = 7104,
+        Level = LogLevel.Warning,
+        Message = "The owner-edited receipt template could not be rendered; this bill printed "
+            + "with the shipped default template instead. Fix the template in Settings.")]
+    private partial void TemplateFellBackToDefault(Exception exception);
 }

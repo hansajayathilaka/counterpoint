@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Counterpoint.Ui.ViewModels"
+        xmlns:queue="using:Counterpoint.Application.Abstractions.Persistence"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="450"
+        x:Class="Counterpoint.Ui.Views.PrintQueueWindow"
+        x:DataType="vm:PrintQueueViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="700" Height="450"
+        WindowStartupLocation="CenterOwner"
+        Title="Counterpoint - print queue">
+
+  <!--
+    Pending and failed print jobs, with a retry button (P1-T11's "Print queue UI"). No styling
+    beyond what is needed to read it - the same minimal-first approach LabelPrintWindow takes.
+  -->
+  <DockPanel Margin="12">
+
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8">
+      <Button Content="_Refresh" Command="{Binding RefreshCommand}" />
+      <Button Content="_Retry" Command="{Binding RetryCommand}" CommandParameter="{Binding #Jobs.SelectedItem}" />
+      <TextBlock VerticalAlignment="Center" Text="{Binding Summary}" FontWeight="Bold" />
+    </StackPanel>
+
+    <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding Status}" />
+
+    <ListBox Name="Jobs" Margin="0,8,0,0" ItemsSource="{Binding Jobs}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="queue:PrintQueueEntry">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*">
+            <TextBlock Grid.Column="0" Text="{Binding Id}" />
+            <TextBlock Grid.Column="1" Margin="12,0,0,0" Text="{Binding DocType}" />
+            <TextBlock Grid.Column="2" Margin="12,0,0,0" Text="{Binding Status}" />
+            <TextBlock Grid.Column="3" Margin="12,0,0,0" Text="{Binding Attempts}" />
+            <TextBlock Grid.Column="4" Margin="12,0,0,0" Text="{Binding LastError}" TextWrapping="Wrap" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+  </DockPanel>
+
+</Window>

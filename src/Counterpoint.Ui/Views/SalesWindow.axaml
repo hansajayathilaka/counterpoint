@@ -43,6 +43,7 @@
         <TextBlock Text="{Binding StatusBackupText}" Foreground="White" />
         <TextBlock Text="{Binding StatusCloudText}" Foreground="White" />
         <TextBlock Text="{Binding StatusPrinterText}" Foreground="White" />
+        <TextBlock Text="{Binding StatusPrintQueueText}" Foreground="White" />
       </StackPanel>
     </Border>
 
@@ -53,6 +54,7 @@
         <Button Content="_Users" Command="{Binding ManageUsersCommand}" IsVisible="{Binding CanManageUsers}" />
         <Button Content="_Catalogue" Command="{Binding ManageCatalogueCommand}" IsVisible="{Binding CanManageCatalogue}" />
         <Button Content="_Labels" Command="{Binding PrintLabelsCommand}" IsVisible="{Binding CanPrintLabels}" />
+        <Button Content="_Print queue" Command="{Binding OpenPrintQueueCommand}" />
         <Button Content="_Settings" Command="{Binding OpenSettingsCommand}" IsVisible="{Binding CanChangeSettings}" />
         <Button Content="Open item" Command="{Binding OpenItemCommand}" />
         <!-- SRS FR-8.1: shown only while the till has no open shift to trade in. -->

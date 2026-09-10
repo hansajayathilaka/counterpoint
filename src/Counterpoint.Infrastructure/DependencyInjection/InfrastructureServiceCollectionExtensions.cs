@@ -88,6 +88,9 @@ public static class InfrastructureServiceCollectionExtensions
 
         // P1-T10: reads a completed sale back for cancellation (SRS FR-3.34).
         services.AddSingleton<ISaleLookup, SqliteSaleLookup>();
+
+        // P1-T11: reassembles a completed bill for a reprint (SRS FR-3.36, FR-7.5).
+        services.AddSingleton<ISaleReceiptLookup, SqliteSaleReceiptLookup>();
         services.AddSingleton<IStockLedger, SqliteStockLedger>();
 
         // P1-T07: the ledger's projection rebuild, its startup consistency check, and the

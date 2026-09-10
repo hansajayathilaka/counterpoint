@@ -81,9 +81,10 @@ public sealed partial class PrintWorker : BackgroundService
             }
 
             // Outside every transaction: the read above has already committed and closed.
-            var outcome = await _printer
-                .PrintAsync(job.Payload, JobNameFor(job), cancellationToken)
-                .ConfigureAwait(false);
+            // job.Copies times, exactly - the shop's configurable copy count (SRS FR-7.5). The
+            // first copy that the printer refuses is what the job's outcome is recorded against;
+            // a printer that ran out of paper after copy one of three must not be marked PRINTED.
+            var outcome = await PrintCopiesAsync(job, cancellationToken).ConfigureAwait(false);
 
             if (outcome.Succeeded)
             {
@@ -149,6 +150,30 @@ public sealed partial class PrintWorker : BackgroundService
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Sends <paramref name="job"/>'s payload to the printer <see cref="PendingPrintJob.Copies"/>
+    /// times, stopping at the first failure (SRS FR-7.5).
+    /// </summary>
+    private async Task<PrintOutcome> PrintCopiesAsync(PendingPrintJob job, CancellationToken cancellationToken)
+    {
+        var copies = Math.Max(1, job.Copies);
+        var outcome = PrintOutcome.Failed("No copies were requested.");
+
+        for (var copy = 1; copy <= copies; copy++)
+        {
+            outcome = await _printer
+                .PrintAsync(job.Payload, JobNameFor(job), cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!outcome.Succeeded)
+            {
+                break;
+            }
+        }
+
+        return outcome;
     }
 
     /// <summary>A name a human can match to a document in the spooler or the artefact folder.</summary>

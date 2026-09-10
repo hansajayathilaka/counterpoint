@@ -160,5 +160,7 @@ public sealed class ShiftOpenAndDashboardScreenTests
         fixture.Resolve<IHeldBillService>(),
         fixture.Resolve<IOpenShift>(),
         fixture.Resolve<IDashboardQueries>(),
+        fixture.Resolve<IReprintReceipt>(),
+        fixture.Resolve<IPrintJobOutbox>(),
         fixture.Resolve<TimeProvider>());
 }

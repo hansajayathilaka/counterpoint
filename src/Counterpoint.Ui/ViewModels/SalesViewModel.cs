@@ -63,16 +63,22 @@ public enum SalesPanel
 /// </para>
 /// <para>
 /// <b>Deliberately out of this task's reach</b> (see the task's own notes and
-/// <c>docs/03_PHASE_1_core_trading.md</c>): F4 Return (Phase 2), F10 Reprint (needs P1-T11's
-/// receipt/print-queue machinery), F12 Day Close (needs Phase 3's shift close), and an owner
-/// re-authentication dialog for a discount above its cap (SRS FR-3.18) or a manual price override
-/// (FR-3.19) - nothing in Phase 1 builds that dialog yet, so an over-cap discount is refused with
-/// a plain-language message rather than offered an override. Trade price tiers (FR-3.23) are
-/// Phase 5's, explicitly out of scope for Phase 1 (docs/03_PHASE_1_core_trading.md); attaching a
-/// customer here (F8) is for record-keeping only and does not change a line's price. Bill
-/// cancellation (SRS FR-3.34) is <c>Counterpoint.Application.Sales.ICancelSale</c>, complete and
-/// directly testable in this task - it has no trigger on this screen because cancelling needs to
-/// find a past bill first (SRS FR-3.35), and no bill-lookup screen exists yet in Phase 1.
+/// <c>docs/03_PHASE_1_core_trading.md</c>): F4 Return (Phase 2), F12 Day Close (needs Phase 3's
+/// shift close), and an owner re-authentication dialog for a discount above its cap (SRS FR-3.18)
+/// or a manual price override (FR-3.19) - nothing in Phase 1 builds that dialog yet, so an
+/// over-cap discount is refused with a plain-language message rather than offered an override.
+/// Trade price tiers (FR-3.23) are Phase 5's, explicitly out of scope for Phase 1
+/// (docs/03_PHASE_1_core_trading.md); attaching a customer here (F8) is for record-keeping only
+/// and does not change a line's price. Bill cancellation (SRS FR-3.34) is
+/// <c>Counterpoint.Application.Sales.ICancelSale</c>, complete and directly testable in this
+/// task - it has no trigger on this screen because cancelling needs to find a past bill first
+/// (SRS FR-3.35), and no bill-lookup screen exists yet in Phase 1.
+/// </para>
+/// <para>
+/// <b>F10 Reprint</b> (P1-T11, SRS FR-3.36, FR-7.5, FR-7.6) reprints the last bill completed on
+/// this till - the fast path a cashier actually uses. Reprinting any past bill by number needs
+/// the same bill-lookup screen cancellation is waiting on; <c>IReprintReceipt.ReprintAsync</c>
+/// itself already accepts any sale id, so that screen only has to find the id.
 /// </para>
 /// </remarks>
 public sealed partial class SalesViewModel : NumericInputViewModel
@@ -90,6 +96,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     private readonly IHeldBillService _heldBills;
     private readonly IOpenShift _openShift;
     private readonly IDashboardQueries _dashboard;
+    private readonly IReprintReceipt _reprints;
+    private readonly IPrintJobOutbox _printJobs;
     private readonly TimeProvider _timeProvider;
 
     private readonly List<SaleLineRequest> _bill = [];
@@ -97,6 +105,7 @@ public sealed partial class SalesViewModel : NumericInputViewModel
 
     private long? _customerId;
     private string? _customerName;
+    private long? _lastCompletedSaleId;
     private DiscountInput? _pendingBillDiscount;
     private long? _lastScannedVariantId;
     private bool _pendingClearConfirmation;
@@ -325,7 +334,7 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         F7  Discount             - a percentage or amount off the selected line, or the whole bill
         F8  Customer             - attach a customer by name or phone, or clear it
         F9  Pay                  - cash, card, bank transfer or cheque, split as needed; Enter pays
-        F10 Reprint               - not available yet (needs the receipt/print-queue task)
+        F10 Reprint               - print the last bill again, marked DUPLICATE
         F11 Stock                 - stock on hand for the selected or last-scanned item
         F12 Day close              - not available yet (Phase 3)
         Esc Cancel                  - close whatever panel is open, or clear the scan box
@@ -373,6 +382,33 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         : "A shift is still open. Closing now is fine - it will recover automatically next time "
             + "you sign in - but make sure this is intentional. Close again to confirm.";
 
+    /// <summary>
+    /// "2 pending, 1 failed" or "Print queue empty" - the status-bar indicator P1-T11 asks for.
+    /// Refreshed after anything that queues or retries a print job; it is not a live poll, the
+    /// same trade-off <see cref="StatusBackupText"/> makes for now.
+    /// </summary>
+    [ObservableProperty]
+    private string _statusPrintQueueText = "Print queue: -";
+
+    /// <summary>Raised when the cashier asks for the print queue screen (P1-T11).</summary>
+    public event EventHandler? PrintQueueRequested;
+
+    [RelayCommand]
+    public void OpenPrintQueue() => PrintQueueRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Re-reads the print queue and updates <see cref="StatusPrintQueueText"/>.</summary>
+    private async Task RefreshPrintQueueStatusAsync(CancellationToken cancellationToken)
+    {
+        var jobs = await _printJobs.ListQueueAsync(cancellationToken).ConfigureAwait(true);
+        var pending = jobs.Count(job => job.Status == "PENDING");
+        var failed = jobs.Count(job => job.Status == "FAILED");
+
+        StatusPrintQueueText = pending == 0 && failed == 0
+            ? "Print queue empty"
+            : "Print queue: " + pending.ToString(CultureInfo.InvariantCulture) + " pending, "
+                + failed.ToString(CultureInfo.InvariantCulture) + " failed";
+    }
+
     // ---- What the scanner keystroke filter (SalesWindow's code-behind) reads ------------------
     // Exposed rather than handed the whole ISettings: the window's job is reading real key
     // events off real hardware, not deciding a business rule, so it gets exactly the two numbers
@@ -399,6 +435,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         IHeldBillService heldBills,
         IOpenShift openShift,
         IDashboardQueries dashboard,
+        IReprintReceipt reprints,
+        IPrintJobOutbox printJobs,
         TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(scanner);
@@ -414,6 +452,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         ArgumentNullException.ThrowIfNull(heldBills);
         ArgumentNullException.ThrowIfNull(openShift);
         ArgumentNullException.ThrowIfNull(dashboard);
+        ArgumentNullException.ThrowIfNull(reprints);
+        ArgumentNullException.ThrowIfNull(printJobs);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         _scanner = scanner;
@@ -429,6 +469,8 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         _heldBills = heldBills;
         _openShift = openShift;
         _dashboard = dashboard;
+        _reprints = reprints;
+        _printJobs = printJobs;
         _timeProvider = timeProvider;
     }
 
@@ -930,19 +972,53 @@ public sealed partial class SalesViewModel : NumericInputViewModel
                     cancellationToken).ConfigureAwait(true);
 
                 ClearBillState();
+                _lastCompletedSaleId = completed.SaleId;
                 Status = completed.Change.IsZero
                     ? "Saved as " + completed.BillNo + ". The receipt is queued."
                     : "Saved as " + completed.BillNo + ". Change due: "
                         + completed.Change.Amount.ToString("0.00", CultureInfo.InvariantCulture)
                         + ". The receipt is queued.";
+
+                await RefreshPrintQueueStatusAsync(cancellationToken).ConfigureAwait(true);
             },
             cancellationToken).ConfigureAwait(true);
     }
 
     // ---- F10 Reprint (P1-T11) ----------------------------------------------------------------------
 
+    /// <summary>
+    /// Reprints the last bill completed on this till, marked DUPLICATE and logged
+    /// (SRS FR-3.36, FR-7.5, FR-7.6). Any signed-in cashier may reprint (SRS §3.3 ROLE-1).
+    /// </summary>
+    /// <remarks>
+    /// Reprinting <em>any</em> past bill by number needs a bill-lookup screen this phase does not
+    /// build yet - the same gap <c>CancelSaleHandler</c>'s own remarks note for cancellation. F10
+    /// covers the fast path a cashier actually reaches for: "print that last one again."
+    /// </remarks>
     [RelayCommand]
-    public void Reprint() => Status = "Reprint is not available yet - it needs the receipt and print-queue task (P1-T11).";
+    public async Task ReprintAsync(CancellationToken cancellationToken)
+    {
+        if (Busy)
+        {
+            return;
+        }
+
+        if (_lastCompletedSaleId is not { } saleId)
+        {
+            Status = "Nothing has been completed on this till yet.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var reprinted = await _reprints.ReprintAsync(saleId, cancellationToken).ConfigureAwait(true);
+                Status = "Reprinted " + reprinted.BillNo + ", marked DUPLICATE.";
+
+                await RefreshPrintQueueStatusAsync(cancellationToken).ConfigureAwait(true);
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
 
     // ---- F11 Stock enquiry (SRS FR-4, FR-3.11) ------------------------------------------------------
 

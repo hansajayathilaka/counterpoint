@@ -12,6 +12,9 @@
     <!-- Snapshot tests: the rendered ESC/POS stream against a committed .verified.txt. -->
     <PackageReference Include="Verify.Xunit" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- Decodes the ZXing raster fallback back to text, so the QR/barcode round trip is
+         provable on Linux (SRS FR-7.4) without a real scanner (HW-T01). -->
+    <PackageReference Include="ZXing.Net" />
   </ItemGroup>
 
   <ItemGroup>

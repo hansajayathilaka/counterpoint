@@ -65,6 +65,39 @@ public sealed class SalesScreenTests
     }
 
     [Fact]
+    public async Task FR_3_36_F10ReprintsTheLastCompletedBillMarkedDuplicate()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+
+        var screen = BuildScreen(fixture);
+
+        screen.Barcode = FirstRunSeeder.SeededBarcode;
+        await screen.ScanCommand.ExecuteAsync(null);
+        screen.PayCommand.Execute(null);
+        await screen.CompletePaymentCommand.ExecuteAsync(null);
+
+        await screen.ReprintCommand.ExecuteAsync(null);
+
+        screen.Status.Should().Be("Reprinted INV-2026-000001, marked DUPLICATE.");
+        (await fixture.CountAsync("SELECT COUNT(*) FROM print_job WHERE is_duplicate = 1;"))
+            .Should().Be(1);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM audit_log WHERE action = 'RECEIPT_REPRINTED';"))
+            .Should().Be(1);
+    }
+
+    [Fact]
+    public async Task FR_3_36_ReprintBeforeAnyBillIsCompletedIsASentenceNotAnError()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+
+        var screen = BuildScreen(fixture);
+
+        await screen.ReprintCommand.ExecuteAsync(null);
+
+        screen.Status.Should().Be("Nothing has been completed on this till yet.");
+    }
+
+    [Fact]
     public async Task UI_06_AnUnknownBarcodeIsASentenceOnTheScreenNotAnError()
     {
         await using var fixture = await SaleFixture.CreateSignedInAsync();
@@ -108,5 +141,7 @@ public sealed class SalesScreenTests
         fixture.Resolve<IHeldBillService>(),
         fixture.Resolve<IOpenShift>(),
         fixture.Resolve<IDashboardQueries>(),
+        fixture.Resolve<IReprintReceipt>(),
+        fixture.Resolve<IPrintJobOutbox>(),
         fixture.Resolve<TimeProvider>());
 }

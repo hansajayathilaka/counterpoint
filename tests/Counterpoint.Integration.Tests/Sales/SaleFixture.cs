@@ -184,6 +184,10 @@ internal sealed class SaleFixture : IAsyncDisposable
             ActivatorUtilities.CreateInstance<CancelSaleHandler>(p),
             p.GetRequiredService<ISession>()));
 
+        // P1-T11: reprint (SRS FR-3.36, FR-7.5, FR-7.6) - undecorated, the same shape as
+        // ICompleteSale above (any signed-in cashier may reprint, SRS §3.3 ROLE-1).
+        services.AddSingleton<IReprintReceipt>(p => ActivatorUtilities.CreateInstance<ReprintReceiptHandler>(p));
+
         // P1-T07: the stock enquiry screen's use case, wired exactly as the composition root
         // wires it.
         services.AddSingleton<IStockEnquiry, StockEnquiryService>();

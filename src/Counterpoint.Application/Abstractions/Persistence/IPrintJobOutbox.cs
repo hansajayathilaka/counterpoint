@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -48,4 +49,17 @@ public interface IPrintJobOutbox
         string failureReason,
         bool giveUp,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every <c>PENDING</c> or <c>FAILED</c> job, oldest first - the print-queue screen's whole
+    /// read side (P1-T11). A job already <c>PRINTED</c> is not queue business any more.
+    /// </summary>
+    public Task<IReadOnlyList<PrintQueueEntry>> ListQueueAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Puts a <c>FAILED</c> job back to <c>PENDING</c>, attempts and last error cleared, so the
+    /// next <see cref="NextPendingAsync"/> picks it up again - the print-queue screen's "Retry"
+    /// button. A job that is not currently <c>FAILED</c> is left exactly as it is.
+    /// </summary>
+    public Task RetryAsync(long printJobId, CancellationToken cancellationToken = default);
 }

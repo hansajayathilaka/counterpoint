@@ -156,7 +156,8 @@ public static class SettingDefaults
         ShowItemAndUnitCount: true,
         ShowTaxSummary: true,
         ShowTaxableValue: true,
-        ShowTaxRegistrationNumber: true);
+        ShowTaxRegistrationNumber: true,
+        TemplateText: ReceiptTemplateDefaults.SalesBillTemplate);
 
     /// <summary>
     /// FR-2.10, FR-2.12. A common small shelf-label size (40 x 30 mm on a 2 mm gap), every field
