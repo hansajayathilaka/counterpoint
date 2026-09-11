@@ -46,6 +46,12 @@
   <!-- Integration tests exercise the snake_case naming helper directly. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Counterpoint.Integration.Tests" />
+
+    <!-- P1-T16: tools/SeedGenerator reuses the hash-chain primitives (HashChain, SaleHashChain,
+         AuditLogHashChain) and the Sale/AuditLog row shapes to fabricate a correctly-chained
+         historical dataset and to verify one - never to reimplement the chain by hand a second
+         time, which is how the two implementations would eventually disagree. -->
+    <InternalsVisibleTo Include="Counterpoint.SeedGenerator" />
   </ItemGroup>
 
   <ItemGroup>

@@ -31,6 +31,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Counterpoint.Integration.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Counterpoint.App", "src\Counterpoint.App\Counterpoint.App.csproj", "{3CBFA437-3D61-44DB-B3E8-79C5BE3026D1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{7B303B74-C6DD-45E5-A73D-DC6B473EE8C8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Counterpoint.SeedGenerator", "tools\SeedGenerator\Counterpoint.SeedGenerator.csproj", "{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -185,6 +189,18 @@ Global
 		{3CBFA437-3D61-44DB-B3E8-79C5BE3026D1}.Release|x64.Build.0 = Release|Any CPU
 		{3CBFA437-3D61-44DB-B3E8-79C5BE3026D1}.Release|x86.ActiveCfg = Release|Any CPU
 		{3CBFA437-3D61-44DB-B3E8-79C5BE3026D1}.Release|x86.Build.0 = Release|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Debug|x64.Build.0 = Debug|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Debug|x86.Build.0 = Debug|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Release|x64.ActiveCfg = Release|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Release|x64.Build.0 = Release|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Release|x86.ActiveCfg = Release|Any CPU
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -202,5 +218,6 @@ Global
 		{50C3FDFF-1FCE-41DC-9AF6-19F88EBAC9D3} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{E466450E-4E75-4209-BC82-35E29A5024A2} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{3CBFA437-3D61-44DB-B3E8-79C5BE3026D1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{65F80AEB-04CA-4C89-833A-1B0FE82EB1EB} = {7B303B74-C6DD-45E5-A73D-DC6B473EE8C8}
 	EndGlobalSection
 EndGlobal

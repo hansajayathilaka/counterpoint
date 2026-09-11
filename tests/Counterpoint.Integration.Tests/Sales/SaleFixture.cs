@@ -58,6 +58,13 @@ internal sealed class SaleFixture : IAsyncDisposable
         SnapshotDirectory = snapshotDirectory;
     }
 
+    /// <summary>
+    /// The data directory root this fixture's whole container was built over - the same path a
+    /// second, independent container could be pointed at to open the identical on-disk database
+    /// (P1-T16's performance regression guard does exactly this to measure a cold start).
+    /// </summary>
+    internal string Root => _root;
+
     /// <summary>Where <see cref="FileReceiptPrinter"/> drops the rendered byte streams.</summary>
     internal string ReceiptDirectory { get; }
 
