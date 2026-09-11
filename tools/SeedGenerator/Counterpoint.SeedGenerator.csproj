@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Development tooling, never shipped: this is how `bash scripts/seed.sh` builds the 20,000-SKU,
+    100,000-bill-line database `P1-T16`'s performance harness and AC-18 measure against, how
+    `/perf-gate` (docs/09_HARDWARE_INTEGRATION.md HW-T07) checks that database's hash chain, and
+    how P1-T16's AC-15 test drives one real, killable sale-completion loop.
+
+    Not referenced by Counterpoint.App (CLAUDE.md "Project boundaries" - App is wired from
+    Application, Backup, Devices, Domain, Infrastructure and Ui only), so nothing here reaches the
+    shipped product. That is also why the bulk historical-data writer in
+    PerformanceDatasetSeeder.cs is allowed to write stock_balance and sale/audit_log rows by hand
+    instead of through StockLedger.PostAsync and the real sale-completion handler: it is fabricating
+    a plausible history for a performance test, the same job TradingDaySeed and
+    CataloguePerformanceTests already do from inside the test tree (CLAUDE.md invariant 3's "every
+    stock change" means every stock change a live till makes, not a one-time synthetic dataset a
+    developer generates offline) - it lives here rather than in the test tree only because
+    tests/Counterpoint.Integration.Tests also needs to call it in-process for its own regression
+    test, and a test project may not be referenced by a tool project the other direction.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Counterpoint.SeedGenerator</AssemblyName>
+    <RootNamespace>Counterpoint.SeedGenerator</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Counterpoint.Application\Counterpoint.Application.csproj" />
+    <ProjectReference Include="..\..\src\Counterpoint.Devices\Counterpoint.Devices.csproj" />
+    <ProjectReference Include="..\..\src\Counterpoint.Domain\Counterpoint.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Dapper" />
+  </ItemGroup>
+
+</Project>

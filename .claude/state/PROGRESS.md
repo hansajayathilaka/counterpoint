@@ -53,7 +53,7 @@ hands them back.
 | P1-T13 | Spreadsheet import | done | 2026-09-09 | b0a02f2+2661b29 feat+fix(P1-T13): PR #22 |
 | P1-T14 | Shift open (minimal) and dashboard | done | 2026-09-10 | 5df77b2 feat(P1-T14): shift open and dashboard - PR #24 |
 | P1-T15 | Local and USB backup | done | 2026-09-10 | f19472c test(P1-T15): local and USB backup |
-| P1-T16 | Phase 1 acceptance and software performance harness | todo | | Absolute NFR budgets in HW-T07; offline trading day HW-T09 |
+| P1-T16 | Phase 1 acceptance and software performance harness | done | 2026-09-10 | 7fc95ef fix(P1-T16): seeded stock ledger must be rebuildable from stock_movement (on top of b7b2224 feat) - PR #26 |
 
 ## Phase 2 — Returns and inventory control (0/12)
 
@@ -154,13 +154,13 @@ Update as tests land. `automated` means a passing test exists in
 | AC-10 | P2-T10 | not started |
 | AC-11 | P3-T03 | not started |
 | AC-12 | P3-T09 | not started |
-| AC-13 | P1-T16 (software), HW-T09 (on hardware) | not started |
+| AC-13 | P1-T16 (software), HW-T09 (on hardware) | automated (software half; AC13_NoNetworkTouchDuringATradingDayTests, tests/Counterpoint.Integration.Tests/Sales/AC13_NoNetworkTouchDuringATradingDayTests.cs - EventListener over every System.Net.* source proves zero network activity across a full simulated trading day, with a positive-control test proving the guard itself detects real socket activity; physical cable-out day is HW-T09) |
 | AC-14 | P4-T06 (clean VM), HW-T08 (replacement hardware) | not started |
-| AC-15 | P1-T16 (software), HW-T09 (on terminal) | not started |
+| AC-15 | P1-T16 (software), HW-T09 (on terminal) | automated (software half; AC15_ProcessKillMidTransactionTests, tests/Counterpoint.Integration.Tests/Sales/AC15_ProcessKillMidTransactionTests.cs - 100 real SIGKILLs of a real trading process, tools/SeedGenerator's --sell-loop mode, at randomised points; database reopened and checked every time via PRAGMA integrity_check, both hash chains and gapless bill numbering; physical power-cut day is HW-T09) |
 | AC-16 | P1-T11 (fake), HW-T01 (real printer) | automated (fake half; proven by CompleteSaleTests.AC_16_ABrokenPrinterDoesNotStopASaleOrRetryForEver and SalesScreenTests.AC_16_ABrokenPrinterIsInvisibleToTheCashierCompletingTheBill; real-printer half pending HW-T01) |
 | AC-17 | P1-T02 | automated (authorisation half; cost/margin projections land with P3-T04/P3-T05) |
-| AC-18 | P1-T16 (regression guard), HW-T07 (absolute budgets) | not started |
-| AC-19 | P1-T16 | not started |
+| AC-18 | P1-T16 (regression guard), HW-T07 (absolute budgets) | automated (regression guard; PerformanceRegressionGuardTests, tests/Counterpoint.Integration.Tests/Performance/PerformanceRegressionGuardTests.cs - measures NFR-P1/P2/P3/P4/P6 against the real 20,000-SKU/100,000-historical-bill-line database (PerformanceDatasetSeeder) and fails on >20% drift from docs/perf-regression-baseline.json; absolute budgets stay unmeasured in docs/perf-baseline.md until HW-T07) |
+| AC-19 | P1-T16 | automated (AC19_GaplessBillNumberingAcrossFiveHundredBillsTests, tests/Counterpoint.Integration.Tests/Sales/AC19_GaplessBillNumberingAcrossFiveHundredBillsTests.cs - 500 real bills through ICompleteSale, 1 in 20 cancelled through ICancelSale, sequence proven gapless 1..500 and hash chain proven intact) |
 | AC-20 | P5-T07 | not started |
 
 ---

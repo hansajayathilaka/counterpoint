@@ -238,7 +238,8 @@ as a **relative regression guard only**. Absolute pass/fail against the budgets 
 measured here, on the terminal the shop will actually use.
 
 **Do this.**
-1. Copy the seeded database (`artifacts/data/pos-perf.db`, from `bash scripts/seed.sh`)
+1. Copy the seeded database (`artifacts/data/pos-perf/db/counterpoint.db`, from
+   `bash scripts/seed.sh` - `--output` is a data-directory root, not a bare file)
    to the terminal.
 2. Run the `/perf-gate` measurements on the terminal:
 

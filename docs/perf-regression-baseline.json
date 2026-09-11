@@ -1,0 +1,12 @@
+{
+  "$comment": "P1-T16 software performance regression guard. Recorded timings from whichever machine last ran tests/Counterpoint.Integration.Tests/Performance/PerformanceRegressionGuardTests.cs, against the 20,000-SKU/100,000-historical-bill-line seeded database - NOT the NFR-P1..P7 absolute budgets, which stay unmeasured in docs/perf-baseline.md until HW-T07 records them on the shop's own terminal. The guard fails a build only on a >20% drift from these figures. Update by hand, deliberately, after a reviewed perf change - never auto-written.",
+  "recordedOn": "2026-09-10",
+  "machine": "CI/dev sandbox (not the shop terminal - see docs/perf-baseline.md)",
+  "operations": {
+    "NFR-P1": { "ms": 3.0, "description": "Barcode scan to line, 20,000 SKUs + 100,000 historical bill lines" },
+    "NFR-P2": { "ms": 82.3, "description": "Search results, same seeded database" },
+    "NFR-P3": { "ms": 16.3, "description": "Bill completion (save + stock update + print dispatch), same seeded database" },
+    "NFR-P4": { "ms": 1.9, "description": "Bill lookup by number, same seeded database" },
+    "NFR-P6": { "ms": 7.0, "description": "Cold-start proxy (container build + migrations + FirstRunSeeder) against the same seeded database" }
+  }
+}
