@@ -261,3 +261,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-12T19:18:15Z` **P2-T03** start — Unlinked returns
+- `2026-09-12T20:12:09Z` **P2-T03** done — 2 commits (feat+test), 12 new tests, 628 total, 2 review rounds clean, 0 fix attempts
