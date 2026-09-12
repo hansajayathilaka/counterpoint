@@ -64,7 +64,7 @@ hands them back.
 | P2-T03 | Unlinked returns | todo | | |
 | P2-T04 | Exchanges | todo | | |
 | P2-T05 | Credit notes | todo | | |
-| P2-T06 | Suppliers and purchase orders | todo | | |
+| P2-T06 | Suppliers and purchase orders | done | 2026-09-12 | pending commit - correcting note next |
 | P2-T07 | Goods receipt (GRN) | todo | | |
 | P2-T08 | Adjustments and damage | todo | | |
 | P2-T09 | Bulk breaking | todo | | |

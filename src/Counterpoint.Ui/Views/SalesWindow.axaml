@@ -54,6 +54,7 @@
         <Button Content="_Users" Command="{Binding ManageUsersCommand}" IsVisible="{Binding CanManageUsers}" />
         <Button Content="_Catalogue" Command="{Binding ManageCatalogueCommand}" IsVisible="{Binding CanManageCatalogue}" />
         <Button Content="_Labels" Command="{Binding PrintLabelsCommand}" IsVisible="{Binding CanPrintLabels}" />
+        <Button Content="P_urchasing" Command="{Binding ManagePurchaseOrdersCommand}" IsVisible="{Binding CanManagePurchasing}" />
         <Button Content="_Print queue" Command="{Binding OpenPrintQueueCommand}" />
         <Button Content="_Settings" Command="{Binding OpenSettingsCommand}" IsVisible="{Binding CanChangeSettings}" />
         <Button Content="Open item" Command="{Binding OpenItemCommand}" />

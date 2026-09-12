@@ -10,6 +10,7 @@ using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
 using Counterpoint.Application.Pricing;
+using Counterpoint.Application.Purchasing;
 using Counterpoint.Application.Returns;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
@@ -26,6 +27,7 @@ using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Labels;
+using Counterpoint.Ui.ViewModels.Purchasing;
 using Counterpoint.Ui.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -95,6 +97,12 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddCounterpointSecurity();
         builder.Services.AddCounterpointCatalogue();
 
+        // P2-T06: suppliers and purchase orders (SRS FR-4.5, FR-4.6, FR-4.10) - owner-only,
+        // wired exactly as the catalogue-maintenance interfaces above (NFR-S2, AC-17).
+        builder.Services.AddSingleton<IPurchaseOrderService>(p => RoleAuthorisation.Decorate<IPurchaseOrderService>(
+            ActivatorUtilities.CreateInstance<PurchaseOrderService>(p),
+            p.GetRequiredService<ISession>()));
+
         // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19, FR-3.7-FR-3.10, Q-12).
         // IDiscountAuthorisationService is not owner-only - a cashier applies a discount inside
         // the cap without needing anyone's role, and going over it is gated by an OverrideToken,
@@ -145,6 +153,9 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<ImportTabViewModel>();
 
         builder.Services.AddSingleton<CatalogueViewModel>();
+
+        // P2-T06: the purchase-order screen (SRS FR-4.5, FR-4.6, FR-4.10).
+        builder.Services.AddSingleton<PurchaseOrderViewModel>();
 
         // P1-T12: label printing (SRS FR-2.10, FR-2.12). ILabelPrintService is owner-only, wired
         // exactly as the catalogue-maintenance interfaces are in AddCounterpointCatalogue; it

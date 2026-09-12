@@ -10,6 +10,7 @@ using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
 using Counterpoint.Application.Pricing;
+using Counterpoint.Application.Purchasing;
 using Counterpoint.Application.Returns;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
@@ -252,6 +253,13 @@ internal sealed class SaleFixture : IAsyncDisposable
         // above (SRS FR-2.1-FR-2.8, FR-3.6, AC-08, NFR-S2, AC-17).
         services.AddSingleton<IProductMaintenance>(p => RoleAuthorisation.Decorate<IProductMaintenance>(
             ActivatorUtilities.CreateInstance<ProductMaintenanceService>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P2-T06: suppliers and purchase orders (SRS FR-4.5, FR-4.6, FR-4.10) - owner-only, wired
+        // exactly as CounterpointHostBuilderExtensions wires it, decorated-only, same shape as
+        // IProductMaintenance above (NFR-S2, AC-17).
+        services.AddSingleton<IPurchaseOrderService>(p => RoleAuthorisation.Decorate<IPurchaseOrderService>(
+            ActivatorUtilities.CreateInstance<PurchaseOrderService>(p),
             p.GetRequiredService<ISession>()));
 
         // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19, FR-3.7-FR-3.10, Q-12), the same

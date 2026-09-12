@@ -65,6 +65,10 @@ public static class DevicesServiceCollectionExtensions
         // sharing a layout engine with the 80 mm thermal path above (SRS FR-7.2, FR-7.9).
         services.AddSingleton<ISaleInvoiceRenderer, QuestPdfSaleInvoiceRenderer>();
 
+        // P2-T06: the purchase order document (SRS FR-4.5) - the same QuestPDF/A4 approach as the
+        // sale invoice above, over its own data model.
+        services.AddSingleton<IPurchaseOrderDocumentRenderer, QuestPdfPurchaseOrderRenderer>();
+
         // P1-T11: the settings screen's template preview - renders to text, never to the
         // printer or the outbox.
         services.AddSingleton<IReceiptTemplatePreviewService, ReceiptTemplatePreviewService>();
