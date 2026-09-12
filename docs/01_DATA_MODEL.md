@@ -1584,6 +1584,8 @@ place; see that key's own remarks for why it is read and written directly throug
 | | `policy.allow_unlinked_returns` (false — Q-03) | `BOOL` |
 | | `policy.cash_refund_limit` (0 = no limit) | `MONEY` |
 | | `policy.max_line_discount_rate`, `policy.max_bill_discount_rate` (both 10000 = 100%, i.e. no restriction — Q-12), `policy.restocking_fee_rate` (0) | `INT` (scaled) |
+| | `policy.receipt_required` (true — Q-03: "should have to previous bill no", P2-T01) | `BOOL` |
+| | `policy.non_returnable_category_ids` — `category.id` values, comma-separated and sorted, empty by default (FR-5.10, P2-T01; deliberately `STRING`, not `JSON` — see `SettingValueTypes`'s remarks) | `STRING` |
 | Peripherals (FR-10.6) | `peripheral.receipt_printer_name`, `peripheral.label_printer_name`, `peripheral.scale_port`, `peripheral.scanner_suffix` (`ENTER`/`TAB`/`NONE`) | `STRING` |
 | | `peripheral.paper_width_mm` (80), `peripheral.receipt_copies` (1), `peripheral.drawer_kick_pin` (2), `peripheral.scanner_minimum_length` (4), `peripheral.scale_baud_rate` (9600) | `INT` |
 | | `peripheral.open_drawer_on_cash_sale` (true), `peripheral.scale_enabled` (false) | `BOOL` |

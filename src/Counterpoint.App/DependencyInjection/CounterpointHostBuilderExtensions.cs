@@ -10,6 +10,7 @@ using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
 using Counterpoint.Application.Pricing;
+using Counterpoint.Application.Returns;
 using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
@@ -100,6 +101,12 @@ internal static class CounterpointHostBuilderExtensions
         // not RequiresRoleAttribute - so it is registered plain, undecorated, the same as
         // IRoundingPolicy above.
         builder.Services.AddSingleton<IDiscountAuthorisationService, DiscountAuthorisationService>();
+
+        // P2-T01: the return policy engine (SRS FR-5, BR-*, FR-10.5, Q-03). Not owner-only either
+        // - a cashier processes an in-window, receipted return without needing anyone's role, and
+        // every exception to that is gated by an OverrideToken, not RequiresRoleAttribute, the
+        // same reasoning as IDiscountAuthorisationService immediately above.
+        builder.Services.AddSingleton<IReturnPolicyAuthorisationService, ReturnPolicyAuthorisationService>();
 
         // Resolved a second time, deliberately: AddCounterpointInfrastructure resolves and
         // registers its own PosDataDirectory internally and does not hand it back, and changing

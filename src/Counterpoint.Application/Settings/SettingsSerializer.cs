@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Domain.ValueObjects;
 
@@ -263,6 +264,10 @@ public static class SettingsSerializer
         rows.Add(Text(SettingKeys.PolicyNegativeStock, SettingTokens.From(policy.NegativeStock)));
         rows.Add(Scaled(SettingKeys.PolicyRestockingFeeRate, policy.RestockingFeeRate.ToScaled()));
         rows.Add(Boolean(SettingKeys.PolicyCombineRepeatScans, policy.CombineRepeatScans));
+        rows.Add(Boolean(SettingKeys.PolicyReceiptRequired, policy.ReceiptRequired));
+        rows.Add(Text(
+            SettingKeys.PolicyNonReturnableCategoryIds,
+            WriteLongList(policy.NonReturnableCategoryIds)));
     }
 
     private static PolicySettings ReadPolicy(
@@ -280,7 +285,9 @@ public static class SettingsSerializer
                 ReadText(rows, SettingKeys.PolicyNegativeStock, string.Empty),
                 fallback.NegativeStock),
             ReadPercentage(rows, SettingKeys.PolicyRestockingFeeRate, fallback.RestockingFeeRate),
-            ReadBool(rows, SettingKeys.PolicyCombineRepeatScans, fallback.CombineRepeatScans));
+            ReadBool(rows, SettingKeys.PolicyCombineRepeatScans, fallback.CombineRepeatScans),
+            ReadBool(rows, SettingKeys.PolicyReceiptRequired, fallback.ReceiptRequired),
+            ReadLongList(rows, SettingKeys.PolicyNonReturnableCategoryIds, fallback.NonReturnableCategoryIds));
 
     // ---- FR-10.6 Peripherals -----------------------------------------------------------------
 
@@ -437,6 +444,16 @@ public static class SettingsSerializer
     private static SettingRow MoneyRow(string key, Money value) =>
         new(key, value.ToScaled().ToString(CultureInfo.InvariantCulture), SettingValueTypes.Money);
 
+    /// <summary>
+    /// A comma-separated list of ids in one <c>STRING</c> row - deliberately not <c>JSON</c> (see
+    /// <see cref="SettingValueTypes"/>'s remarks on why that value type is unused). Sorted and
+    /// de-duplicated so two settings screens editing the same list in a different order still
+    /// write the identical row, and so <see cref="PolicySettings"/>'s order-sensitive equality
+    /// (see its own remarks) never sees a spurious difference after a round trip.
+    /// </summary>
+    private static string WriteLongList(IReadOnlyCollection<long> values) =>
+        string.Join(',', values.Distinct().OrderBy(id => id));
+
     // ---- Row readers -------------------------------------------------------------------------
 
     private static string ReadText(
@@ -498,4 +515,41 @@ public static class SettingsSerializer
         && scaled >= 0
             ? TaxRate.FromScaled(scaled)
             : fallback;
+
+    /// <summary>
+    /// Reads back what <see cref="WriteLongList"/> wrote. An empty row is an empty list, not a
+    /// missing one; any token that fails to parse degrades the whole row to
+    /// <paramref name="fallback"/>, the same "one corrupt value must not stop the till trading"
+    /// rule every other reader here follows (CLAUDE.md invariant 7).
+    /// </summary>
+    private static IReadOnlyList<long> ReadLongList(
+        IReadOnlyDictionary<string, StoredSetting> rows,
+        string key,
+        IReadOnlyList<long> fallback)
+    {
+        if (!rows.TryGetValue(key, out var stored))
+        {
+            return fallback;
+        }
+
+        if (stored.Value.Length == 0)
+        {
+            return Array.Empty<long>();
+        }
+
+        var tokens = stored.Value.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var ids = new List<long>(tokens.Length);
+
+        foreach (var token in tokens)
+        {
+            if (!long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+            {
+                return fallback;
+            }
+
+            ids.Add(id);
+        }
+
+        return ids;
+    }
 }

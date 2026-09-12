@@ -88,7 +88,8 @@ public static class SettingDefaults
         Shift: new DocumentNumbering("SH-", PlainNumberPattern, FirstNumber));
 
     /// <summary>
-    /// FR-10.5. Fourteen days to return with the bill (Q-03), negative stock allowed (Q-11), and
+    /// FR-10.5. Fourteen days to return with the bill, receipted, no restocking fee and no
+    /// category flagged non-returnable out of the box (Q-03), negative stock allowed (Q-11), and
     /// no discount ceiling at all (Q-12, "not for now" - the limit exists, set to 100%, so that
     /// P1-T08 has something real to enforce the day the shop wants one).
     /// </summary>
@@ -101,7 +102,9 @@ public static class SettingDefaults
         MaxBillDiscountRate: Percentage.OneHundredPercent,
         NegativeStock: NegativeStockPolicy.Allow,
         RestockingFeeRate: Percentage.Zero,
-        CombineRepeatScans: true);
+        CombineRepeatScans: true,
+        ReceiptRequired: true,
+        NonReturnableCategoryIds: []);
 
     /// <summary>
     /// FR-10.6. What the Linux fakes need, which is also what an uncommissioned Windows terminal

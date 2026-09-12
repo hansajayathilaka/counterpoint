@@ -130,7 +130,13 @@ public sealed partial class PolicySettingsViewModel : SettingsGroupViewModel
                 SettingsText.ToPercentage(MaxBillDiscountRate),
                 _negativeStockPolicies.Value(NegativeStockChoice),
                 SettingsText.ToPercentage(RestockingFeeRate),
-                CombineRepeatScans),
+                CombineRepeatScans,
+
+                // Not yet edited on this screen - carried through unchanged so saving anything
+                // else here can never silently reset them to their defaults (task P2-T01; a
+                // return-policy screen for these two is future work, not this task's).
+                snapshot.Policy.ReceiptRequired,
+                snapshot.Policy.NonReturnableCategoryIds),
         };
     }
 }
