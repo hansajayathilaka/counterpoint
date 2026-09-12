@@ -60,7 +60,7 @@ hands them back.
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
 | P2-T01 | Return policy engine | done | 2026-09-10 | 7f9e7db feat(P2-T01): return policy engine - PR #27 |
-| P2-T02 | Linked returns | done | 2026-09-12 | feat(P2-T02): linked returns (FR-5.1-FR-5.10, AC-03, AC-06) - all 6 Done-when proven (verify.sh green, 605 integration + 327 domain + 67 device + 18 acceptance tests, 6 new CreateReturnTests); includes PaymentSaleReturnForeignKey0007 migration resolving the payment.sale_return_id dangling reference (docs/01_DATA_MODEL.md §13), the last of the four from Skeleton0001 |
+| P2-T02 | Linked returns | done | 2026-09-12 | 241ed8e feat(P2-T02): linked returns (FR-5.1-FR-5.10, AC-03, AC-06) - all 6 Done-when proven (verify.sh green, 605 integration + 327 domain + 67 device + 18 acceptance tests, 6 new CreateReturnTests); includes PaymentSaleReturnForeignKey0007 migration resolving the payment.sale_return_id dangling reference (docs/01_DATA_MODEL.md §13), the last of the four from Skeleton0001; DAMAGED lines deliberately post no stock movement (see CreateReturnHandler's own remarks) - flagged in case a future ledger-level shrinkage view is wanted, which would be P2-T08's or a schema task's call, not this one's |
 | P2-T03 | Unlinked returns | todo | | |
 | P2-T04 | Exchanges | todo | | |
 | P2-T05 | Credit notes | todo | | |
