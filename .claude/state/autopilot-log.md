@@ -247,3 +247,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-12T10:54:04Z` **P2-T02** start — Linked returns
+- `2026-09-12T13:21:34Z` **P2-T02** done — 38 files, 615 tests (606 integration + 75 device incl. new), review clean (no Must-fix), PR #29 opened
