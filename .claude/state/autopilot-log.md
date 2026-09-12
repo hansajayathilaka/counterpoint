@@ -239,6 +239,14 @@ it stopped.
 - `2026-09-12T06:00:00Z` **P2-T06** done — 44 files, 24 new tests, review clean
 
 **Run ended 2026-09-12T06:00:56Z** — 1 completed (P2-T06, PR #28); P2-T01 already merged as PR #27 by an earlier session before this continuation
+## Run 2026-09-12T10:53:30Z
+
+- branch: `claude/autopilot-8hb4e2`
+- head: `157cfa4`
+- budget: 2 task(s)
+
+- `2026-09-12T10:54:04Z` **P2-T02** start — Linked returns
+- `2026-09-12T13:21:34Z` **P2-T02** done — 38 files, 615 tests (606 integration + 75 device incl. new), review clean (no Must-fix), PR #29 opened
 - `2026-09-12T13:22:22Z` **P2-T07** start — Goods receipt (GRN)
 - `2026-09-12T17:48:34Z` **P2-T07** fix-attempt — 1: GoodsReceiptService never applies IRoundingPolicy - RequireReceiptBalances throws on legitimate GRN with fractional subtotal + tax (invariant 2 violation)
 - `2026-09-12T18:12:22Z` **P2-T07** fix-attempt — 1 resolved: IRoundingPolicy threaded through GoodsReceiptService, code-reviewer confirmed fix closes the finding

@@ -13,6 +13,7 @@ using Counterpoint.Infrastructure.Import;
 using Counterpoint.Infrastructure.Inventory;
 using Counterpoint.Infrastructure.Printing;
 using Counterpoint.Infrastructure.Purchasing;
+using Counterpoint.Infrastructure.Returns;
 using Counterpoint.Infrastructure.Sales;
 using Counterpoint.Infrastructure.Security;
 using Counterpoint.Infrastructure.Settings;
@@ -93,6 +94,13 @@ public static class InfrastructureServiceCollectionExtensions
         // P1-T11: reassembles a completed bill for a reprint (SRS FR-3.36, FR-7.5).
         services.AddSingleton<ISaleReceiptLookup, SqliteSaleReceiptLookup>();
         services.AddSingleton<IStockLedger, SqliteStockLedger>();
+
+        // P2-T02: linked returns (SRS FR-5.1-FR-5.10, AC-03, AC-06). IReturnableSaleLookup and
+        // ISaleReturnWriter carry no role requirement of their own - a cashier takes an ordinary
+        // return without needing anyone's role, the same split IProductLookup/ISaleWriter draw
+        // for a sale.
+        services.AddSingleton<IReturnableSaleLookup, SqliteReturnableSaleLookup>();
+        services.AddSingleton<ISaleReturnWriter, SqliteSaleReturnWriter>();
 
         // P1-T07: the ledger's projection rebuild, its startup consistency check, and the
         // stock enquiry screen's read side (SRS FR-4, DM-05, SAD §3).

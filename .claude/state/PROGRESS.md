@@ -60,7 +60,7 @@ hands them back.
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
 | P2-T01 | Return policy engine | done | 2026-09-10 | 7f9e7db feat(P2-T01): return policy engine - PR #27 |
-| P2-T02 | Linked returns | todo | | |
+| P2-T02 | Linked returns | done | 2026-09-12 | 9ef1734 Linked returns (FR-5.1-FR-5.10, AC-03, AC-06), PR #29 |
 | P2-T03 | Unlinked returns | todo | | |
 | P2-T04 | Exchanges | todo | | |
 | P2-T05 | Credit notes | todo | | |
@@ -144,10 +144,10 @@ Update as tests land. `automated` means a passing test exists in
 |---|---|---|
 | AC-01 | P5-T09 | not started |
 | AC-02 | P1-T10 | automated (CompleteSaleTenderTests, tests/Counterpoint.Integration.Tests/Sales/CompleteSaleTenderTests.cs) |
-| AC-03 | P2-T02 | not started |
+| AC-03 | P2-T02 | automated (AC_03_APartialReturnRefundsAtTheOriginalPaidPriceRestocksOnlySellableAndPrintsAReceipt, tests/Counterpoint.Integration.Tests/Returns/CreateReturnTests.cs - a partial return refunds at sale_line's own snapshot price after the shelf price is changed, restocks only the SELLABLE line, and queues a non-empty RETURN print_job; APriceChangeBetweenSaleAndReturnDoesNotAffectTheRefundAmount is the same case named for the task's own risk note) |
 | AC-04 | P2-T04 | not started |
 | AC-05 | P2-T01 | automated (a non-returnable item is denied and proceeds only with an audited owner override; ReturnPolicyAuthorisationServiceTests.AC_05_ANonReturnableItemIsDeniedAndProceedsOnlyWithAnOwnerOverrideWhichIsAudited, tests/Counterpoint.Integration.Tests/Returns/ReturnPolicyAuthorisationServiceTests.cs - denies without override, obtains an owner override token, retries successfully, asserts an audit_log row names the owner and the requesting cashier, and confirms the token is single-use) |
-| AC-06 | P2-T02 | not started |
+| AC-06 | P2-T02 | automated (AC_06_CumulativeOverReturnAcrossTwoSeparateReturnsAgainstTheSameLineIsImpossible, tests/Counterpoint.Integration.Tests/Returns/CreateReturnTests.cs - two separate returns against the same bill line, the second of which would exceed the quantity sold, is refused with no override anywhere in the codebase (ReturnEligibility.Denied, Action null); exactly the remaining quantity still succeeds, and a fully-returned line refuses even the smallest further request) |
 | AC-07 | P1-T13 | automated (CatalogueImportTests.AC_07_OneHundredSkusImportFromASpreadsheetWithValidationReportAndCorrectStockAndPrices, tests/Counterpoint.Integration.Tests/Import/CatalogueImportTests.cs) |
 | AC-08 | P2-T07 | automated (AC_08_ABoxToPieceGoodsReceiptIncreasesStockInBaseUnitsAndUpdatesMovingAverageCostCorrectly, tests/Counterpoint.Integration.Tests/Purchasing/GoodsReceiptServiceTests.cs - 2 boxes of 100 land as 200 pieces in the base unit, stock_balance.qty_base and cost_avg both proven against a hand-worked moving-average example) |
 | AC-09 | P2-T09 | not started |
