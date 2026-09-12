@@ -253,3 +253,4 @@ it stopped.
 - `2026-09-12T18:13:21Z` **P2-T07** done — 12 files, 610 tests, 1 Must-fix found and resolved (rounding invariant), review clean after fix, PR #30 opened
 
 **Run ended 2026-09-12T18:13:43Z** — 2 completed, 0 halted
+- `2026-09-12T20:13:40Z` **P2-T04** start — Exchanges
