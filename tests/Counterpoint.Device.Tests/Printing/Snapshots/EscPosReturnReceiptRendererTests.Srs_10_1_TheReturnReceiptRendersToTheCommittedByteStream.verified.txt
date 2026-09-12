@@ -1,0 +1,94 @@
+﻿=== commands ===
+0000  ESC @        initialise
+0002  ESC t 0      select code page
+0005  ESC a 1      align centre
+0008  GS ! 01      character size (normal width, double height)
+000B  ESC E 1      bold on
+000E  TEXT         "RETURN"
+0014  ESC E 0      bold off
+0017  GS ! 00      character size (normal width, normal height)
+001A  LF
+001B  ESC a 0      align left
+001E  TEXT         "------------------------------------------------"
+004E  LF
+004F  TEXT         "Return No : RTN-2026-000001"
+006A  LF
+006B  TEXT         "Bill No   : INV-2026-000001"
+0086  LF
+0087  TEXT         "Returned  : 2026-09-10 11:00"
+00A3  LF
+00A4  TEXT         "By        : Kamal"
+00B5  LF
+00B6  TEXT         "------------------------------------------------"
+00E6  LF
+00E7  TEXT         "Galvanised bolt M8 (SELLABLE)"
+0104  LF
+0105  TEXT         "  2 pc @ 12.50                             25.00"
+0135  LF
+0136  TEXT         "------------------------------------------------"
+0166  LF
+0167  TEXT         "Subtotal                                   25.00"
+0197  LF
+0198  TEXT         "Tax                                         0.00"
+01C8  LF
+01C9  TEXT         "------------------------------------------------"
+01F9  LF
+01FA  GS ! 11      character size (double width, double height)
+01FD  ESC E 1      bold on
+0200  TEXT         "Total refund       25.00"
+0218  ESC E 0      bold off
+021B  GS ! 00      character size (normal width, normal height)
+021E  LF
+021F  TEXT         "Refunded by CASH"
+022F  LF
+0230  ESC d 1      feed lines
+0233  ESC a 1      align centre
+0236  GS h 80      barcode height (dots)
+0239  GS w 2       barcode module width
+023C  GS H 2       barcode HRI position
+023F  GS f 0       barcode HRI font
+0242  GS k 73      barcode Code 128 "{BRTN-2026-000001"
+0257  ESC p 0 25 250  drawer kick (pin 2)
+025C  ESC d 4      feed lines
+025F  GS V 1       partial cut
+
+=== bytes ===
+0000  1B 40 1B 74 00 1B 61 01 1D 21 01 1B 45 01 52 45   |.@.t..a..!..E.RE|
+0010  54 55 52 4E 1B 45 00 1D 21 00 0A 1B 61 00 2D 2D   |TURN.E..!...a.--|
+0020  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0030  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0040  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 0A 52   |--------------.R|
+0050  65 74 75 72 6E 20 4E 6F 20 3A 20 52 54 4E 2D 32   |eturn No : RTN-2|
+0060  30 32 36 2D 30 30 30 30 30 31 0A 42 69 6C 6C 20   |026-000001.Bill |
+0070  4E 6F 20 20 20 3A 20 49 4E 56 2D 32 30 32 36 2D   |No   : INV-2026-|
+0080  30 30 30 30 30 31 0A 52 65 74 75 72 6E 65 64 20   |000001.Returned |
+0090  20 3A 20 32 30 32 36 2D 30 39 2D 31 30 20 31 31   | : 2026-09-10 11|
+00A0  3A 30 30 0A 42 79 20 20 20 20 20 20 20 20 3A 20   |:00.By        : |
+00B0  4B 61 6D 61 6C 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |Kamal.----------|
+00C0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+00D0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+00E0  2D 2D 2D 2D 2D 2D 0A 47 61 6C 76 61 6E 69 73 65   |------.Galvanise|
+00F0  64 20 62 6F 6C 74 20 4D 38 20 28 53 45 4C 4C 41   |d bolt M8 (SELLA|
+0100  42 4C 45 29 0A 20 20 32 20 70 63 20 40 20 31 32   |BLE).  2 pc @ 12|
+0110  2E 35 30 20 20 20 20 20 20 20 20 20 20 20 20 20   |.50             |
+0120  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0130  32 35 2E 30 30 0A 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |25.00.----------|
+0140  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0150  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+0160  2D 2D 2D 2D 2D 2D 0A 53 75 62 74 6F 74 61 6C 20   |------.Subtotal |
+0170  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0180  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+0190  20 20 32 35 2E 30 30 0A 54 61 78 20 20 20 20 20   |  25.00.Tax     |
+01A0  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+01B0  20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20   |                |
+01C0  20 20 20 20 30 2E 30 30 0A 2D 2D 2D 2D 2D 2D 2D   |    0.00.-------|
+01D0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+01E0  2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D 2D   |----------------|
+01F0  2D 2D 2D 2D 2D 2D 2D 2D 2D 0A 1D 21 11 1B 45 01   |---------..!..E.|
+0200  54 6F 74 61 6C 20 72 65 66 75 6E 64 20 20 20 20   |Total refund    |
+0210  20 20 20 32 35 2E 30 30 1B 45 00 1D 21 00 0A 52   |   25.00.E..!..R|
+0220  65 66 75 6E 64 65 64 20 62 79 20 43 41 53 48 0A   |efunded by CASH.|
+0230  1B 64 01 1B 61 01 1D 68 50 1D 77 02 1D 48 02 1D   |.d..a..hP.w..H..|
+0240  66 00 1D 6B 49 11 7B 42 52 54 4E 2D 32 30 32 36   |f..kI.{BRTN-2026|
+0250  2D 30 30 30 30 30 31 1B 70 00 19 FA 1B 64 04 1D   |-000001.p....d..|
+0260  56 01                                             |V.|

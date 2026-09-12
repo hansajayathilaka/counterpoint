@@ -183,6 +183,71 @@ public sealed class CreateReturnTests
     }
 
     [Fact]
+    public async Task DamagedDispositionChangesNeitherStockQuantityNorTheMovingAverageCost()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await SeedReturnNumberSequenceAsync(fixture);
+
+        var variantId = await SeededVariantIdAsync(fixture);
+        var userId = await SeededUserIdAsync(fixture);
+
+        // Seeded opening: 100 @ 9.00 (FirstRunSeeder). Selling 5 leaves 95 on the shelf; an
+        // outbound movement never touches cost_avg (StockLedgerMath.Apply), so it is still 9.00
+        // afterwards.
+        var sale = await CompleteOneAsync(fixture, quantity: 5m);
+        var saleLineId = await fixture.CountAsync("SELECT id FROM sale_line WHERE sale_id = " + sale.SaleId + ";");
+
+        // A GRN at a cost different from the sale's own unit_cost, between the sale and the
+        // return, so cost_avg is no longer 9.00 (the cost the sale line snapshotted) by the time
+        // the return is taken: (95 x 9.00 + 5 x 39.00) / 100 = 10.50. This is exactly the
+        // scenario the class remarks' worked example warns about - if a future refactor ever made
+        // DAMAGED post a balancing RETURN_IN + DAMAGE pair valued at the sale's own unit_cost
+        // (9.00), the inbound half would recompute cost_avg down from 10.50 toward 9.00 even
+        // though nothing on the shelf actually moved.
+        await fixture.Resolve<Counterpoint.Application.Abstractions.Persistence.IStockLedger>().PostAsync(
+            new Counterpoint.Application.Abstractions.Persistence.StockPosting(
+                variantId,
+                "GRN",
+                Quantity.FromDecimal(5m, variantId),
+                Money.FromDecimal(39.00m),
+                "GRN",
+                RefDocId: null,
+                userId,
+                ReturnedAt));
+
+        var qtyBeforeReturn = await fixture.ScalarAsync(
+            "SELECT qty_base FROM stock_balance WHERE product_variant_id = " + variantId + ";");
+        var costAvgBeforeReturn = await fixture.ScalarAsync(
+            "SELECT cost_avg FROM stock_balance WHERE product_variant_id = " + variantId + ";");
+        qtyBeforeReturn.Should().Be("1000000", "95 left after the sale, plus 5 received, scaled x10 000");
+        costAvgBeforeReturn.Should().Be("105000", "(95x9.00 + 5x39.00) / 100 = 10.50, scaled x10 000");
+
+        var movementCountBeforeReturn = await fixture.CountAsync("SELECT COUNT(*) FROM stock_movement;");
+
+        var created = await fixture.Resolve<ICreateReturn>().CreateAsync(new CreateReturnCommand(
+            sale.SaleId,
+            userId,
+            await SeededShiftIdAsync(fixture),
+            ReturnedAt,
+            [new ReturnLineRequest(saleLineId, Quantity.FromDecimal(5m, saleLineId), ReturnDisposition.Damaged, "Crushed in the stockroom")],
+            RefundMethod.Cash));
+
+        created.TotalRefund.Should().Be(Money.FromDecimal(62.50m), "the customer is still refunded in full");
+
+        (await fixture.ScalarAsync("SELECT qty_base FROM stock_balance WHERE product_variant_id = " + variantId + ";"))
+            .Should().Be(qtyBeforeReturn, "a DAMAGED return posts no stock movement at all - the GRN's balance is untouched");
+
+        (await fixture.ScalarAsync("SELECT cost_avg FROM stock_balance WHERE product_variant_id = " + variantId + ";"))
+            .Should().Be(costAvgBeforeReturn, "no inbound movement means no call into MovingAverageCost.Recompute - "
+            + "a regression that posted a balancing RETURN_IN + DAMAGE pair would drag this back toward 9.00, "
+            + "the sale line's own snapshotted unit_cost, exactly the corruption the class remarks warn about");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_movement;"))
+            .Should().Be(movementCountBeforeReturn, "not one new stock_movement row of any type for this return - "
+            + "not RETURN_IN, not DAMAGE, not a balancing pair");
+    }
+
+    [Fact]
     public async Task ScanningTheReceiptQrOpensTheCorrectBill()
     {
         await using var fixture = await SaleFixture.CreateSignedInAsync();
