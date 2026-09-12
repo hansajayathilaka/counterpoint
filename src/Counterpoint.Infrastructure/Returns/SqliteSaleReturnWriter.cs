@@ -55,7 +55,7 @@ internal sealed class SqliteSaleReturnWriter : ISaleReturnWriter
                     ReturnedAt = saleReturn.ReturnedAt,
                     BusinessDate = saleReturn.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     OriginalSaleId = saleReturn.OriginalSaleId,
-                    ExchangeSaleId = null,
+                    ExchangeSaleId = saleReturn.ExchangeSaleId,
                     CustomerId = saleReturn.CustomerId,
                     UserId = saleReturn.UserId,
                     ShiftId = saleReturn.ShiftId,
