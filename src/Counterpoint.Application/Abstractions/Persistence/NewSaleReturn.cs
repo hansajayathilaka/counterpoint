@@ -9,8 +9,10 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// </summary>
 /// <param name="ReturnNo">Allocated from <c>number_sequence</c> in the same transaction.</param>
 /// <param name="OriginalSaleId">
-/// The bill this return is against. Always non-null for the linked-return flow this task builds -
-/// an unlinked return (<c>original_sale_id IS NULL</c>) is P2-T03.
+/// The bill this return is against, or null for an unlinked return (SRS FR-5.19, task P2-T03) -
+/// <c>sale_return.original_sale_id</c> is nullable for exactly that case (docs/01_DATA_MODEL.md
+/// §6). <c>CreateReturnHandler</c> (task P2-T02) always gives one; <c>CreateUnlinkedReturnHandler</c>
+/// never does.
 /// </param>
 /// <param name="ReturnedAt">When the return was taken.</param>
 /// <param name="BusinessDate">The trading day it belongs to.</param>
@@ -30,7 +32,7 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// <param name="Reason">The return's own reason, if one line reason does not already say it all.</param>
 public sealed record NewSaleReturn(
     string ReturnNo,
-    long OriginalSaleId,
+    long? OriginalSaleId,
     DateTimeOffset ReturnedAt,
     DateOnly BusinessDate,
     long? CustomerId,

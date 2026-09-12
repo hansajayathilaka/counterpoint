@@ -307,7 +307,8 @@ public sealed class SettingDefaultsTests
             Percentage.FromPercent(2.5m),
             CombineRepeatScans: false,
             ReceiptRequired: false,
-            NonReturnableCategoryIds: [3, 7]),
+            NonReturnableCategoryIds: [3, 7],
+            AllowedUnlinkedRefundMethods: [RefundMethod.Card]),
         new PeripheralSettings(
             "EPSON TM-T82",
             PaperWidthMm: 58,
