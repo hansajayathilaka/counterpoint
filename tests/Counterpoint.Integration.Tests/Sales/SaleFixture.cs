@@ -274,6 +274,11 @@ internal sealed class SaleFixture : IAsyncDisposable
         // same reason IDiscountAuthorisationService above is not.
         services.AddSingleton<IReturnPolicyAuthorisationService, ReturnPolicyAuthorisationService>();
 
+        // P2-T02: linked returns (SRS FR-5.1-FR-5.10, AC-03, AC-06), wired exactly as
+        // Counterpoint.App's CounterpointHostBuilderExtensions - undecorated, the same shape as
+        // IReturnPolicyAuthorisationService above.
+        services.AddSingleton<ICreateReturn, CreateReturnHandler>();
+
         // Bulk price update by category, brand or supplier (SRS FR-2.19) is owner only, wired
         // exactly as IProductMaintenance above.
         services.AddSingleton<IBulkPriceUpdateService>(p => RoleAuthorisation.Decorate<IBulkPriceUpdateService>(

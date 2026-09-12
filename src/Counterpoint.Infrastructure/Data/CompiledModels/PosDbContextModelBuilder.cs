@@ -11,7 +11,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
     public partial class PosDbContextModel
     {
         private PosDbContextModel()
-            : base(skipDetectChanges: false, modelId: new Guid("54718f08-4e60-4b92-9443-9eaed609b7e7"), entityTypeCount: 40)
+            : base(skipDetectChanges: false, modelId: new Guid("903ccd79-e46a-403b-980f-2a456546621b"), entityTypeCount: 40)
         {
         }
 
@@ -77,6 +77,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
             GoodsReceiptLineEntityType.CreateForeignKey3(goodsReceiptLine, uom);
             HeldBillEntityType.CreateForeignKey1(heldBill, appUser);
             PaymentEntityType.CreateForeignKey1(payment, sale);
+            PaymentEntityType.CreateForeignKey2(payment, saleReturn);
             PriceChangeLogEntityType.CreateForeignKey1(priceChangeLog, productVariant);
             PriceChangeLogEntityType.CreateForeignKey2(priceChangeLog, appUser);
             PriceTierEntityType.CreateForeignKey1(priceTier, productVariant);

@@ -116,6 +116,11 @@ internal static class CounterpointHostBuilderExtensions
         // same reasoning as IDiscountAuthorisationService immediately above.
         builder.Services.AddSingleton<IReturnPolicyAuthorisationService, ReturnPolicyAuthorisationService>();
 
+        // P2-T02: linked returns (SRS FR-5.1-FR-5.10, AC-03, AC-06). Not owner-only either, the
+        // same reasoning as IReturnPolicyAuthorisationService immediately above - a cashier takes
+        // an ordinary, in-window, receipted return without needing anyone's role.
+        builder.Services.AddSingleton<ICreateReturn, CreateReturnHandler>();
+
         // Resolved a second time, deliberately: AddCounterpointInfrastructure resolves and
         // registers its own PosDataDirectory internally and does not hand it back, and changing
         // that already-tested signature is out of scope here. Resolve() and EnsureCreated() are
