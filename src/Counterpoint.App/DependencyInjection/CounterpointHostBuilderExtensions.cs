@@ -103,6 +103,15 @@ internal static class CounterpointHostBuilderExtensions
             ActivatorUtilities.CreateInstance<PurchaseOrderService>(p),
             p.GetRequiredService<ISession>()));
 
+        // P2-T07: goods receipt (SRS FR-4.7, FR-4.8, AC-08) - owner-only, wired exactly as
+        // IPurchaseOrderService above. Depends on IPurchaseOrderService itself (to recompute a
+        // linked order's status) and ILabelPrintService (registered further below); the factory
+        // lambda resolves both lazily, once every registration in this method has run, so the
+        // order the two lines appear in does not matter.
+        builder.Services.AddSingleton<IGoodsReceiptService>(p => RoleAuthorisation.Decorate<IGoodsReceiptService>(
+            ActivatorUtilities.CreateInstance<GoodsReceiptService>(p),
+            p.GetRequiredService<ISession>()));
+
         // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19, FR-3.7-FR-3.10, Q-12).
         // IDiscountAuthorisationService is not owner-only - a cashier applies a discount inside
         // the cap without needing anyone's role, and going over it is gated by an OverrideToken,

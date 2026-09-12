@@ -262,6 +262,13 @@ internal sealed class SaleFixture : IAsyncDisposable
             ActivatorUtilities.CreateInstance<PurchaseOrderService>(p),
             p.GetRequiredService<ISession>()));
 
+        // P2-T07: goods receipt (SRS FR-4.7, FR-4.8, AC-08) - owner-only, wired exactly as
+        // CounterpointHostBuilderExtensions wires it, decorated-only, same shape as
+        // IPurchaseOrderService above (NFR-S2, AC-17).
+        services.AddSingleton<IGoodsReceiptService>(p => RoleAuthorisation.Decorate<IGoodsReceiptService>(
+            ActivatorUtilities.CreateInstance<GoodsReceiptService>(p),
+            p.GetRequiredService<ISession>()));
+
         // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19, FR-3.7-FR-3.10, Q-12), the same
         // two lines as Counterpoint.App's CounterpointHostBuilderExtensions.
         // IDiscountAuthorisationService is not owner-only - a cashier applies a discount inside
