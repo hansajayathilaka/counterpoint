@@ -240,3 +240,4 @@ it stopped.
 
 **Run ended 2026-09-12T06:00:56Z** — 1 completed (P2-T06, PR #28); P2-T01 already merged as PR #27 by an earlier session before this continuation
 - `2026-09-12T13:22:22Z` **P2-T07** start — Goods receipt (GRN)
+- `2026-09-12T17:48:34Z` **P2-T07** fix-attempt — 1: GoodsReceiptService never applies IRoundingPolicy - RequireReceiptBalances throws on legitimate GRN with fractional subtotal + tax (invariant 2 violation)
