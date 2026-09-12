@@ -5,8 +5,10 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Counterpoint.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// Maps <c>payment</c> (docs/01_DATA_MODEL.md §5). APPEND ONLY. <c>sale_return_id</c> is a plain
-/// nullable column until P2-T02 creates <c>sale_return</c> - see <see cref="ProductConfiguration"/>.
+/// Maps <c>payment</c> (docs/01_DATA_MODEL.md §5). APPEND ONLY. <c>sale_return_id</c>'s foreign
+/// key to <c>sale_return</c> was added in <c>PaymentSaleReturnForeignKey0007</c> (P2-T02,
+/// docs/01_DATA_MODEL.md §13) - the last of the four dangling references from Skeleton0001, one
+/// still deliberately unresolved: <c>sale.customer_id</c> is P5-T02's.
 /// </summary>
 internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 {
@@ -26,6 +28,11 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         entity.HasOne<Sale>()
             .WithMany()
             .HasForeignKey(payment => payment.SaleId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        entity.HasOne<SaleReturn>()
+            .WithMany()
+            .HasForeignKey(payment => payment.SaleReturnId)
             .OnDelete(DeleteBehavior.NoAction);
 
         entity.ToTable(table =>

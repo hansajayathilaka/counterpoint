@@ -1,0 +1,45 @@
+using System;
+using Counterpoint.Domain.ValueObjects;
+
+namespace Counterpoint.Application.Abstractions.Persistence;
+
+/// <summary>
+/// The header of a return about to be written, with every total already computed and rounded
+/// (task P2-T02).
+/// </summary>
+/// <param name="ReturnNo">Allocated from <c>number_sequence</c> in the same transaction.</param>
+/// <param name="OriginalSaleId">
+/// The bill this return is against. Always non-null for the linked-return flow this task builds -
+/// an unlinked return (<c>original_sale_id IS NULL</c>) is P2-T03.
+/// </param>
+/// <param name="ReturnedAt">When the return was taken.</param>
+/// <param name="BusinessDate">The trading day it belongs to.</param>
+/// <param name="CustomerId">Inherited from the original sale, or null.</param>
+/// <param name="UserId">The cashier taking it.</param>
+/// <param name="ShiftId">The open shift it belongs to. A closed shift is refused by the database (AC-11).</param>
+/// <param name="Subtotal">Sum of the line refunds (net, pre tax).</param>
+/// <param name="Tax">Sum of the line tax refunds.</param>
+/// <param name="RestockingFee">The policy's restocking fee, shown separately (task P2-T02 step 5).</param>
+/// <param name="TotalRefund">
+/// <c>Subtotal + Tax - RestockingFee</c>, exactly - not independently rounded, so this identity
+/// holds over the stored row without a residual "rounding" column, which <c>sale_return</c> does
+/// not carry (unlike <c>sale</c>).
+/// </param>
+/// <param name="RefundMethod">One of the <c>sale_return.refund_method</c> tokens.</param>
+/// <param name="AuthorisedBy">The owner who granted an override, when one was needed.</param>
+/// <param name="Reason">The return's own reason, if one line reason does not already say it all.</param>
+public sealed record NewSaleReturn(
+    string ReturnNo,
+    long OriginalSaleId,
+    DateTimeOffset ReturnedAt,
+    DateOnly BusinessDate,
+    long? CustomerId,
+    long UserId,
+    long ShiftId,
+    Money Subtotal,
+    Money Tax,
+    Money RestockingFee,
+    Money TotalRefund,
+    string RefundMethod,
+    long? AuthorisedBy,
+    string? Reason);

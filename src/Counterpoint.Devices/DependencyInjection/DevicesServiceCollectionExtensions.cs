@@ -77,6 +77,10 @@ public static class DevicesServiceCollectionExtensions
         // the sale receipt above, over its own fixed layout.
         services.AddSingleton<ISaleCancellationReceiptRenderer, EscPosSaleCancellationReceiptRenderer>();
 
+        // P2-T02: the return receipt (SRS FR-5, FR-7.1) - the same renderer/capabilities pair,
+        // over its own fixed layout, the same shape as the cancellation slip above.
+        services.AddSingleton<IReturnReceiptRenderer, EscPosReturnReceiptRenderer>();
+
         // P1-T12: the shelf-label printer - a separate device abstraction from the receipt
         // printer above, because most shelf-label printers speak TSPL rather than ESC/POS. The
         // Windows raw spooler adapter is HW-T03's, and it swaps in here and nowhere else.

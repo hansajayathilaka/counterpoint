@@ -22,7 +22,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
                 typeof(Payment),
                 baseEntityType,
                 propertyCount: 7,
-                foreignKeyCount: 1,
+                foreignKeyCount: 2,
                 unnamedIndexCount: 2,
                 keyCount: 1);
 
@@ -111,6 +111,17 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
                 deleteBehavior: DeleteBehavior.NoAction);
 
             runtimeForeignKey.AddAnnotation("Relational:Name", "fk_payment_sale_sale_id");
+            return runtimeForeignKey;
+        }
+
+        public static RuntimeForeignKey CreateForeignKey2(RuntimeEntityType declaringEntityType, RuntimeEntityType principalEntityType)
+        {
+            var runtimeForeignKey = declaringEntityType.AddForeignKey(new[] { declaringEntityType.FindProperty("SaleReturnId") },
+                principalEntityType.FindKey(new[] { principalEntityType.FindProperty("Id") }),
+                principalEntityType,
+                deleteBehavior: DeleteBehavior.NoAction);
+
+            runtimeForeignKey.AddAnnotation("Relational:Name", "fk_payment_sale_return_sale_return_id");
             return runtimeForeignKey;
         }
 

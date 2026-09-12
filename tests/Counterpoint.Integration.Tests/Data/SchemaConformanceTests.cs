@@ -30,9 +30,8 @@ public sealed class SchemaConformanceTests
 
     /// <summary>
     /// Every foreign key in the schema, as <c>table.column -&gt; referenced table</c>. Nothing
-    /// else may be one, and in particular neither of the two columns docs/01_DATA_MODEL.md §13
-    /// still lists as dangling - <c>sale.customer_id</c> and <c>payment.sale_return_id</c> - may
-    /// appear here.
+    /// else may be one, and in particular the one column docs/01_DATA_MODEL.md §13 still lists as
+    /// dangling - <c>sale.customer_id</c> - may not appear here.
     /// </summary>
     private static readonly string[] DocumentedForeignKeys =
     [
@@ -55,6 +54,7 @@ public sealed class SchemaConformanceTests
         "goods_receipt_line.uom_id -> uom",
         "held_bill.user_id -> app_user",
         "payment.sale_id -> sale",
+        "payment.sale_return_id -> sale_return",
         "price_change_log.product_variant_id -> product_variant",
         "price_change_log.user_id -> app_user",
         "price_tier.product_variant_id -> product_variant",
@@ -734,17 +734,19 @@ public sealed class SchemaConformanceTests
     /// <summary>
     /// docs/01_DATA_MODEL.md §13 listed four columns written as <c>REFERENCES</c> in the DDL whose
     /// tables did not exist. <c>FullSchema0002</c> creates <c>category</c> and <c>brand</c> and
-    /// makes those two real; the other two stay plain nullable columns, because a REFERENCES to a
-    /// missing table is legal DDL that only fails at INSERT time - a landmine, not a constraint.
+    /// makes those two real; <c>PaymentSaleReturnForeignKey0007</c> (P2-T02) makes
+    /// <c>payment.sale_return_id</c> the third. <c>sale.customer_id</c> stays a plain nullable
+    /// column, because a REFERENCES to a missing table is legal DDL that only fails at INSERT
+    /// time - a landmine, not a constraint.
     /// </summary>
     /// <remarks>
-    /// <c>sale.customer_id</c> and <c>payment.sale_return_id</c> are left alone deliberately, and
-    /// not only because P5-T02 and P2-T02 own them. Both tables are append-only, adding a foreign
-    /// key to either rebuilds it, and a rebuild drops its triggers - so those two are the two
-    /// changes that have to carry a full trigger re-creation with them.
+    /// <c>sale.customer_id</c> is left alone deliberately, and not only because P5-T02 owns it.
+    /// <c>sale</c> is append-only, adding a foreign key to it rebuilds it, and a rebuild drops its
+    /// triggers - so that change has to carry a full trigger re-creation with it, the same as
+    /// <c>payment</c>'s already did here.
     /// </remarks>
     [Fact]
-    public async Task TheTwoRemainingDanglingReferencesAreNotForeignKeysYet()
+    public async Task TheRemainingDanglingReferenceIsNotAForeignKeyYet()
     {
         await using var database = await MigratedDatabase.CreateAsync();
 
@@ -753,31 +755,33 @@ public sealed class SchemaConformanceTests
         saleSql.Should().Contain("\"customer_id\" INTEGER NULL")
             .And.NotContain("REFERENCES \"customer\"");
 
-        var paymentSql = await database.ScalarAsync(
-            "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'payment';");
-        paymentSql.Should().Contain("\"sale_return_id\" INTEGER NULL")
-            .And.NotContain("REFERENCES \"sale_return\"");
-
-        // And the two that were resolved really did become constraints, rather than quietly
+        // And the three that were resolved really did become constraints, rather than quietly
         // staying plain columns.
         var productSql = await database.ScalarAsync(
             "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'product';");
         productSql.Should().Contain("REFERENCES \"category\"").And.Contain("REFERENCES \"brand\"");
+
+        var paymentSql = await database.ScalarAsync(
+            "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'payment';");
+        paymentSql.Should().Contain("REFERENCES \"sale_return\"");
     }
 
     /// <summary>
-    /// The same two columns, proved by writing nonsense into each of them. This is the assertion
-    /// the reading of <c>sqlite_schema</c> above cannot make: a stray <c>HasForeignKey</c>
-    /// produces DDL that looks fine, creates cleanly and then fails at a random INSERT months
-    /// later with "no such table: customer".
+    /// The same column, proved by writing nonsense into it. This is the assertion the reading of
+    /// <c>sqlite_schema</c> above cannot make: a stray <c>HasForeignKey</c> produces DDL that
+    /// looks fine, creates cleanly and then fails at a random INSERT months later with
+    /// "no such table: customer".
     /// </summary>
     /// <remarks>
-    /// Both tables are append-only, so both are exercised on INSERT - the only door the till uses
-    /// for them anyway. The sale goes into the open shift because <c>trg_sale_shift_open</c> would
-    /// otherwise refuse it first, which would prove nothing.
+    /// <c>sale</c> is append-only, so it is exercised on INSERT - the only door the till uses for
+    /// it anyway. The sale goes into the open shift because <c>trg_sale_shift_open</c> would
+    /// otherwise refuse it first, which would prove nothing. <c>payment.sale_return_id</c> is the
+    /// opposite case now - see
+    /// <see cref="AValueInTheResolvedPaymentColumnIsRefusedAtInsertTime"/> - and is asserted
+    /// alongside it precisely because the two used to behave identically here.
     /// </remarks>
     [Fact]
-    public async Task AValueInADanglingColumnIsAcceptedRatherThanFailingAtInsertTime()
+    public async Task AValueInTheDanglingColumnIsAcceptedRatherThanFailingAtInsertTime()
     {
         await using var database = await MigratedDatabase.CreateAsync();
 
@@ -791,19 +795,31 @@ public sealed class SchemaConformanceTests
 
         (await database.ScalarAsync("SELECT customer_id FROM sale WHERE id = 97;")).Should().Be("4242");
 
+        // And the file is still sound: a dangling REFERENCES would show up here.
+        (await database.ScalarAsync("PRAGMA foreign_key_check;")).Should().BeNull();
+        (await database.ScalarAsync("PRAGMA integrity_check;")).Should().Be("ok");
+    }
+
+    /// <summary>
+    /// <c>payment.sale_return_id</c>'s foreign key (P2-T02) is real, not merely present in
+    /// <c>sqlite_schema</c>'s text: the same nonsense value
+    /// <see cref="AValueInTheDanglingColumnIsAcceptedRatherThanFailingAtInsertTime"/> writes into
+    /// <c>sale.customer_id</c> without complaint is refused here.
+    /// </summary>
+    [Fact]
+    public async Task AValueInTheResolvedPaymentColumnIsRefusedAtInsertTime()
+    {
+        await using var database = await MigratedDatabase.CreateAsync();
+
         // sale_return_id, with sale_id NULL so ck_payment_one_document is satisfied.
-        await database.ExecuteAsync(
+        var exception = await database.ExecuteExpectingAbortAsync(
             """
             INSERT INTO payment (id, sale_id, sale_return_id, tender_type, amount, paid_at)
             VALUES (97, NULL, 4242, 'CASH', 1000, '2026-09-04T11:00:00.000+05:30');
             """);
 
-        (await database.ScalarAsync("SELECT sale_return_id FROM payment WHERE id = 97;"))
-            .Should().Be("4242");
-
-        // And the file is still sound: a dangling REFERENCES would show up here.
-        (await database.ScalarAsync("PRAGMA foreign_key_check;")).Should().BeNull();
-        (await database.ScalarAsync("PRAGMA integrity_check;")).Should().Be("ok");
+        exception.SqliteErrorCode.Should().Be(SqliteConstraint);
+        exception.SqliteExtendedErrorCode.Should().Be(SqliteConstraintForeignKey);
     }
 
     /// <summary>

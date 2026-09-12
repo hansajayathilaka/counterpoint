@@ -26,6 +26,7 @@ public sealed class MigrationRunnerTests
         "20260905010104_ProductSearch0004",
         "20260908062332_UomActive0005",
         "20260908065449_ProductUomBaseUnit0006",
+        "20260912110401_PaymentSaleReturnForeignKey0007",
     ];
 
     [Fact]
@@ -158,7 +159,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4], Chain[5]);
+        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6]);
         result.BackupFilePath.Should().NotBeNull();
         File.Exists(result.BackupFilePath!).Should().BeTrue();
         Path.GetFileName(result.BackupFilePath!).Should().StartWith("counterpoint-pre-");
@@ -233,7 +234,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5]);
+        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6]);
 
         await using (var check = factory.OpenConfiguredConnection())
         {
@@ -286,7 +287,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5]);
+        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -341,7 +342,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[5]);
+        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -405,7 +406,74 @@ public sealed class MigrationRunnerTests
         nonPositiveFactor.Message.Should().Contain("ck_product_uom_conversion_factor");
     }
 
+    /// <summary>
+    /// <c>PaymentSaleReturnForeignKey0007</c> (docs/01_DATA_MODEL.md §13): the last of the four
+    /// dangling references, resolved by rebuilding <c>payment</c> with a real foreign key to
+    /// <c>sale_return(id)</c>. Migrated forward from a database already carrying
+    /// <c>TradingDaySeed</c>'s seeded payment row, so what is under test is that the rebuild keeps
+    /// the row, enforces the new constraint, and comes back out the other side with its two
+    /// append-only triggers still in place - the exact hazard docs/01_DATA_MODEL.md §13 names
+    /// ("the migration that adds either constraint must re-create that table's append-only
+    /// triggers in the same migration").
+    /// </summary>
+    [Fact]
+    public async Task P2_T02_PaymentGetsAForeignKeyToSaleReturnAndKeepsItsTriggers()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "ProductUomBaseUnit0006");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+        var result = await runner.ApplyPendingMigrationsAsync();
+
+        result.AppliedMigrations.Should().Equal(Chain[6]);
+
+        await using var check = factory.OpenConfiguredConnection();
+        await using var command = check.CreateCommand();
+
+        command.CommandText = "PRAGMA integrity_check;";
+        (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+        command.CommandText = "PRAGMA foreign_key_check;";
+        (await command.ExecuteScalarAsync()).Should().BeNull();
+
+        // The seeded payment row - inserted before this migration ran - came through the rebuild
+        // unchanged.
+        command.CommandText = "SELECT tender_type || ' ' || amount FROM payment WHERE id = 1;";
+        (await command.ExecuteScalarAsync()).Should().Be("CASH 2875000");
+
+        // The foreign key is really there, not merely a column that happens to be named right.
+        command.CommandText =
+            "SELECT count(*) FROM pragma_foreign_key_list('payment') WHERE \"table\" = 'sale_return';";
+        (await command.ExecuteScalarAsync()).Should().Be(1L);
+
+        // It is enforced: a refund payment naming a sale_return that does not exist is refused.
+        var orphanRefund = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO payment (id, sale_id, sale_return_id, tender_type, amount, reference, paid_at) " +
+            "VALUES (2, NULL, 4242, 'CASH', -100000, NULL, '2026-09-04T10:00:00.000+05:30');");
+        orphanRefund.SqliteExtendedErrorCode.Should().Be(SqliteConstraintForeignKey);
+
+        // The rebuild did not leave the temporary table behind.
+        command.CommandText = "SELECT count(*) FROM sqlite_schema WHERE name = 'ef_temp_payment';";
+        (await command.ExecuteScalarAsync()).Should().Be(0L);
+
+        // And payment is still append-only - the whole point of re-creating the triggers after
+        // the rebuild rather than before it.
+        var updateBlocked = await ExecuteExpectingSqliteExceptionAsync(check, "UPDATE payment SET amount = 1 WHERE id = 1;");
+        updateBlocked.Message.Should().Contain("payment is append-only");
+
+        var deleteBlocked = await ExecuteExpectingSqliteExceptionAsync(check, "DELETE FROM payment WHERE id = 1;");
+        deleteBlocked.Message.Should().Contain("payment is append-only");
+    }
+
     private const int SqliteConstraintUnique = 2067;
+    private const int SqliteConstraintForeignKey = 787;
     private const int SqliteConstraintTrigger = 1811;
     private const int SqliteConstraintCheck = 275;
 

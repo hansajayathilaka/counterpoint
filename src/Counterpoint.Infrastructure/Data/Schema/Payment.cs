@@ -9,7 +9,7 @@ internal sealed class Payment
 
     public long? SaleId { get; set; }
 
-    /// <summary>No foreign key yet: <c>sale_return</c> arrives in P2-T02. See §13 of the data model.</summary>
+    /// <summary>The refund it pays out, or null for a sale tender. See §13 of the data model.</summary>
     public long? SaleReturnId { get; set; }
 
     public string TenderType { get; set; } = string.Empty;

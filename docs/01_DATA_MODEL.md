@@ -1692,13 +1692,16 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 | `ProductSearch0004` | P1-T01 | The `product_search` FTS5 index, its four maintenance triggers and its backfill, split out because `ProductForeignKeys0003` rebuilds `product` (see §8) |
 | `UomActive0005` | P1-T04 | `uom.active INTEGER NOT NULL DEFAULT 1`, matching the `active` column its five catalogue siblings (`category`, `brand`, `tax_class`, `supplier`, `customer`) already carried — a plain `ADD COLUMN`, since `uom` carries no triggers to lose |
 | `ProductUomBaseUnit0006` | P1-T05 | The two halves of "exactly one base row per product with `conversion_factor = 10000`": the partial unique index `ux_product_uom_one_base` and the `trg_product_uom_base_factor_insert` / `_update` guard triggers — a trigger rather than a `CHECK`-adding rebuild, since `product_uom` carried no triggers to lose either way but a later rebuild might |
+| `PaymentSaleReturnForeignKey0007` | P2-T02 | The `payment.sale_return_id` foreign key to `sale_return(id)` — the third of the four dangling references (§13) — rebuilding `payment` and re-creating its two append-only triggers in the same migration, written as literal SQL rather than `AddForeignKey` so the triggers land after the rebuild instead of before it |
 
 Forty tables, forty-four indexes, thirty-one triggers, laid down across `Skeleton0001` through
 `ProductSearch0004`. Three migrations rather than one for that part, and the split is not
 cosmetic — see §8, "One rebuild, alone, in a migration of its own". `UomActive0005` adds one
 column to an existing table and changes none of those counts. `ProductUomBaseUnit0006` adds one
 index and two triggers to an existing table — forty-five indexes, thirty-three triggers from
-here on — again without a rebuild.
+here on — again without a rebuild. `PaymentSaleReturnForeignKey0007` adds one foreign key and
+rebuilds `payment`, changing neither the table, index nor trigger count — its two triggers are
+re-created, not added.
 
 ### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 
@@ -1733,7 +1736,7 @@ erDiagram
 be allocatable without touching the document, the print outbox must survive the sale it came from,
 and the schema version is about the file rather than the business.
 
-### The four dangling references, two of which are still dangling
+### The four dangling references, one of which is still dangling
 
 The DDL above writes these as `REFERENCES`, but at `Skeleton0001` the tables they point at did not
 exist. With `PRAGMA foreign_keys = ON` a reference to a missing table is accepted at
@@ -1744,14 +1747,29 @@ constraint. All four were therefore plain nullable `INTEGER` columns:
 |---|---|---|
 | `product.category_id` | `category(id)` | **Resolved** in `FullSchema0002` (P1-T01) |
 | `product.brand_id` | `brand(id)` | **Resolved** in `FullSchema0002` (P1-T01) |
+| `payment.sale_return_id` | `sale_return(id)` | **Resolved** in `PaymentSaleReturnForeignKey0007` (P2-T02) |
 | `sale.customer_id` | `customer(id)` | Still a plain column. `customer` exists from P1-T01; the constraint is P5-T02's, with credit accounts |
-| `payment.sale_return_id` | `sale_return(id)` | Still a plain column. `sale_return` exists from P1-T01; the constraint is P2-T02's, with returns |
 
 Adding a foreign key to SQLite rebuilds the table, **which drops that table's triggers**.
-`product` carries none of its own, which is why its two were safe to resolve first. The two that
-remain are both on append-only tables: **the migration that adds either constraint must re-create
-that table's append-only triggers in the same migration** — five for `sale`, two for `payment` —
-and must not create any trigger naming the rebuilt table earlier in that same migration (§8).
+`product` carries none of its own, which is why its two were safe to resolve first. The one that
+remains is on an append-only table: **the migration that adds it must re-create `sale`'s five
+append-only triggers in the same migration**, and must not create any trigger naming the rebuilt
+table earlier in that same migration (§8).
+
+**`PaymentSaleReturnForeignKey0007`'s own lesson, for whoever writes that one:** appending
+`migrationBuilder.Sql(...)` calls for the triggers *after* `migrationBuilder.AddForeignKey(...)` in
+`Up()` is not enough. EF's SQLite generator defers the rebuild a structural operation like
+`AddForeignKey` causes and only flushes it once, at the very end of `Up()`'s whole operation list —
+regardless of where a `Sql()` call naming the same table sits relative to it, and regardless of how
+many other structural operations come between them. A `CREATE TRIGGER` appended straight after
+`AddForeignKey`, as this migration first tried, ran *before* the rebuild it depended on and would
+have left a live database with the new foreign key but neither trigger. The fix, confirmed with
+`dotnet ef migrations script` before and after: write the whole rebuild by hand as literal
+`Sql()` calls, in the literal order EF's own generator produces for the change (captured with that
+same command), with the `CREATE TRIGGER` statements appended after the rename. Once every
+statement is a `Sql()` operation, order is the C# source order, not a generator's internal,
+unlisted batching rule. `sale.customer_id` (P5-T02) will hit the identical issue and wants the
+identical fix, for all five of `sale`'s triggers.
 
 ### Working on a migration
 
