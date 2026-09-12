@@ -239,3 +239,4 @@ it stopped.
 - `2026-09-12T06:00:00Z` **P2-T06** done — 44 files, 24 new tests, review clean
 
 **Run ended 2026-09-12T06:00:56Z** — 1 completed (P2-T06, PR #28); P2-T01 already merged as PR #27 by an earlier session before this continuation
+- `2026-09-12T13:22:22Z` **P2-T07** start — Goods receipt (GRN)
