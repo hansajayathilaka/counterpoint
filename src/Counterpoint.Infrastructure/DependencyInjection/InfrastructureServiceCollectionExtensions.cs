@@ -12,6 +12,7 @@ using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Import;
 using Counterpoint.Infrastructure.Inventory;
 using Counterpoint.Infrastructure.Printing;
+using Counterpoint.Infrastructure.Purchasing;
 using Counterpoint.Infrastructure.Sales;
 using Counterpoint.Infrastructure.Security;
 using Counterpoint.Infrastructure.Settings;
@@ -119,6 +120,13 @@ public static class InfrastructureServiceCollectionExtensions
 
         // P1-T05: product, variant and UOM conversion maintenance (SRS FR-2.1-FR-2.8, FR-3.6, AC-08).
         services.AddSingleton<IProductStore, SqliteProductStore>();
+
+        // P2-T06: suppliers and purchase orders (SRS FR-4.5, FR-4.6, FR-4.10). IPurchaseOrderStore
+        // and ISuggestedOrderQuery are read/write ports with no role requirement of their own -
+        // the owner-only IPurchaseOrderService built on top of them is wired decorated in the
+        // composition root, the same split IProductStore above draws with IProductMaintenance.
+        services.AddSingleton<IPurchaseOrderStore, SqlitePurchaseOrderStore>();
+        services.AddSingleton<ISuggestedOrderQuery, SqliteSuggestedOrderQuery>();
 
         // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19). IPriceChangeLogStore and
         // IPriceQuery are read/maintenance ports with no role requirement of their own - the

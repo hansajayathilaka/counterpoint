@@ -6,8 +6,10 @@ using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Labels;
+using Counterpoint.Ui.ViewModels.Purchasing;
 using Counterpoint.Ui.ViewModels.Settings;
 using Counterpoint.Ui.Views;
+using Counterpoint.Ui.Views.Purchasing;
 using Counterpoint.Ui.Views.Settings;
 
 namespace Counterpoint.Ui;
@@ -37,6 +39,7 @@ public partial class App : Avalonia.Application
     private readonly SalesViewModel? _salesViewModel;
     private readonly UserAdminViewModel? _userAdminViewModel;
     private readonly CatalogueViewModel? _catalogueViewModel;
+    private readonly PurchaseOrderViewModel? _purchaseOrderViewModel;
     private readonly LabelPrintViewModel? _labelPrintViewModel;
     private readonly PrintQueueViewModel? _printQueueViewModel;
     private readonly SettingsViewModel? _settingsViewModel;
@@ -62,6 +65,7 @@ public partial class App : Avalonia.Application
         SalesViewModel salesViewModel,
         UserAdminViewModel userAdminViewModel,
         CatalogueViewModel catalogueViewModel,
+        PurchaseOrderViewModel purchaseOrderViewModel,
         LabelPrintViewModel labelPrintViewModel,
         PrintQueueViewModel printQueueViewModel,
         SettingsViewModel settingsViewModel,
@@ -73,6 +77,7 @@ public partial class App : Avalonia.Application
         ArgumentNullException.ThrowIfNull(salesViewModel);
         ArgumentNullException.ThrowIfNull(userAdminViewModel);
         ArgumentNullException.ThrowIfNull(catalogueViewModel);
+        ArgumentNullException.ThrowIfNull(purchaseOrderViewModel);
         ArgumentNullException.ThrowIfNull(labelPrintViewModel);
         ArgumentNullException.ThrowIfNull(printQueueViewModel);
         ArgumentNullException.ThrowIfNull(settingsViewModel);
@@ -83,6 +88,7 @@ public partial class App : Avalonia.Application
         _salesViewModel = salesViewModel;
         _userAdminViewModel = userAdminViewModel;
         _catalogueViewModel = catalogueViewModel;
+        _purchaseOrderViewModel = purchaseOrderViewModel;
         _labelPrintViewModel = labelPrintViewModel;
         _printQueueViewModel = printQueueViewModel;
         _settingsViewModel = settingsViewModel;
@@ -176,6 +182,7 @@ public partial class App : Avalonia.Application
         var sales = new SalesWindow { DataContext = _salesViewModel };
         _salesViewModel.ManageUsersRequested += (_, _) => ShowUsers(sales);
         _salesViewModel.CatalogueRequested += (_, _) => ShowCatalogue(sales);
+        _salesViewModel.PurchaseOrdersRequested += (_, _) => ShowPurchaseOrders(sales);
         _salesViewModel.LabelPrintRequested += (_, _) => ShowLabelPrint(sales);
         _salesViewModel.PrintQueueRequested += (_, _) => ShowPrintQueue(sales);
         _salesViewModel.SettingsRequested += (_, _) => ShowSettings(sales);
@@ -212,6 +219,21 @@ public partial class App : Avalonia.Application
 
         var window = new CatalogueWindow { DataContext = _catalogueViewModel };
         _catalogueViewModel.LoadCommand.Execute(null);
+        window.Show(owner);
+    }
+
+    /// <summary>
+    /// Opens the purchase-order screen (SRS FR-4.5, FR-4.6, FR-4.10).
+    /// </summary>
+    private void ShowPurchaseOrders(Window owner)
+    {
+        if (_purchaseOrderViewModel is null)
+        {
+            return;
+        }
+
+        var window = new PurchaseOrderWindow { DataContext = _purchaseOrderViewModel };
+        _purchaseOrderViewModel.RefreshCommand.Execute(null);
         window.Show(owner);
     }
 

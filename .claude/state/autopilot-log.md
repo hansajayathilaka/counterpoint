@@ -227,3 +227,15 @@ it stopped.
 - `2026-09-10T15:54:22Z` **P2-T01** done — 20 files, 32 tests (24 domain + 8 integration), review clean, PR #27
 
 **Run ended 2026-09-10T15:55:03Z** — 2 completed, 0 halted
+
+## Run 2026-09-12T04:56:19Z
+
+- branch: `main`
+- head: `51fa3cf`
+- budget: 1 task(s)
+
+- `2026-09-12T04:56:21Z` **P2-T06** start — Suppliers and purchase orders
+- `2026-09-12T05:59:02Z` **P2-T06** review — code-reviewer clean (0 must-fix, 0 should-fix, 1 consider); data-modeler 0 must-fix, 1 should-fix (FindReceiptProgressAsync inner join could silently drop a line with a removed UOM option, mis-deriving status), 2 consider
+- `2026-09-12T06:00:00Z` **P2-T06** done — 44 files, 24 new tests, review clean
+
+**Run ended 2026-09-12T06:00:56Z** — 1 completed (P2-T06, PR #28); P2-T01 already merged as PR #27 by an earlier session before this continuation

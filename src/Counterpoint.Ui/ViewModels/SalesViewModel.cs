@@ -497,6 +497,9 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     /// <summary>Raised when the owner asks for the label-printing screen.</summary>
     public event EventHandler? LabelPrintRequested;
 
+    /// <summary>Raised when the owner asks for the purchase-order screen (SRS FR-4.5, FR-4.6, FR-4.10).</summary>
+    public event EventHandler? PurchaseOrdersRequested;
+
     /// <summary>The lines on the bill, in the order they were scanned.</summary>
     public ObservableCollection<SaleLineViewModel> Lines { get; } = [];
 
@@ -507,6 +510,9 @@ public sealed partial class SalesViewModel : NumericInputViewModel
     public bool CanManageCatalogue => _session.CurrentUser?.Role == Role.Owner;
 
     public bool CanPrintLabels => _session.CurrentUser?.Role == Role.Owner;
+
+    /// <summary>Purchasing is an owner capability (SRS §3.3 ROLE-2, task P2-T06).</summary>
+    public bool CanManagePurchasing => _session.CurrentUser?.Role == Role.Owner;
 
     public bool IsHelpPanelOpen => _activePanel == SalesPanel.Help;
 
@@ -540,6 +546,9 @@ public sealed partial class SalesViewModel : NumericInputViewModel
 
     [RelayCommand]
     public void PrintLabels() => LabelPrintRequested?.Invoke(this, EventArgs.Empty);
+
+    [RelayCommand]
+    public void ManagePurchaseOrders() => PurchaseOrdersRequested?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand]
     public void OpenSettings() => SettingsRequested?.Invoke(this, EventArgs.Empty);
