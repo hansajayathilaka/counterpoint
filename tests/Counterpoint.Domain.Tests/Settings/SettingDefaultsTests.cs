@@ -165,6 +165,58 @@ public sealed class SettingDefaultsTests
     }
 
     [Fact]
+    public void P2_T03_AllowedUnlinkedRefundMethodsAreStoredAsASortedCommaSeparatedListOfTokens()
+    {
+        var withMethods = SettingDefaults.Snapshot with
+        {
+            Policy = SettingDefaults.Policy with
+            {
+                AllowedUnlinkedRefundMethods = [RefundMethod.Card, RefundMethod.Card, RefundMethod.Cash],
+            },
+        };
+
+        var row = SettingsSerializer.ToRows(withMethods)
+            .Single(candidate => candidate.Key == SettingKeys.PolicyAllowedUnlinkedRefundMethods);
+
+        row.ValueType.Should().Be("STRING", "SettingValueTypes deliberately never uses JSON");
+        row.Value.Should().Be(
+            "CASH,CARD",
+            "ordered by the underlying enum value (Cash=0, CreditNote=1, Card=2) and de-duplicated, "
+            + "so two settings screens editing the same set in a different order write the identical row");
+    }
+
+    [Fact]
+    public void P2_T03_AnEmptyAllowedUnlinkedRefundMethodsRowReadsAsAnEmptyListRatherThanTheDefault()
+    {
+        var corrupt = new Dictionary<string, StoredSetting>(StringComparer.Ordinal)
+        {
+            [SettingKeys.PolicyAllowedUnlinkedRefundMethods] = new(string.Empty, "STRING"),
+        };
+
+        var restored = SettingsSerializer.FromRows(corrupt, SettingDefaults.Snapshot);
+
+        restored.Policy.AllowedUnlinkedRefundMethods.Should().BeEmpty(
+            "an owner who explicitly cleared the setting has said 'no refund method is allowed', "
+            + "which is not the same thing as 'this row is missing, use the default' (ReadRefundMethodList's own remarks)");
+    }
+
+    [Fact]
+    public void P2_T03_AnUnrecognisedRefundMethodTokenDegradesTheWholeListToTheDefault()
+    {
+        var corrupt = new Dictionary<string, StoredSetting>(StringComparer.Ordinal)
+        {
+            [SettingKeys.PolicyAllowedUnlinkedRefundMethods] = new("CARD,NOT_A_METHOD", "STRING"),
+        };
+
+        var restored = SettingsSerializer.FromRows(corrupt, SettingDefaults.Snapshot);
+
+        restored.Policy.AllowedUnlinkedRefundMethods.Should().BeEquivalentTo(
+            SettingDefaults.Policy.AllowedUnlinkedRefundMethods,
+            "one unparseable token degrades the whole list to the default rather than silently "
+            + "dropping just that token (CLAUDE.md invariant 7)");
+    }
+
+    [Fact]
     public void FR_10_7_TheOffSiteTargetIsTheOneTheShopChose()
     {
         SettingDefaults.Backup.CloudTarget.Should().Be(CloudBackupTarget.GoogleDrive, "Q-D");

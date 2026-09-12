@@ -294,6 +294,14 @@ internal sealed class SaleFixture : IAsyncDisposable
         // IReturnPolicyAuthorisationService above.
         services.AddSingleton<ICreateReturn, CreateReturnHandler>();
 
+        // P2-T03: unlinked returns (SRS FR-5.19, NFR-S2), wired exactly as
+        // Counterpoint.App's CounterpointHostBuilderExtensions - undecorated, the same shape as
+        // ICreateReturn above: the cashier still takes the return and stays signed in throughout
+        // (SRS FR-1.7); what makes this path high-friction is that
+        // CreateUnlinkedReturnCommand.Override is mandatory on every call, not that the method
+        // needs anyone's role.
+        services.AddSingleton<ICreateUnlinkedReturn, CreateUnlinkedReturnHandler>();
+
         // Bulk price update by category, brand or supplier (SRS FR-2.19) is owner only, wired
         // exactly as IProductMaintenance above.
         services.AddSingleton<IBulkPriceUpdateService>(p => RoleAuthorisation.Decorate<IBulkPriceUpdateService>(
