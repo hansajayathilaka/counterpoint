@@ -1403,8 +1403,10 @@ existing table's triggers.
 the create-copy-drop-rename rebuild described above, and a rebuild silently drops that table's
 triggers. `product_uom` carries none of its own today, so a rebuild would have cost nothing this
 time — but the trigger is what stays cheap on every migration *after* this one too, the same
-argument that keeps `sale.customer_id` and `payment.sale_return_id` as plain columns rather than
-foreign keys (§13). `IS NOT`, not `<>`, for the same reason as the append-only triggers above:
+argument that kept `sale.customer_id` and `payment.sale_return_id` as plain columns rather than
+foreign keys until each was ready to carry a full trigger re-creation with it (§13;
+`payment.sale_return_id` was resolved in `PaymentSaleReturnForeignKey0007`, P2-T02).
+`IS NOT`, not `<>`, for the same reason as the append-only triggers above:
 `conversion_factor` is `NOT NULL`, so it makes no difference here, but it costs nothing to stay
 consistent with the pattern one migration is not the place to break.
 
