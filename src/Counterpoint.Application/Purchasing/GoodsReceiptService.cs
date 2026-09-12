@@ -10,6 +10,7 @@ using Counterpoint.Application.Labels;
 using Counterpoint.Application.Security;
 using Counterpoint.Domain.Catalogue;
 using Counterpoint.Domain.Purchasing;
+using Counterpoint.Domain.Services;
 using Counterpoint.Domain.ValueObjects;
 
 namespace Counterpoint.Application.Purchasing;
@@ -51,6 +52,7 @@ internal sealed class GoodsReceiptService : IGoodsReceiptService
     private readonly IProductSupplierStore _productSuppliers;
     private readonly IStockLedger _stock;
     private readonly IDocumentNumberAllocator _numbers;
+    private readonly IRoundingPolicy _rounding;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditTrail _audit;
     private readonly IPrintJobOutbox _printJobs;
@@ -69,6 +71,7 @@ internal sealed class GoodsReceiptService : IGoodsReceiptService
         IProductSupplierStore productSuppliers,
         IStockLedger stock,
         IDocumentNumberAllocator numbers,
+        IRoundingPolicy rounding,
         IUnitOfWork unitOfWork,
         IAuditTrail audit,
         IPrintJobOutbox printJobs,
@@ -86,6 +89,7 @@ internal sealed class GoodsReceiptService : IGoodsReceiptService
         ArgumentNullException.ThrowIfNull(productSuppliers);
         ArgumentNullException.ThrowIfNull(stock);
         ArgumentNullException.ThrowIfNull(numbers);
+        ArgumentNullException.ThrowIfNull(rounding);
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(audit);
         ArgumentNullException.ThrowIfNull(printJobs);
@@ -103,6 +107,7 @@ internal sealed class GoodsReceiptService : IGoodsReceiptService
         _productSuppliers = productSuppliers;
         _stock = stock;
         _numbers = numbers;
+        _rounding = rounding;
         _unitOfWork = unitOfWork;
         _audit = audit;
         _printJobs = printJobs;
@@ -179,12 +184,18 @@ internal sealed class GoodsReceiptService : IGoodsReceiptService
         var finished = new List<FinishedGoodsReceiptLine>(lines.Count);
         for (var i = 0; i < lines.Count; i++)
         {
-            finished.Add(lines[i].Finish(freightShares[i]));
+            finished.Add(lines[i].Finish(freightShares[i], _rounding));
         }
 
         var receivedAt = command.ReceivedAt ?? _timeProvider.GetLocalNow();
         var businessDate = DateOnly.FromDateTime(receivedAt.Date);
 
+        // Pure summation, no rounding decision left to make here: PricedGoodsReceiptLine.Finish
+        // already rounded each line's own Subtotal and Tax (the line-total rounding point,
+        // CLAUDE.md invariant 2), and GoodsReceiptFreightApportioner already guarantees
+        // command.OtherCost is exactly the sum of every line's freight share. Because every
+        // summand on both sides is already scale-exact, total == sum(line.LineTotal) holds by
+        // construction - RequireReceiptBalances below is a belt-and-braces check, not a hope.
         var subtotal = Money.FromScaled(finished.Sum(line => line.Subtotal.ToScaled()));
         var tax = Money.FromScaled(finished.Sum(line => line.Tax.ToScaled()));
         var total = subtotal + tax + command.OtherCost;
@@ -475,11 +486,36 @@ internal sealed class GoodsReceiptService : IGoodsReceiptService
         Money Subtotal,
         Money Tax)
     {
-        internal FinishedGoodsReceiptLine Finish(Money freightShare)
+        /// <remarks>
+        /// <b>The rounding point (CLAUDE.md invariant 2).</b> <see cref="Subtotal"/> is
+        /// <c>UnitCost.Multiply(Quantity)</c> - unconstrained decimal multiplication, since a
+        /// hardware shop routinely sells by the metre or by weight - and <see cref="Tax"/> is a
+        /// free-form entered amount, so neither is scale-exact yet. Both are rounded here, once,
+        /// through <paramref name="rounding"/>, the same way <c>CompleteSaleHandler</c> rounds its
+        /// own line total before anything is summed from it: after this point <see cref="Money"/>
+        /// values only ever get added to other already-rounded values, so
+        /// <c>round(a) + round(b) == round(a + b)</c> holds by construction instead of by luck,
+        /// and the header (<c>ReceiveAsync</c>'s own <c>subtotal</c>/<c>tax</c>/<c>total</c>) can
+        /// be built by pure summation with no further rounding decision to make.
+        /// <paramref name="freightShare"/> needs none of this - it is already an exact scaled
+        /// integer by construction (<see cref="GoodsReceiptFreightApportioner"/>) - so it is added
+        /// in untouched, and rounding it further would only risk breaking the "shares sum to
+        /// exactly the entered freight" guarantee that method provides.
+        /// </remarks>
+        /// <remarks>
+        /// The stock-ledger cost path is untouched by any of this: <c>landed</c>,
+        /// <c>unitCostBase</c> and <c>unitCostBaseExcludingFreight</c> are still built from the
+        /// raw, unrounded <see cref="Subtotal"/> - full decimal precision, no tax - exactly as
+        /// AC-08's moving-average recompute needs them.
+        /// </remarks>
+        internal FinishedGoodsReceiptLine Finish(Money freightShare, IRoundingPolicy rounding)
         {
             var landed = Subtotal + freightShare;
             var unitCostBase = landed.Divide(QtyBase.Value);
             var unitCostBaseExcludingFreight = Subtotal.Divide(QtyBase.Value);
+
+            var roundedSubtotal = rounding.Round(Subtotal);
+            var roundedTax = rounding.Round(Tax);
 
             return new FinishedGoodsReceiptLine(
                 Item.ProductVariantId,
@@ -492,10 +528,10 @@ internal sealed class GoodsReceiptService : IGoodsReceiptService
                 Qty,
                 QtyBase,
                 UnitCost,
-                Subtotal,
+                roundedSubtotal,
                 freightShare,
-                Tax,
-                landed + Tax,
+                roundedTax,
+                roundedSubtotal + freightShare + roundedTax,
                 unitCostBase,
                 unitCostBaseExcludingFreight);
         }

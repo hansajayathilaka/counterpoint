@@ -113,6 +113,87 @@ public sealed class GoodsReceiptServiceTests
     }
 
     [Fact]
+    public async Task P2_T07_ATinyFractionalSubtotalAndTaxNoLongerThrowsAndRoundsToZero()
+    {
+        // Regression for the code-review defect: a line whose Subtotal (UnitCost x Quantity) and
+        // whose Tax both carry more precision than Money's own storage scale used to make
+        // RequireReceiptBalances throw a false "must match exactly" - subtotal and tax were each
+        // independently quantised to the ten-thousandth (0.00005 -> 0.0001) while the line total
+        // was built from the same two raw, unrounded values (0.00005 + 0.00005 -> 0.0001, itself
+        // quantised to 0.0001), leaving 0.0001 != 0.0002. Rounding both to the currency's own
+        // decimal places (Rs 0.00, SettingDefaults.Financial) before either is summed - the same
+        // "round once, sum the already-rounded values" shape CompleteSaleHandler uses - closes
+        // that off: everything here is well below half a cent, so both round down to zero, and a
+        // receipt that used to be refused now posts, exactly.
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await ConfigureGrnSeriesAsync(fixture);
+        var supplierId = await SeedSupplierAsync(fixture);
+        var pieceUomId = await PieceUomIdAsync(fixture);
+        var (variantId, _, _) = await SeedProductWithVariantAsync(fixture, "GRN-ROUND-A");
+
+        var grn = fixture.Resolve<IGoodsReceiptService>();
+        var act = () => grn.ReceiveAsync(new CreateGoodsReceiptCommand(
+            supplierId, null, null, ReceivedAt, OtherCost: Money.Zero, Note: null,
+            [new CreateGoodsReceiptLineCommand(
+                variantId, pieceUomId, 1m, Money.FromDecimal(0.00005m), Money.FromDecimal(0.00005m))]));
+
+        var result = await act.Should().NotThrowAsync(
+            "a legitimate receipt must never be refused for a false rounding mismatch");
+
+        result.Subject.Receipt.Subtotal.Should().Be(Money.Zero);
+        result.Subject.Receipt.Tax.Should().Be(Money.Zero);
+        result.Subject.Receipt.OtherCost.Should().Be(Money.Zero);
+        result.Subject.Receipt.Total.Should().Be(Money.Zero);
+
+        var line = result.Subject.Receipt.Lines.Should().ContainSingle().Subject;
+        line.Tax.Should().Be(Money.Zero);
+        line.LineTotal.Should().Be(Money.Zero);
+    }
+
+    [Fact]
+    public async Task P2_T07_FreightTaxAndAFractionalSubtotalReconcileExactlyAfterRounding()
+    {
+        // The fuller real-world shape: a fractional Subtotal (a hardware shop sells cable and
+        // wire below whole-currency precision), a freight share and a manually entered Tax, all
+        // on the same line. Subtotal (0.335) and Tax (0.125) both sit exactly on the currency's
+        // own rounding boundary (Rs 0.01, half away from zero) and round up; the freight share is
+        // already exact by construction (GoodsReceiptFreightApportioner). The receipt must still
+        // balance to the ten-thousandth, and the AC-08 stock-ledger cost path must keep using the
+        // raw, unrounded Subtotal - never the rounded receipt figure.
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await ConfigureGrnSeriesAsync(fixture);
+        var supplierId = await SeedSupplierAsync(fixture);
+        var pieceUomId = await PieceUomIdAsync(fixture);
+        var (variantId, _, _) = await SeedProductWithVariantAsync(fixture, "GRN-ROUND-B", sellingPrice: 10.00m);
+
+        var grn = fixture.Resolve<IGoodsReceiptService>();
+        var result = await grn.ReceiveAsync(new CreateGoodsReceiptCommand(
+            supplierId, null, null, ReceivedAt, OtherCost: Money.FromDecimal(1.00m), Note: null,
+            [new CreateGoodsReceiptLineCommand(
+                variantId, pieceUomId, 1m, Money.FromDecimal(0.335m), Money.FromDecimal(0.125m))]));
+
+        // Rounded once, at the line-total point: 0.335 -> 0.34, 0.125 -> 0.13 (both half away
+        // from zero, Rs 0.01). The header is nothing but their sum - no second, differently
+        // ordered recombination for RequireReceiptBalances to disagree with.
+        result.Receipt.Subtotal.Should().Be(Money.FromDecimal(0.34m));
+        result.Receipt.Tax.Should().Be(Money.FromDecimal(0.13m));
+        result.Receipt.OtherCost.Should().Be(Money.FromDecimal(1.00m));
+        result.Receipt.Total.Should().Be(Money.FromDecimal(1.47m));
+
+        var line = result.Receipt.Lines.Should().ContainSingle().Subject;
+        line.Tax.Should().Be(Money.FromDecimal(0.13m));
+        line.LineTotal.Should().Be(Money.FromDecimal(1.47m));
+
+        // The stock-ledger cost path is untouched: landed cost is the raw 0.335 subtotal plus the
+        // Rs 1.00 freight share, not the rounded 0.34 - full precision, exactly as AC-08 needs.
+        line.UnitCostBase.Should().Be(Money.FromDecimal(1.335m));
+
+        (await fixture.ScalarAsync(
+            "SELECT cost_avg FROM stock_balance WHERE product_variant_id = " + variantId + ";"))
+            .Should().Be(Money.FromDecimal(1.335m).ToScaled().ToString());
+    }
+
+    [Fact]
     public async Task FR_4_10_ReceivingAgainstAPurchaseOrderUpdatesQtyReceivedBaseAndAdvancesStatus()
     {
         await using var fixture = await SaleFixture.CreateSignedInAsync();
