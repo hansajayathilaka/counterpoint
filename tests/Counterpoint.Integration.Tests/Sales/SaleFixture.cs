@@ -111,6 +111,12 @@ internal sealed class SaleFixture : IAsyncDisposable
     /// Set to <see cref="PrinterFailureMode.FailEveryJob"/> to prove a sale completes with a
     /// broken printer (AC-16 in miniature).
     /// </param>
+    /// <param name="labelPrinterFailureMode">
+    /// Set to <see cref="PrinterFailureMode.FailEveryJob"/> to prove a GRN's already-committed
+    /// stock survives a broken label printer (P2-T07's own label-batch hook, the same AC-16
+    /// shape as <paramref name="printerFailureMode"/> but for <see cref="FileLabelPrinter"/>
+    /// rather than <see cref="FileReceiptPrinter"/>).
+    /// </param>
     /// <param name="hashing">
     /// Argon2id work factors. Null uses <see cref="TestArgon2Parameters"/>; pass
     /// <see cref="Argon2Parameters.Default"/> to measure what the shop will actually feel.
@@ -124,7 +130,8 @@ internal sealed class SaleFixture : IAsyncDisposable
     internal static async Task<SaleFixture> CreateAsync(
         PrinterFailureMode printerFailureMode = PrinterFailureMode.None,
         Argon2Parameters? hashing = null,
-        bool includeBackup = false)
+        bool includeBackup = false,
+        PrinterFailureMode labelPrinterFailureMode = PrinterFailureMode.None)
     {
         var root = Path.Combine(Path.GetTempPath(), "counterpoint-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -153,6 +160,7 @@ internal sealed class SaleFixture : IAsyncDisposable
             labelPrinterOptions: new FileLabelPrinterOptions
             {
                 OutputDirectory = Path.Combine(root, "labels"),
+                FailureMode = labelPrinterFailureMode,
                 TimeProvider = clock,
             });
 
@@ -348,9 +356,13 @@ internal sealed class SaleFixture : IAsyncDisposable
     /// </remarks>
     internal static async Task<SaleFixture> CreateSignedInAsync(
         PrinterFailureMode printerFailureMode = PrinterFailureMode.None,
-        bool includeBackup = false)
+        bool includeBackup = false,
+        PrinterFailureMode labelPrinterFailureMode = PrinterFailureMode.None)
     {
-        var fixture = await CreateAsync(printerFailureMode, includeBackup: includeBackup);
+        var fixture = await CreateAsync(
+            printerFailureMode,
+            includeBackup: includeBackup,
+            labelPrinterFailureMode: labelPrinterFailureMode);
 
         try
         {

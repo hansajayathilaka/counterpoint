@@ -7,6 +7,7 @@ using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Purchasing;
 using Counterpoint.Application.Security;
+using Counterpoint.Devices.Printing;
 using Counterpoint.Domain.Catalogue;
 using Counterpoint.Domain.Security;
 using Counterpoint.Domain.ValueObjects;
@@ -261,6 +262,51 @@ public sealed class GoodsReceiptServiceTests
         result.LabelPrintOutcome.Succeeded.Should().BeTrue(result.LabelPrintOutcome.FailureReason ?? string.Empty);
         Directory.Exists(fixture.LabelDirectory).Should().BeTrue("the received batch must have reached the label printer");
         Directory.GetFiles(fixture.LabelDirectory, "*.bin").Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task FR_2_12_ALabelPrinterFailureDoesNotThrowAndDoesNotRollBackTheAlreadyCommittedReceipt()
+    {
+        // CLAUDE.md invariant 7 ("never block the sale") applied to a GRN: the label batch is
+        // printed after ReceiveAsync's own transaction has already committed (the class remarks
+        // on GoodsReceiptService.ReceiveAsync say so explicitly), so a broken label printer must
+        // never throw out of ReceiveAsync and must never take the stock posting or the GRN row
+        // down with it.
+        await using var fixture = await SaleFixture.CreateSignedInAsync(
+            labelPrinterFailureMode: PrinterFailureMode.FailEveryJob);
+        await ConfigureGrnSeriesAsync(fixture);
+        var supplierId = await SeedSupplierAsync(fixture);
+        var pieceUomId = await PieceUomIdAsync(fixture);
+        var (variantId, _, _) = await SeedProductWithVariantAsync(fixture, "GRN-LABELFAIL-A");
+
+        var grn = fixture.Resolve<IGoodsReceiptService>();
+
+        var act = () => grn.ReceiveAsync(new CreateGoodsReceiptCommand(
+            supplierId, null, null, ReceivedAt, Money.Zero, null,
+            [new CreateGoodsReceiptLineCommand(variantId, pieceUomId, 5m, Money.FromDecimal(1.00m))]));
+
+        var result = await act.Should().NotThrowAsync(
+            "a label printer fault must degrade with a warning, never abort or roll back a receipt "
+            + "that has already posted stock");
+
+        result.Subject.LabelPrintOutcome.Succeeded.Should().BeFalse();
+        result.Subject.LabelPrintOutcome.FailureReason.Should().NotBeNullOrWhiteSpace();
+
+        // The receipt, its line and the stock movement/balance are all still there: the failed
+        // label print happened strictly after the business transaction committed, not inside it.
+        (await fixture.CountAsync("SELECT COUNT(*) FROM goods_receipt WHERE id = " + result.Subject.Receipt.Id + ";"))
+            .Should().Be(1);
+
+        (await fixture.CountAsync(
+            "SELECT COUNT(*) FROM stock_movement WHERE movement_type = 'GRN' AND ref_doc_id = " + result.Subject.Receipt.Id + ";"))
+            .Should().Be(1);
+
+        (await fixture.ScalarAsync(
+            "SELECT qty_base FROM stock_balance WHERE product_variant_id = " + variantId + ";"))
+            .Should().Be(Quantity.FromDecimal(5m, pieceUomId).ToScaled().ToString());
+
+        Directory.Exists(fixture.LabelDirectory).Should().BeFalse(
+            "FileLabelPrinter never writes a file when FailureMode is FailEveryJob");
     }
 
     [Fact]
