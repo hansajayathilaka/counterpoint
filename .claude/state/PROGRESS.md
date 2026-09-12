@@ -65,7 +65,7 @@ hands them back.
 | P2-T04 | Exchanges | todo | | |
 | P2-T05 | Credit notes | todo | | |
 | P2-T06 | Suppliers and purchase orders | done | 2026-09-12 | 0eb4620 feat(P2-T06): suppliers and purchase orders - all 4 Done-when proven (verify.sh green, 596/597 + 2 unrelated flaky tests confirmed passing in isolation); code-reviewer clean, data-modeler 1 should-fix carried to PR (FindReceiptProgressAsync UOM-removal edge case) |
-| P2-T07 | Goods receipt (GRN) | done | 2026-09-12 | a390e9e feat(P2-T07): goods receipt GRN (FR-4.7, FR-4.8, AC-08) - all 5 Done-when proven (verify.sh green, 607 tests incl. 8 domain freight-apportionment property tests, 3 device PDF snapshot tests, 10 SaleFixture integration tests); unit_cost_base (landed, ledger-facing) kept deliberately distinct from product_supplier.last_cost (plain supplier price, no freight) - documented in the service's own remarks; no Avalonia GRN screen built (Application/Infrastructure/Domain only, per task's own "skip the UI if in doubt") |
+| P2-T07 | Goods receipt (GRN) | done | 2026-09-12 | 1dcc10a Goods receipt GRN (FR-4.7, FR-4.8, AC-08), PR #30 |
 | P2-T08 | Adjustments and damage | todo | | |
 | P2-T09 | Bulk breaking | todo | | |
 | P2-T10 | Stock take | todo | | |

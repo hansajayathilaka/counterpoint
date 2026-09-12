@@ -242,3 +242,4 @@ it stopped.
 - `2026-09-12T13:22:22Z` **P2-T07** start — Goods receipt (GRN)
 - `2026-09-12T17:48:34Z` **P2-T07** fix-attempt — 1: GoodsReceiptService never applies IRoundingPolicy - RequireReceiptBalances throws on legitimate GRN with fractional subtotal + tax (invariant 2 violation)
 - `2026-09-12T18:12:22Z` **P2-T07** fix-attempt — 1 resolved: IRoundingPolicy threaded through GoodsReceiptService, code-reviewer confirmed fix closes the finding
+- `2026-09-12T18:13:21Z` **P2-T07** done — 12 files, 610 tests, 1 Must-fix found and resolved (rounding invariant), review clean after fix, PR #30 opened
