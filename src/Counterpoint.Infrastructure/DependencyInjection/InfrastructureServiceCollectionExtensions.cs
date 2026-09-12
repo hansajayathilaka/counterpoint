@@ -136,6 +136,13 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IPurchaseOrderStore, SqlitePurchaseOrderStore>();
         services.AddSingleton<ISuggestedOrderQuery, SqliteSuggestedOrderQuery>();
 
+        // P2-T07: goods receipt (SRS FR-4.7, FR-4.8, AC-08). IGoodsReceiptStore and
+        // IProductSupplierStore are read/write ports with no role requirement of their own - the
+        // owner-only IGoodsReceiptService built on top of them is wired decorated in the
+        // composition root, the same split as IPurchaseOrderStore above.
+        services.AddSingleton<IGoodsReceiptStore, SqliteGoodsReceiptStore>();
+        services.AddSingleton<IProductSupplierStore, SqliteProductSupplierStore>();
+
         // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19). IPriceChangeLogStore and
         // IPriceQuery are read/maintenance ports with no role requirement of their own - the
         // owner-only surfaces built on top of them (IProductMaintenance's price change,

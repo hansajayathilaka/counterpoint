@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Domain.Purchasing;
+using Counterpoint.Domain.ValueObjects;
 
 namespace Counterpoint.Application.Abstractions.Persistence;
 
@@ -37,5 +38,23 @@ public interface IPurchaseOrderStore
     /// </summary>
     public Task<IReadOnlyList<PurchaseOrderLineReceiptProgress>> FindReceiptProgressAsync(
         long id,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds <paramref name="deltaBase"/> to <c>qty_received_base</c> on the one line of
+    /// <paramref name="purchaseOrderId"/> that orders <paramref name="productVariantId"/> - the
+    /// goods-receipt handler's own write (P2-T07, SRS FR-4.10). When more than one line on the
+    /// same order names the same variant (unusual, but the schema does not forbid it), the first
+    /// such line by id receives the whole increment.
+    /// </summary>
+    /// <returns>
+    /// False, having written nothing, when the order has no line for that variant - a GRN item
+    /// outside what was ordered still posts its own stock movement; there is simply nothing on
+    /// the order for it to advance.
+    /// </returns>
+    public Task<bool> IncrementReceivedAsync(
+        long purchaseOrderId,
+        long productVariantId,
+        Quantity deltaBase,
         CancellationToken cancellationToken = default);
 }

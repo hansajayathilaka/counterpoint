@@ -69,6 +69,10 @@ public static class DevicesServiceCollectionExtensions
         // sale invoice above, over its own data model.
         services.AddSingleton<IPurchaseOrderDocumentRenderer, QuestPdfPurchaseOrderRenderer>();
 
+        // P2-T07: the goods receipt note document (SRS FR-4.7, FR-7.10) - the same QuestPDF/A4
+        // approach as the purchase order above, over its own data model.
+        services.AddSingleton<IGoodsReceiptDocumentRenderer, QuestPdfGoodsReceiptRenderer>();
+
         // P1-T11: the settings screen's template preview - renders to text, never to the
         // printer or the outbox.
         services.AddSingleton<IReceiptTemplatePreviewService, ReceiptTemplatePreviewService>();
