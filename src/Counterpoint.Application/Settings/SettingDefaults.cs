@@ -91,7 +91,11 @@ public static class SettingDefaults
     /// FR-10.5. Fourteen days to return with the bill, receipted, no restocking fee and no
     /// category flagged non-returnable out of the box (Q-03), negative stock allowed (Q-11), and
     /// no discount ceiling at all (Q-12, "not for now" - the limit exists, set to 100%, so that
-    /// P1-T08 has something real to enforce the day the shop wants one).
+    /// P1-T08 has something real to enforce the day the shop wants one). Unlinked returns
+    /// (task P2-T03) are off out of the box (SRS FR-5.19), and even once switched on may not be
+    /// refunded by cash - credit note is the shop's intended default (its own remarks on
+    /// <see cref="PolicySettings.AllowedUnlinkedRefundMethods"/> explain why card is also listed
+    /// today: credit notes are not redeemable until P2-T05).
     /// </summary>
     public static PolicySettings Policy { get; } = new(
         ReturnWindowDays: 14,
@@ -104,7 +108,8 @@ public static class SettingDefaults
         RestockingFeeRate: Percentage.Zero,
         CombineRepeatScans: true,
         ReceiptRequired: true,
-        NonReturnableCategoryIds: []);
+        NonReturnableCategoryIds: [],
+        AllowedUnlinkedRefundMethods: [RefundMethod.CreditNote, RefundMethod.Card]);
 
     /// <summary>
     /// FR-10.6. What the Linux fakes need, which is also what an uncommissioned Windows terminal

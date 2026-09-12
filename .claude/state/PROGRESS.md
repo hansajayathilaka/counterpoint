@@ -61,7 +61,7 @@ hands them back.
 |---|---|---|---|---|
 | P2-T01 | Return policy engine | done | 2026-09-10 | 7f9e7db feat(P2-T01): return policy engine - PR #27 |
 | P2-T02 | Linked returns | done | 2026-09-12 | 9ef1734 Linked returns (FR-5.1-FR-5.10, AC-03, AC-06), PR #29 |
-| P2-T03 | Unlinked returns | todo | | |
+| P2-T03 | Unlinked returns | done | 2026-09-12 | b460c91 test(P2-T03): unlinked returns coverage - all 4 Done-when proven (verify.sh green: 628 tests + 6 architecture tests + 54 trigger-survival tests); code-reviewer + data-modeler review both clean (0 must-fix); no UI screen built (matches P2-T02's own precedent - Application layer only, deferred to a later screen task); should-fix carried to PR: docs/01_DATA_MODEL.md app_setting key table missing policy.allowed_unlinked_refund_methods row, and a test-readability nit passing variantId into Quantity.FromDecimal's uomId slot (harmless - only .Value is read, same convention as P2-T02's own ReturnLineRequest.QuantityBase) |
 | P2-T04 | Exchanges | in-progress | | |
 | P2-T05 | Credit notes | todo | | |
 | P2-T06 | Suppliers and purchase orders | done | 2026-09-12 | 0eb4620 feat(P2-T06): suppliers and purchase orders - all 4 Done-when proven (verify.sh green, 596/597 + 2 unrelated flaky tests confirmed passing in isolation); code-reviewer clean, data-modeler 1 should-fix carried to PR (FindReceiptProgressAsync UOM-removal edge case) |

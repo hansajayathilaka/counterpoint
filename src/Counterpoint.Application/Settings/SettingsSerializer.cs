@@ -268,6 +268,9 @@ public static class SettingsSerializer
         rows.Add(Text(
             SettingKeys.PolicyNonReturnableCategoryIds,
             WriteLongList(policy.NonReturnableCategoryIds)));
+        rows.Add(Text(
+            SettingKeys.PolicyAllowedUnlinkedRefundMethods,
+            WriteRefundMethodList(policy.AllowedUnlinkedRefundMethods)));
     }
 
     private static PolicySettings ReadPolicy(
@@ -287,7 +290,9 @@ public static class SettingsSerializer
             ReadPercentage(rows, SettingKeys.PolicyRestockingFeeRate, fallback.RestockingFeeRate),
             ReadBool(rows, SettingKeys.PolicyCombineRepeatScans, fallback.CombineRepeatScans),
             ReadBool(rows, SettingKeys.PolicyReceiptRequired, fallback.ReceiptRequired),
-            ReadLongList(rows, SettingKeys.PolicyNonReturnableCategoryIds, fallback.NonReturnableCategoryIds));
+            ReadLongList(rows, SettingKeys.PolicyNonReturnableCategoryIds, fallback.NonReturnableCategoryIds),
+            ReadRefundMethodList(
+                rows, SettingKeys.PolicyAllowedUnlinkedRefundMethods, fallback.AllowedUnlinkedRefundMethods));
 
     // ---- FR-10.6 Peripherals -----------------------------------------------------------------
 
@@ -454,6 +459,15 @@ public static class SettingsSerializer
     private static string WriteLongList(IReadOnlyCollection<long> values) =>
         string.Join(',', values.Distinct().OrderBy(id => id));
 
+    /// <summary>
+    /// A comma-separated list of <see cref="SettingTokens.From(RefundMethod)"/> tokens, the same
+    /// "STRING, not JSON" shape as <see cref="WriteLongList"/> - de-duplicated and ordered by the
+    /// underlying enum value so two settings screens editing the same set in a different order
+    /// still write the identical row (task P2-T03, <see cref="PolicySettings.AllowedUnlinkedRefundMethods"/>).
+    /// </summary>
+    private static string WriteRefundMethodList(IReadOnlyCollection<RefundMethod> values) =>
+        string.Join(',', values.Distinct().OrderBy(method => method).Select(SettingTokens.From));
+
     // ---- Row readers -------------------------------------------------------------------------
 
     private static string ReadText(
@@ -551,5 +565,48 @@ public static class SettingsSerializer
         }
 
         return ids;
+    }
+
+    /// <summary>
+    /// Reads back what <see cref="WriteRefundMethodList"/> wrote. An empty row is an empty list,
+    /// not a missing one; any token <see cref="SettingTokens.ToRefundMethod"/> cannot place (an
+    /// unrecognised word, not one that merely maps to a fallback) degrades the whole row to
+    /// <paramref name="fallback"/> - the same "one corrupt value must not stop the till trading"
+    /// rule <see cref="ReadLongList"/> follows (CLAUDE.md invariant 7).
+    /// </summary>
+    private static IReadOnlyList<RefundMethod> ReadRefundMethodList(
+        IReadOnlyDictionary<string, StoredSetting> rows,
+        string key,
+        IReadOnlyList<RefundMethod> fallback)
+    {
+        if (!rows.TryGetValue(key, out var stored))
+        {
+            return fallback;
+        }
+
+        if (stored.Value.Length == 0)
+        {
+            return Array.Empty<RefundMethod>();
+        }
+
+        var tokens = stored.Value.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var methods = new List<RefundMethod>(tokens.Length);
+
+        foreach (var token in tokens)
+        {
+            // SettingTokens.ToRefundMethod itself degrades an unknown token to a fallback rather
+            // than throwing (CLAUDE.md invariant 7's own rule, one level down) - a sentinel neither
+            // RefundMethod value below could ever equal is what lets this reader still tell "that
+            // token was junk" apart from "that token legitimately named RefundMethod.Cash".
+            var method = SettingTokens.ToRefundMethod(token, fallback: (RefundMethod)(-1));
+            if ((int)method == -1)
+            {
+                return fallback;
+            }
+
+            methods.Add(method);
+        }
+
+        return methods;
     }
 }
