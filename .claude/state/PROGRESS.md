@@ -65,7 +65,7 @@ hands them back.
 | P2-T04 | Exchanges | todo | | |
 | P2-T05 | Credit notes | todo | | |
 | P2-T06 | Suppliers and purchase orders | done | 2026-09-12 | 0eb4620 feat(P2-T06): suppliers and purchase orders - all 4 Done-when proven (verify.sh green, 596/597 + 2 unrelated flaky tests confirmed passing in isolation); code-reviewer clean, data-modeler 1 should-fix carried to PR (FindReceiptProgressAsync UOM-removal edge case) |
-| P2-T07 | Goods receipt (GRN) | in-progress | | |
+| P2-T07 | Goods receipt (GRN) | done | 2026-09-12 | a390e9e feat(P2-T07): goods receipt GRN (FR-4.7, FR-4.8, AC-08) - all 5 Done-when proven (verify.sh green, 607 tests incl. 8 domain freight-apportionment property tests, 3 device PDF snapshot tests, 10 SaleFixture integration tests); unit_cost_base (landed, ledger-facing) kept deliberately distinct from product_supplier.last_cost (plain supplier price, no freight) - documented in the service's own remarks; no Avalonia GRN screen built (Application/Infrastructure/Domain only, per task's own "skip the UI if in doubt") |
 | P2-T08 | Adjustments and damage | todo | | |
 | P2-T09 | Bulk breaking | todo | | |
 | P2-T10 | Stock take | todo | | |
@@ -149,7 +149,7 @@ Update as tests land. `automated` means a passing test exists in
 | AC-05 | P2-T01 | automated (a non-returnable item is denied and proceeds only with an audited owner override; ReturnPolicyAuthorisationServiceTests.AC_05_ANonReturnableItemIsDeniedAndProceedsOnlyWithAnOwnerOverrideWhichIsAudited, tests/Counterpoint.Integration.Tests/Returns/ReturnPolicyAuthorisationServiceTests.cs - denies without override, obtains an owner override token, retries successfully, asserts an audit_log row names the owner and the requesting cashier, and confirms the token is single-use) |
 | AC-06 | P2-T02 | not started |
 | AC-07 | P1-T13 | automated (CatalogueImportTests.AC_07_OneHundredSkusImportFromASpreadsheetWithValidationReportAndCorrectStockAndPrices, tests/Counterpoint.Integration.Tests/Import/CatalogueImportTests.cs) |
-| AC-08 | P2-T07 | not started |
+| AC-08 | P2-T07 | automated (AC_08_ABoxToPieceGoodsReceiptIncreasesStockInBaseUnitsAndUpdatesMovingAverageCostCorrectly, tests/Counterpoint.Integration.Tests/Purchasing/GoodsReceiptServiceTests.cs - 2 boxes of 100 land as 200 pieces in the base unit, stock_balance.qty_base and cost_avg both proven against a hand-worked moving-average example) |
 | AC-09 | P2-T09 | not started |
 | AC-10 | P2-T10 | not started |
 | AC-11 | P3-T03 | not started |
