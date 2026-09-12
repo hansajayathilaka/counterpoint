@@ -60,7 +60,7 @@ hands them back.
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
 | P2-T01 | Return policy engine | done | 2026-09-10 | 7f9e7db feat(P2-T01): return policy engine - PR #27 |
-| P2-T02 | Linked returns | todo | | |
+| P2-T02 | Linked returns | in-progress | | |
 | P2-T03 | Unlinked returns | todo | | |
 | P2-T04 | Exchanges | todo | | |
 | P2-T05 | Credit notes | todo | | |
