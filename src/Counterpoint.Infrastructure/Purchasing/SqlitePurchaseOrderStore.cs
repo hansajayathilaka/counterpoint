@@ -217,6 +217,34 @@ internal sealed class SqlitePurchaseOrderStore : IPurchaseOrderStore
             },
             cancellationToken);
 
+    /// <inheritdoc />
+    public Task<bool> IncrementReceivedAsync(
+        long purchaseOrderId,
+        long productVariantId,
+        Quantity deltaBase,
+        CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteInTransactionAsync(
+            async (_, _, token) =>
+            {
+                using var context = _unitOfWork.CreateDbContext();
+
+                var line = await context.Set<PurchaseOrderLine>()
+                    .Where(l => l.PurchaseOrderId == purchaseOrderId && l.ProductVariantId == productVariantId)
+                    .OrderBy(l => l.Id)
+                    .FirstOrDefaultAsync(token)
+                    .ConfigureAwait(false);
+
+                if (line is null)
+                {
+                    return false;
+                }
+
+                line.QtyReceivedBase += deltaBase.ToScaled();
+                await context.SaveChangesAsync(token).ConfigureAwait(false);
+                return true;
+            },
+            cancellationToken);
+
     /// <summary>Loads one order with its lines, resolving every join a screen or a print needs (SKU, product name, unit symbols).</summary>
     private static async Task<PurchaseOrderRecord?> LoadAsync(PosDbContext context, long id, CancellationToken token)
     {
