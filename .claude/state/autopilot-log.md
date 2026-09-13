@@ -266,3 +266,4 @@ it stopped.
 ## Run 2026-09-12T20:13:40Z (continued)
 
 - `2026-09-12T20:13:40Z` **P2-T04** start — Exchanges
+- `2026-09-13T01:09:08Z` **P2-T04** fix-attempt — 1: negative-stock accumulation bypass for repeated same-variant replacement lines under NegativeStockPolicy.Block (code-reviewer finding, same bug class as P1-T09's fix)
