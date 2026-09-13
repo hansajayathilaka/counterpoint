@@ -136,7 +136,11 @@ public sealed partial class PolicySettingsViewModel : SettingsGroupViewModel
                 // else here can never silently reset them to their defaults (task P2-T01; a
                 // return-policy screen for these two is future work, not this task's).
                 snapshot.Policy.ReceiptRequired,
-                snapshot.Policy.NonReturnableCategoryIds),
+                snapshot.Policy.NonReturnableCategoryIds,
+
+                // Same reasoning, one field newer: task P2-T03 added this restriction but did not
+                // ask for a settings screen of its own.
+                snapshot.Policy.AllowedUnlinkedRefundMethods),
         };
     }
 }

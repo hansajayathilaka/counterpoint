@@ -130,6 +130,12 @@ internal static class CounterpointHostBuilderExtensions
         // an ordinary, in-window, receipted return without needing anyone's role.
         builder.Services.AddSingleton<ICreateReturn, CreateReturnHandler>();
 
+        // P2-T03: unlinked returns (SRS FR-5.19, NFR-S2). Not owner-only in its own right either -
+        // the cashier still takes the return and stays signed in throughout (SRS FR-1.7); what
+        // makes this path high-friction is that CreateUnlinkedReturnCommand.Override is mandatory
+        // on every call, not that the method needs anyone's role.
+        builder.Services.AddSingleton<ICreateUnlinkedReturn, CreateUnlinkedReturnHandler>();
+
         // Resolved a second time, deliberately: AddCounterpointInfrastructure resolves and
         // registers its own PosDataDirectory internally and does not hand it back, and changing
         // that already-tested signature is out of scope here. Resolve() and EnsureCreated() are

@@ -152,7 +152,7 @@ public sealed class CreateReturnHandler : ICreateReturn
         ArgumentNullException.ThrowIfNull(command);
         RequireAtLeastOneLine(command);
         RequireNoDuplicateLines(command);
-        RequireSupportedRefundMethod(command.RefundMethod);
+        RefundMethodMapping.RequireSupported(command.RefundMethod);
 
         var seller = RequireTheSellerIsSignedIn(command);
 
@@ -198,7 +198,7 @@ public sealed class CreateReturnHandler : ICreateReturn
                         priced.Tax,
                         priced.RestockingFee,
                         priced.TotalRefund,
-                        RefundMethodToken(command.RefundMethod),
+                        RefundMethodMapping.ToAuditToken(command.RefundMethod),
                         AuthorisedBy(command),
                         command.Reason),
                     token).ConfigureAwait(false);
@@ -239,7 +239,7 @@ public sealed class CreateReturnHandler : ICreateReturn
                 await _returns.InsertRefundPaymentAsync(
                     saleReturnId,
                     new NewTender(
-                        RefundMethodToTenderType(command.RefundMethod),
+                        RefundMethodMapping.ToTenderType(command.RefundMethod),
                         priced.TotalRefund.Negate(),
                         null,
                         command.ReturnedAt),
@@ -263,7 +263,7 @@ public sealed class CreateReturnHandler : ICreateReturn
                     returnNo,
                     sale.BillNo,
                     command.ReturnedAt,
-                    RefundMethodToken(command.RefundMethod),
+                    RefundMethodMapping.ToAuditToken(command.RefundMethod),
                     seller.DisplayName,
                     policyText));
 
@@ -360,22 +360,8 @@ public sealed class CreateReturnHandler : ICreateReturn
         return new PricedReturn(subtotal, tax, fee, totalRefund, lines);
     }
 
-    private async Task<string> BuildPolicyTextAsync(CancellationToken cancellationToken)
-    {
-        var policy = _settings.Policy;
-        var names = new List<string>(policy.NonReturnableCategoryIds.Count);
-
-        foreach (var categoryId in policy.NonReturnableCategoryIds)
-        {
-            var category = await _categories.FindByIdAsync(categoryId, cancellationToken).ConfigureAwait(false);
-            if (category is not null)
-            {
-                names.Add(category.Name);
-            }
-        }
-
-        return ReturnPolicyTextFormatter.Describe(policy, names);
-    }
+    private Task<string> BuildPolicyTextAsync(CancellationToken cancellationToken) =>
+        ReturnPolicyTextBuilder.BuildAsync(_settings, _categories, cancellationToken);
 
     private static void RequireAtLeastOneLine(CreateReturnCommand command)
     {
@@ -396,16 +382,6 @@ public sealed class CreateReturnHandler : ICreateReturn
                     CultureInfo.InvariantCulture,
                     $"Bill line {line.SaleLineId} appears twice in the same return. Combine it into one line."));
             }
-        }
-    }
-
-    private static void RequireSupportedRefundMethod(RefundMethod refundMethod)
-    {
-        if (refundMethod == RefundMethod.CreditNote)
-        {
-            throw new InvalidOperationException(
-                "Refunding by store credit needs a credit note to issue it against, and issuing "
-                + "credit notes is P2-T05. Refund by cash or card for now.");
         }
     }
 
@@ -454,22 +430,6 @@ public sealed class CreateReturnHandler : ICreateReturn
         }
         .FirstOrDefault(token => token is { IsConsumed: true })
         ?.GrantedByUserId;
-
-    private static string RefundMethodToken(RefundMethod method) => method switch
-    {
-        RefundMethod.Cash => "CASH",
-        RefundMethod.Card => "CARD",
-        RefundMethod.CreditNote => throw new InvalidOperationException("Credit note refunds are P2-T05."),
-        _ => throw new ArgumentOutOfRangeException(nameof(method), method, "Unknown refund method."),
-    };
-
-    private static string RefundMethodToTenderType(RefundMethod method) => method switch
-    {
-        RefundMethod.Cash => TenderTypes.Cash,
-        RefundMethod.Card => TenderTypes.Card,
-        RefundMethod.CreditNote => throw new InvalidOperationException("Credit note refunds are P2-T05."),
-        _ => throw new ArgumentOutOfRangeException(nameof(method), method, "Unknown refund method."),
-    };
 
     /// <summary>
     /// The audit row's after-state. Written by hand rather than serialised so the text is stable

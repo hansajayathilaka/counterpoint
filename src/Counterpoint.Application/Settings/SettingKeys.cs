@@ -74,6 +74,7 @@ public static class SettingKeys
     public const string PolicyCombineRepeatScans = "policy.combine_repeat_scans";
     public const string PolicyReceiptRequired = "policy.receipt_required";
     public const string PolicyNonReturnableCategoryIds = "policy.non_returnable_category_ids";
+    public const string PolicyAllowedUnlinkedRefundMethods = "policy.allowed_unlinked_refund_methods";
 
     // ---- FR-10.6 Peripherals -------------------------------------------------------------
     public const string PeripheralReceiptPrinterName = "peripheral.receipt_printer_name";

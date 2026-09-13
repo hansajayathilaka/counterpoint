@@ -48,6 +48,16 @@ namespace Counterpoint.Application.Settings;
 /// the per-product <c>product.non_returnable</c> flag P1-T05 already carries. Empty by default -
 /// nothing is non-returnable by category until the owner says so.
 /// </param>
+/// <param name="AllowedUnlinkedRefundMethods">
+/// Which <see cref="RefundMethod"/> values an unlinked return (SRS FR-5.19, task P2-T03 step 4)
+/// may be refunded by - deliberately its own, narrower list rather than reusing
+/// <see cref="DefaultRefundMethod"/>, because the elevated-risk, no-original-bill path is meant to
+/// be restricted harder than an ordinary linked return, not just default differently. Cash is
+/// excluded by default - "restricted per settings, default to credit note rather than cash" -
+/// while card stays available so the flow is not dead on arrival before <c>credit_note</c> rows
+/// exist (P2-T05): a shop that has not yet reached that task can still take an unlinked return by
+/// card, but never by cash, without editing this setting.
+/// </param>
 public sealed record PolicySettings(
     int ReturnWindowDays,
     bool AllowUnlinkedReturns,
@@ -59,7 +69,8 @@ public sealed record PolicySettings(
     Percentage RestockingFeeRate,
     bool CombineRepeatScans,
     bool ReceiptRequired,
-    IReadOnlyList<long> NonReturnableCategoryIds)
+    IReadOnlyList<long> NonReturnableCategoryIds,
+    IReadOnlyList<RefundMethod> AllowedUnlinkedRefundMethods)
 {
     /// <summary>
     /// Value equality for every field, <see cref="NonReturnableCategoryIds"/> included.
@@ -85,7 +96,8 @@ public sealed record PolicySettings(
         && RestockingFeeRate == other.RestockingFeeRate
         && CombineRepeatScans == other.CombineRepeatScans
         && ReceiptRequired == other.ReceiptRequired
-        && NonReturnableCategoryIds.SequenceEqual(other.NonReturnableCategoryIds);
+        && NonReturnableCategoryIds.SequenceEqual(other.NonReturnableCategoryIds)
+        && AllowedUnlinkedRefundMethods.SequenceEqual(other.AllowedUnlinkedRefundMethods);
 
     /// <inheritdoc cref="Equals(PolicySettings?)" />
     public override int GetHashCode()
@@ -105,6 +117,11 @@ public sealed record PolicySettings(
         foreach (var id in NonReturnableCategoryIds)
         {
             hash.Add(id);
+        }
+
+        foreach (var method in AllowedUnlinkedRefundMethods)
+        {
+            hash.Add(method);
         }
 
         return hash.ToHashCode();
