@@ -267,3 +267,4 @@ it stopped.
 
 - `2026-09-12T20:13:40Z` **P2-T04** start — Exchanges
 - `2026-09-13T01:09:08Z` **P2-T04** fix-attempt — 1: negative-stock accumulation bypass for repeated same-variant replacement lines under NegativeStockPolicy.Block (code-reviewer finding, same bug class as P1-T09's fix)
+- `2026-09-13T01:27:15Z` **P2-T04** fix-attempt — 1 result: fixed via claimedByVariant accumulator mirroring CompleteSaleHandler's P1-T09 pattern; verify.sh green
