@@ -56,12 +56,11 @@ namespace Counterpoint.Application.Exchanges;
 /// <see cref="IRoundingPolicy"/>) rather than by calling <c>CompleteSaleHandler.CompleteAsync</c>
 /// or its private pricing methods - that handler opens its own transaction and its per-line
 /// pricing is not a reusable public surface, so this duplicates a smaller version of it instead of
-/// restructuring it. The one simplification against <c>CompleteSaleHandler</c>'s own negative-stock
-/// check: it accumulates on-hand claims across repeated lines of the same variant within one bill
-/// (P1-T09's own fix for that exact bypass); this handler checks each replacement line against the
-/// catalogue's raw on-hand figure alone. An exchange's replacement side is expected to be one or
-/// two lines, and two lines of the very same variant in one exchange is an edge case, not the
-/// common path - flagged here, not silently accepted as equivalent.
+/// restructuring it. It also duplicates <c>CompleteSaleHandler.PriceAsync</c>'s own negative-stock
+/// fix (P1-T09): a <c>claimedByVariant</c> accumulator, threaded through every replacement line's
+/// pricing call, so two replacement lines of the same variant in one exchange are checked (and,
+/// for Warn, report their message) against on-hand net of what earlier lines in this same
+/// exchange already claimed - not the catalogue's raw on-hand figure independently per line.
 /// </para>
 /// <para>
 /// <b>The credit is <c>sale.bill_discount</c>, not a promotional discount.</b> <c>sale</c> has no
@@ -482,13 +481,24 @@ public sealed class CreateExchangeHandler : ICreateExchange
         var cogs = Money.Zero;
         var lineNo = 1;
 
+        // Two replacement lines can name the same variant within one exchange, exactly as two
+        // lines of a bill can (CompleteSaleHandler.PriceAsync's own comment on this). Each line's
+        // on-hand snapshot from the catalogue is the same pre-exchange balance - nothing has
+        // posted yet - so a negative-stock check that only ever looks at one line at a time never
+        // sees what earlier lines of the same variant, in this same exchange, have already
+        // claimed against it. This accumulates that claim per variant as lines are priced, so the
+        // second and later line of a repeated variant is checked (and, for Warn, reports its
+        // message) against on-hand *net of what this exchange already committed to it* - not the
+        // raw catalogue figure the first line saw. Mirrors P1-T09's fix in CompleteSaleHandler.
+        var claimedByVariant = new Dictionary<long, Quantity>();
+
         foreach (var request in requests)
         {
             request.RequireWellFormed();
 
             var line = request.IsOpenItem
                 ? PriceOpenItem(request, lineNo)
-                : await PriceCatalogueLineAsync(request, lineNo, warnings, cancellationToken).ConfigureAwait(false);
+                : await PriceCatalogueLineAsync(request, lineNo, warnings, claimedByVariant, cancellationToken).ConfigureAwait(false);
 
             lineNo++;
             lines.Add(line);
@@ -501,7 +511,11 @@ public sealed class CreateExchangeHandler : ICreateExchange
     }
 
     private async Task<PricedReplacementLine> PriceCatalogueLineAsync(
-        SaleLineRequest request, int lineNo, List<string> warnings, CancellationToken cancellationToken)
+        SaleLineRequest request,
+        int lineNo,
+        List<string> warnings,
+        Dictionary<long, Quantity> claimedByVariant,
+        CancellationToken cancellationToken)
     {
         var variantId = request.ProductVariantId!.Value;
 
@@ -527,11 +541,24 @@ public sealed class CreateExchangeHandler : ICreateExchange
         var lineTax = Money.FromScaled(item.TaxRate.TaxOnNet(lineTotal).ToScaled());
 
         var postsStock = !ProductTypes.PostsNoStockMovement(item.ProductType);
-        var wentNegative = postsStock && quantityBase.Value > item.QtyOnHand.Value;
+
+        // Net of whatever earlier replacement lines of this same variant, in this same exchange,
+        // have already claimed against the catalogue's one pre-exchange balance (see the comment
+        // on claimedByVariant in PriceReplacementAsync).
+        var alreadyClaimed = claimedByVariant.TryGetValue(variantId, out var claimed)
+            ? claimed
+            : Quantity.Zero(item.QtyOnHand.UomId);
+        var qtyOnHandForThisLine = item.QtyOnHand - alreadyClaimed;
+        var wentNegative = postsStock && quantityBase.Value > qtyOnHandForThisLine.Value;
+
+        if (postsStock)
+        {
+            claimedByVariant[variantId] = alreadyClaimed + quantityBase;
+        }
 
         if (wentNegative)
         {
-            RequireStockPolicy(item.Description, quantityBase, item.QtyOnHand, item.UomSymbol, warnings);
+            RequireStockPolicy(item.Description, quantityBase, qtyOnHandForThisLine, item.UomSymbol, warnings);
         }
 
         return new PricedReplacementLine(

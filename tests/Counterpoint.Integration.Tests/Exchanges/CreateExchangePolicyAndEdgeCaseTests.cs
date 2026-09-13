@@ -466,6 +466,47 @@ public sealed class CreateExchangePolicyAndEdgeCaseTests
     }
 
     [Fact]
+    public async Task ANegativeStockPolicyOfBlockRefusesTwoReplacementLinesOfTheSameVariantThatTogetherWouldTakeStockBelowZero()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await SeedReturnNumberSequenceAsync(fixture);
+
+        await fixture.Resolve<ISettings>().UpdateAsync(
+            s => s with { Policy = s.Policy with { NegativeStock = NegativeStockPolicy.Block } });
+
+        var variantId = await SeededVariantIdAsync(fixture);
+        var userId = await SeededUserIdAsync(fixture);
+        var shiftId = await SeededShiftIdAsync(fixture);
+
+        // Seeded: 100 on hand. Selling 5 and returning 1 back in leaves 96. Two replacement lines
+        // of 60 each, of the very same variant, neither exceeds 96 on its own - the bug this test
+        // guards against checked each line against the raw catalogue figure independently and let
+        // both through, taking stock to -24. Checked cumulatively (as CompleteSaleHandler's own
+        // P1-T09 fix checks repeated lines within one bill), the second line sees only 36 left
+        // (96 - 60 already claimed by the first) and is refused.
+        var sale = await CompleteAsync(fixture, variantId, userId, shiftId, SoldAt, quantity: 5m);
+        var saleLineId = await fixture.CountAsync("SELECT id FROM sale_line WHERE sale_id = " + sale.SaleId + ";");
+
+        var attempt = () => fixture.Resolve<ICreateExchange>().CreateAsync(new CreateExchangeCommand(
+            sale.SaleId,
+            userId,
+            shiftId,
+            ExchangedAt,
+            [new ReturnLineRequest(saleLineId, Quantity.FromDecimal(1m, saleLineId), ReturnDisposition.Sellable, "Wrong size")],
+            [
+                new SaleLineRequest(variantId, 60m),
+                new SaleLineRequest(variantId, 60m),
+            ],
+            [new TenderRequest(TenderTypes.Cash, Money.FromDecimal(1500.00m))]));
+
+        (await attempt.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*below zero*");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM sale_return;")).Should().Be(0, "a blocked exchange writes nothing");
+        (await fixture.CountAsync("SELECT COUNT(*) FROM sale WHERE id != " + sale.SaleId + ";")).Should().Be(0);
+    }
+
+    [Fact]
     public async Task BothDocumentsAnExchangeWritesHaveCorrectVerifiableHashChainsIncludingTheCrossLink()
     {
         await using var fixture = await SaleFixture.CreateSignedInAsync();
