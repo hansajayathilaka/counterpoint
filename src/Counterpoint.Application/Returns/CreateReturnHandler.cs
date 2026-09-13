@@ -277,88 +277,13 @@ public sealed class CreateReturnHandler : ICreateReturn
     }
 
     /// <summary>
-    /// Prices every requested line against the original bill: the cumulative over-return guard
-    /// (AC-06) and the non-returnable check (AC-05) first, then the refund itself, prorated from
-    /// the original line's own totals so a partial return of a discounted line refunds exactly
-    /// its share of the discount (AC-03) - never <see cref="ReturnableSaleLine.UnitPrice"/>
-    /// multiplied fresh by the requested quantity, which would silently drop it.
+    /// Prices every requested line against the original bill - the actual arithmetic lives in
+    /// <see cref="ReturnPricer"/> (extracted so
+    /// <see cref="Counterpoint.Application.Exchanges.CreateExchangeHandler"/> can price the return
+    /// half of an exchange by exactly the same rule, task P2-T04).
     /// </summary>
-    private PricedReturn PriceReturn(ReturnableSale sale, CreateReturnCommand command)
-    {
-        var linesBySaleLineId = sale.Lines.ToDictionary(line => line.SaleLineId);
-
-        var lines = new List<PricedReturnLine>(command.Lines.Count);
-        var subtotal = Money.Zero;
-        var tax = Money.Zero;
-
-        foreach (var request in command.Lines)
-        {
-            if (!linesBySaleLineId.TryGetValue(request.SaleLineId, out var original))
-            {
-                throw new InvalidOperationException(string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Bill {sale.BillNo} has no line {request.SaleLineId}."));
-            }
-
-            if (!request.QuantityBase.IsPositive)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(command), request.QuantityBase.Value, "A return line must ask for a positive quantity.");
-            }
-
-            // Re-tagged against the original line's own quantities, not trusted from the caller:
-            // Quantity's uom tag is IReturnableSaleLookup's own bookkeeping convenience (see its
-            // remarks), private to this port and its writer, and a caller building
-            // ReturnLineRequest has no way to know it - only the numeric value is theirs to give.
-            var requestedQuantity = Quantity.FromDecimal(request.QuantityBase.Value, original.QtySoldBase.UomId);
-
-            // AC-06, never overridable - see the class remarks.
-            _policy.AuthoriseCumulativeQuantity(
-                original.QtySoldBase, original.QtyReturnedBase, requestedQuantity);
-
-            // AC-05: a non-returnable product or category needs an owner override; a returnable
-            // one sails through untouched.
-            _policy.AuthoriseNonReturnable(
-                original.NonReturnable, original.CategoryId, command.NonReturnableOverride);
-
-            var ratio = requestedQuantity.Value / original.QtySoldBase.Value;
-
-            // Rounding point one, for this document: the line's own refund (mirrors
-            // sale_line.line_total's own rounding when the bill was completed).
-            var lineRefund = _rounding.Round(original.LineTotal * ratio);
-
-            // Quantised to the storage scale only, exactly as CompleteSaleHandler leaves a line's
-            // tax - not an independent rounding point (CLAUDE.md invariant 2).
-            var lineTax = Money.FromScaled((original.Tax * ratio).ToScaled());
-
-            subtotal += lineRefund;
-            tax += lineTax;
-
-            lines.Add(new PricedReturnLine(
-                original.SaleLineId,
-                original.ProductVariantId,
-                original.Description,
-                original.UomSymbol,
-                requestedQuantity,
-                original.UnitPrice,
-                original.UnitCost,
-                lineTax,
-                lineRefund,
-                request.Reason,
-                request.Disposition));
-        }
-
-        // The one restocking-fee accessor the policy engine offers (task P2-T01's own remarks on
-        // ReturnPolicyTextFormatter), applied to the merchandise value alone - never to tax.
-        var fee = _rounding.Round(_settings.Policy.RestockingFeeRate.Of(subtotal));
-
-        // Exactly the sum of already-rounded/quantised parts, not a further rounding point:
-        // sale_return carries no residual "rounding" column the way sale does, so this identity
-        // has to hold by construction rather than by a third rounding call papering over it.
-        var totalRefund = subtotal + tax - fee;
-
-        return new PricedReturn(subtotal, tax, fee, totalRefund, lines);
-    }
+    private PricedReturn PriceReturn(ReturnableSale sale, CreateReturnCommand command) =>
+        ReturnPricer.Price(sale, command.Lines, _policy, command.NonReturnableOverride, _rounding, _settings.Policy.RestockingFeeRate);
 
     private Task<string> BuildPolicyTextAsync(CancellationToken cancellationToken) =>
         ReturnPolicyTextBuilder.BuildAsync(_settings, _categories, cancellationToken);
@@ -438,66 +363,4 @@ public sealed class CreateReturnHandler : ICreateReturn
     private static string AuditPayload(string returnNo, Money totalRefund) => string.Create(
         CultureInfo.InvariantCulture,
         $$"""{"return_no":"{{returnNo}}","total_refund":{{totalRefund.ToScaled()}}}""");
-
-    /// <summary>A return, priced and checked, ready to be written.</summary>
-    private sealed record PricedReturn(
-        Money Subtotal,
-        Money Tax,
-        Money RestockingFee,
-        Money TotalRefund,
-        IReadOnlyList<PricedReturnLine> Lines)
-    {
-        internal SaleReturnReceipt ToReceipt(
-            string returnNo,
-            string originalBillNo,
-            DateTimeOffset returnedAt,
-            string refundMethodToken,
-            string cashierName,
-            string policyText) => new(
-                returnNo,
-                originalBillNo,
-                returnedAt,
-                [.. Lines.Select(line => new SaleReturnReceiptLine(
-                    line.Description,
-                    line.QuantityBase,
-                    line.UomSymbol,
-                    line.UnitPrice,
-                    line.LineRefund,
-                    ReturnDispositions.ToToken(line.Disposition)))],
-                Subtotal,
-                Tax,
-                RestockingFee,
-                TotalRefund,
-                refundMethodToken,
-                cashierName,
-                policyText);
-    }
-
-    /// <summary>One priced return line.</summary>
-    private sealed record PricedReturnLine(
-        long SaleLineId,
-        long? ProductVariantId,
-        string Description,
-        string UomSymbol,
-        Quantity QuantityBase,
-        Money UnitPrice,
-        Money UnitCost,
-        Money Tax,
-        Money LineRefund,
-        string Reason,
-        ReturnDisposition Disposition)
-    {
-        internal NewSaleReturnLine ToNewSaleReturnLine() => new(
-            SaleLineId,
-            ProductVariantId ?? throw new InvalidOperationException(
-                "An open-item line cannot be returned to stock; P2-T02 does not price one - " +
-                "sale_return_line.product_variant_id is NOT NULL in the schema."),
-            QuantityBase,
-            UnitPrice,
-            UnitCost,
-            Tax,
-            LineRefund,
-            Reason,
-            ReturnDispositions.ToToken(Disposition));
-    }
 }

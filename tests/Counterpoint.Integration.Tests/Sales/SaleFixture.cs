@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Dashboard;
+using Counterpoint.Application.Exchanges;
 using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
@@ -301,6 +302,11 @@ internal sealed class SaleFixture : IAsyncDisposable
         // CreateUnlinkedReturnCommand.Override is mandatory on every call, not that the method
         // needs anyone's role.
         services.AddSingleton<ICreateUnlinkedReturn, CreateUnlinkedReturnHandler>();
+
+        // P2-T04: exchanges (SRS FR-5 exchange, AC-04), wired exactly as
+        // Counterpoint.App's CounterpointHostBuilderExtensions - undecorated, the same shape as
+        // ICreateReturn above.
+        services.AddSingleton<ICreateExchange, CreateExchangeHandler>();
 
         // Bulk price update by category, brand or supplier (SRS FR-2.19) is owner only, wired
         // exactly as IProductMaintenance above.

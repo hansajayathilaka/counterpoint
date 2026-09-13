@@ -30,6 +30,13 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// <param name="RefundMethod">One of the <c>sale_return.refund_method</c> tokens.</param>
 /// <param name="AuthorisedBy">The owner who granted an override, when one was needed.</param>
 /// <param name="Reason">The return's own reason, if one line reason does not already say it all.</param>
+/// <param name="ExchangeSaleId">
+/// The new bill this return is paired with, or null for an ordinary return (SRS FR-5 exchange,
+/// task P2-T04). Only <c>Counterpoint.Application.Exchanges.CreateExchangeHandler</c> ever gives
+/// one - <c>Counterpoint.Application.Returns.CreateReturnHandler</c> and
+/// <c>Counterpoint.Application.Returns.CreateUnlinkedReturnHandler</c> always leave it null,
+/// because neither writes a paired sale for it to reference.
+/// </param>
 public sealed record NewSaleReturn(
     string ReturnNo,
     long? OriginalSaleId,
@@ -44,4 +51,5 @@ public sealed record NewSaleReturn(
     Money TotalRefund,
     string RefundMethod,
     long? AuthorisedBy,
-    string? Reason);
+    string? Reason,
+    long? ExchangeSaleId = null);
