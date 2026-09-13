@@ -6,6 +6,7 @@ using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Dashboard;
+using Counterpoint.Application.Exchanges;
 using Counterpoint.Application.Import;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Labels;
@@ -135,6 +136,12 @@ internal static class CounterpointHostBuilderExtensions
         // makes this path high-friction is that CreateUnlinkedReturnCommand.Override is mandatory
         // on every call, not that the method needs anyone's role.
         builder.Services.AddSingleton<ICreateUnlinkedReturn, CreateUnlinkedReturnHandler>();
+
+        // P2-T04: exchanges (SRS FR-5 exchange, AC-04). Not owner-only either, the same reasoning
+        // as ICreateReturn above - a cashier takes an ordinary, in-window, receipted exchange
+        // without needing anyone's role; every exception to that is gated by the same override
+        // tokens a standalone return already uses.
+        builder.Services.AddSingleton<ICreateExchange, CreateExchangeHandler>();
 
         // Resolved a second time, deliberately: AddCounterpointInfrastructure resolves and
         // registers its own PosDataDirectory internally and does not hand it back, and changing
