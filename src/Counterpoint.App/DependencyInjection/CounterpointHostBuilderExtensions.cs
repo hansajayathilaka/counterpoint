@@ -143,6 +143,13 @@ internal static class CounterpointHostBuilderExtensions
         // tokens a standalone return already uses.
         builder.Services.AddSingleton<ICreateExchange, CreateExchangeHandler>();
 
+        // P2-T08: adjustments and damage (SRS FR-4, NFR-S2) - owner-only, wired exactly as
+        // ICancelSale above. IAdjustmentHistoryQuery is registered and decorated in
+        // AddCounterpointInfrastructure instead, next to its own concrete reader.
+        builder.Services.AddSingleton<IPostAdjustment>(p => RoleAuthorisation.Decorate<IPostAdjustment>(
+            ActivatorUtilities.CreateInstance<PostAdjustmentHandler>(p),
+            p.GetRequiredService<ISession>()));
+
         // Resolved a second time, deliberately: AddCounterpointInfrastructure resolves and
         // registers its own PosDataDirectory internally and does not hand it back, and changing
         // that already-tested signature is out of scope here. Resolve() and EnsureCreated() are

@@ -52,6 +52,8 @@ public static class SettingsValidation
         Rate(snapshot.Policy.MaxBillDiscountRate, "The bill discount limit");
         Rate(snapshot.Policy.RestockingFeeRate, "The restocking fee");
         CategoryIds(snapshot.Policy.NonReturnableCategoryIds);
+        NotNegative(snapshot.Policy.AdjustmentGrnWarningThreshold, "The adjustment GRN-warning threshold");
+        AdjustmentReasons(snapshot.Policy.AdjustmentReasons);
 
         Range(snapshot.Peripherals.PaperWidthMm, 1, 210, "The paper width, in millimetres");
         Range(snapshot.Peripherals.ReceiptCopies, 1, 9, "The number of receipt copies");
@@ -143,6 +145,23 @@ public static class SettingsValidation
                         CultureInfo.CurrentCulture,
                         $"A non-returnable category id must be a positive number; {id} was given."),
                     nameof(categoryIds));
+            }
+        }
+    }
+
+    /// <summary>
+    /// None of the reason picker's own entries may be blank - a blank entry would show as an
+    /// empty row in the picker and, if chosen, would fail <c>IPostAdjustment</c>'s own mandatory
+    /// check anyway. An empty list is fine: it just leaves free text as the only way in.
+    /// </summary>
+    private static void AdjustmentReasons(IReadOnlyList<string> reasons)
+    {
+        foreach (var reason in reasons)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new ArgumentException(
+                    "An adjustment reason in the list cannot be blank.", nameof(reasons));
             }
         }
     }

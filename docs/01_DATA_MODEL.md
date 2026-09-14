@@ -1588,6 +1588,9 @@ place; see that key's own remarks for why it is read and written directly throug
 | | `policy.max_line_discount_rate`, `policy.max_bill_discount_rate` (both 10000 = 100%, i.e. no restriction — Q-12), `policy.restocking_fee_rate` (0) | `INT` (scaled) |
 | | `policy.receipt_required` (true — Q-03: "should have to previous bill no", P2-T01) | `BOOL` |
 | | `policy.non_returnable_category_ids` — `category.id` values, comma-separated and sorted, empty by default (FR-5.10, P2-T01; deliberately `STRING`, not `JSON` — see `SettingValueTypes`'s remarks) | `STRING` |
+| | `policy.allowed_unlinked_refund_methods` — `RefundMethod` tokens, comma-separated and sorted, `CREDIT_NOTE,CARD` by default (FR-5.19, P2-T03) | `STRING` |
+| | `policy.adjustment_reasons` — free-text reason picker entries, pipe-separated (`\|`, not `,` — a reason is text an owner types and may itself contain a comma), in the order given (FR-4, P2-T08) | `STRING` |
+| | `policy.adjustment_grn_warning_threshold` (5000.00 — the value above which an inbound adjustment warns towards a GRN instead; 0 disables the warning, P2-T08) | `MONEY` |
 | Peripherals (FR-10.6) | `peripheral.receipt_printer_name`, `peripheral.label_printer_name`, `peripheral.scale_port`, `peripheral.scanner_suffix` (`ENTER`/`TAB`/`NONE`) | `STRING` |
 | | `peripheral.paper_width_mm` (80), `peripheral.receipt_copies` (1), `peripheral.drawer_kick_pin` (2), `peripheral.scanner_minimum_length` (4), `peripheral.scale_baud_rate` (9600) | `INT` |
 | | `peripheral.open_drawer_on_cash_sale` (true), `peripheral.scale_enabled` (false) | `BOOL` |
