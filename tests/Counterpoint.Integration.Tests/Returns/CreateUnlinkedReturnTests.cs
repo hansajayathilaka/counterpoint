@@ -300,13 +300,25 @@ public sealed class CreateUnlinkedReturnTests
             .WithMessage("*allowed_unlinked_refund_methods*", "cash is excluded from the default allow-list");
 
         // Store credit is the default's own choice (task P2-T05 backs it with an actual
-        // credit_note row now - contrast the old refusal this test used to assert).
+        // credit_note row now - contrast the old refusal this test used to assert). Proven
+        // against the row itself, not merely the returned ids: a renamed assertion that still
+        // checked "was refused" under a new name would pass just as easily as this one - only a
+        // read of the actual credit_note row tells the two apart.
         var creditNoteToken = await RequestUnlinkedReturnOverrideAsync(fixture, "Trying credit note.");
         var creditNoteReturn = await fixture.Resolve<ICreateUnlinkedReturn>().CreateAsync(
             await CommandAsync(fixture, creditNoteToken, RefundMethod.CreditNote));
 
         creditNoteReturn.CreditNoteId.Should().NotBeNull();
         creditNoteReturn.CreditNoteNumber.Should().NotBeNullOrWhiteSpace();
+        creditNoteReturn.CreditNotePrintJobId.Should().NotBeNull();
+
+        var issuedNote = await fixture.Resolve<Counterpoint.Application.Abstractions.Persistence.ICreditNoteQuery>()
+            .FindByNumberAsync(creditNoteReturn.CreditNoteNumber!);
+        issuedNote.Should().NotBeNull();
+        issuedNote!.Status.Should().Be("ACTIVE");
+        issuedNote.AmountIssued.Should().Be(creditNoteReturn.TotalRefund);
+        issuedNote.AmountRemaining.Should().Be(creditNoteReturn.TotalRefund, "a freshly issued note has never been spent");
+        issuedNote.SaleReturnId.Should().Be(creditNoteReturn.SaleReturnId);
 
         var cardToken = await RequestUnlinkedReturnOverrideAsync(fixture, "Card refund.");
         var created = await fixture.Resolve<ICreateUnlinkedReturn>().CreateAsync(
