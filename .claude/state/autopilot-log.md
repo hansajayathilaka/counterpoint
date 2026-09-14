@@ -279,3 +279,5 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-14T00:51:25Z` **P2-T05** start — Credit notes
+- `2026-09-14T01:09:30Z` **P2-T05** schema — credit_note bounds CHECK + 2 lookup indexes (migration 0008)
+- `2026-09-14T01:11:00Z` **P2-T05** implement-start — delegated to task-implementer

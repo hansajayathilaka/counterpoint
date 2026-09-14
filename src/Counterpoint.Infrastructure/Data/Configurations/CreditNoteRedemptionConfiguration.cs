@@ -17,6 +17,11 @@ internal sealed class CreditNoteRedemptionConfiguration : IEntityTypeConfigurati
         entity.Property(redemption => redemption.Amount).IsRequired();
         entity.Property(redemption => redemption.RedeemedAt).IsRequired();
 
+        // P2-T05: the redemption-history / outstanding-credit reconciliation query sums this
+        // table grouped by credit_note_id. Cheap to carry - a plain CREATE INDEX, no rebuild.
+        entity.HasIndex(redemption => redemption.CreditNoteId)
+            .HasDatabaseName("ix_redemption_credit_note");
+
         entity.HasOne<CreditNote>()
             .WithMany()
             .HasForeignKey(redemption => redemption.CreditNoteId)
