@@ -68,7 +68,7 @@ hands them back.
 | P2-T07 | Goods receipt (GRN) | done | 2026-09-12 | 1dcc10a Goods receipt GRN (FR-4.7, FR-4.8, AC-08), PR #30 |
 | P2-T08 | Adjustments and damage | todo | | |
 | P2-T09 | Bulk breaking | todo | | |
-| P2-T10 | Stock take | in-progress | 2026-09-14 | reverted: task-implementer prematurely marked done before test-engineer/verify/review passes; continuing normal B4-B10 loop |
+| P2-T10 | Stock take | done | 2026-09-14 | 4c97391 all 5 Done-when proven (StockTakeServiceTests.cs: AC-10 category variance report+batch post, intervening-sale correct final balance, partial-save-and-resume, abandon leaves stock untouched, mid-post transaction rollback); verify.sh green (660 integration + 366 domain + 78 device + 18 acceptance tests, 6 architecture tests, 54 trigger-survival tests); code-reviewer + data-modeler reviewed independently, 0 must-fix after 1 fix-attempt (overlapping-scope double-post guard added to StartAsync, escalated from should-fix to fix-loop since it was a real stock-ledger corruption risk); no Avalonia screen (matches P2-T02-P2-T09 precedent); should-fix carried to PR: number_sequence has no backfill path for an already-configured database (not exploitable pre-launch), scope-resolution runs inside the write transaction rather than before it (perf nit, not correctness), variance-report ordering derived from unstripped value even for cashier sessions (narrow inference channel, worth a second look against invariant 8's spirit) |
 | P2-T11 | Reorder alerts and stock reports (interim) | todo | | |
 | P2-T12 | Phase 2 acceptance gate | todo | | |
 
