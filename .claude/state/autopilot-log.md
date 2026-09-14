@@ -307,3 +307,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-14T12:05:42Z` **P2-T09** start — Bulk breaking
+- `2026-09-14T13:01:19Z` **P2-T09** note — orchestrator reverted premature done-mark by task-implementer subagent; resuming at B4 (tests)
