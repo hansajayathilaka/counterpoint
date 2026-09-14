@@ -3,7 +3,9 @@ using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Import;
+using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
+using Counterpoint.Application.Security;
 using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Backup;
 using Counterpoint.Infrastructure.Catalogue;
@@ -118,6 +120,19 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IRebuildStockBalance, RebuildStockBalanceCommand>();
         services.AddSingleton<IStockConsistencyCheck, SqliteStockConsistencyCheck>();
         services.AddSingleton<IStockPositionReader, SqliteStockPositionReader>();
+
+        // P2-T08: manual adjustments and damage write-offs (SRS FR-4, NFR-S2). The history query
+        // exposes cost (CLAUDE.md invariant 8), so unlike the read/write ports above it is
+        // decorated right here, the same way Counterpoint.Backup's own DI extension decorates
+        // IManualBackupTrigger/IGuidedRestoreService in front of a concrete class this project
+        // owns - RoleAuthorisation is Application-layer code, and Infrastructure is allowed to
+        // reference Application (CLAUDE.md "Project boundaries"). IPostAdjustment itself is an
+        // Application-layer handler (PostAdjustmentHandler) built and decorated in the
+        // composition root, exactly as ICancelSale/IGoodsReceiptService are.
+        services.AddSingleton<SqliteAdjustmentHistoryQuery>();
+        services.AddSingleton<IAdjustmentHistoryQuery>(provider => RoleAuthorisation.Decorate<IAdjustmentHistoryQuery>(
+            provider.GetRequiredService<SqliteAdjustmentHistoryQuery>(),
+            provider.GetRequiredService<ISession>()));
         services.AddSingleton<IAuditTrail, SqliteAuditTrail>();
         services.AddSingleton<IPrintJobOutbox, SqlitePrintJobOutbox>();
         services.AddSingleton<IUserStore, SqliteUserStore>();

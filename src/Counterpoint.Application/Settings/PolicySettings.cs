@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Counterpoint.Domain.ValueObjects;
@@ -58,6 +59,18 @@ namespace Counterpoint.Application.Settings;
 /// exist (P2-T05): a shop that has not yet reached that task can still take an unlinked return by
 /// card, but never by cash, without editing this setting.
 /// </param>
+/// <param name="AdjustmentReasons">
+/// The configurable reason list an owner's manual stock adjustment picks from before typing free
+/// text on top (SRS FR-4, task P2-T08 "Do this" #1: "mandatory reason from a configurable list
+/// plus free text"). Never itself enforced as exhaustive - <c>IPostAdjustment</c> only refuses a
+/// blank reason - this is what a screen offers as a starting point, not a closed set.
+/// </param>
+/// <param name="AdjustmentGrnWarningThreshold">
+/// The value, in scaled money per <see cref="Money"/>, above which an inbound adjustment warns
+/// that a goods receipt would be the better door (task P2-T08's own "Risks": "adjustments used as
+/// a shortcut for receipts, hiding cost"). <see cref="Money.Zero"/> switches the warning off
+/// entirely, the same "zero means no limit" convention <see cref="CashRefundLimit"/> already uses.
+/// </param>
 public sealed record PolicySettings(
     int ReturnWindowDays,
     bool AllowUnlinkedReturns,
@@ -70,7 +83,9 @@ public sealed record PolicySettings(
     bool CombineRepeatScans,
     bool ReceiptRequired,
     IReadOnlyList<long> NonReturnableCategoryIds,
-    IReadOnlyList<RefundMethod> AllowedUnlinkedRefundMethods)
+    IReadOnlyList<RefundMethod> AllowedUnlinkedRefundMethods,
+    IReadOnlyList<string> AdjustmentReasons,
+    Money AdjustmentGrnWarningThreshold)
 {
     /// <summary>
     /// Value equality for every field, <see cref="NonReturnableCategoryIds"/> included.
@@ -97,7 +112,9 @@ public sealed record PolicySettings(
         && CombineRepeatScans == other.CombineRepeatScans
         && ReceiptRequired == other.ReceiptRequired
         && NonReturnableCategoryIds.SequenceEqual(other.NonReturnableCategoryIds)
-        && AllowedUnlinkedRefundMethods.SequenceEqual(other.AllowedUnlinkedRefundMethods);
+        && AllowedUnlinkedRefundMethods.SequenceEqual(other.AllowedUnlinkedRefundMethods)
+        && AdjustmentReasons.SequenceEqual(other.AdjustmentReasons, StringComparer.Ordinal)
+        && AdjustmentGrnWarningThreshold == other.AdjustmentGrnWarningThreshold;
 
     /// <inheritdoc cref="Equals(PolicySettings?)" />
     public override int GetHashCode()
@@ -123,6 +140,13 @@ public sealed record PolicySettings(
         {
             hash.Add(method);
         }
+
+        foreach (var reason in AdjustmentReasons)
+        {
+            hash.Add(reason, StringComparer.Ordinal);
+        }
+
+        hash.Add(AdjustmentGrnWarningThreshold);
 
         return hash.ToHashCode();
     }

@@ -76,6 +76,15 @@ public static class SettingKeys
     public const string PolicyNonReturnableCategoryIds = "policy.non_returnable_category_ids";
     public const string PolicyAllowedUnlinkedRefundMethods = "policy.allowed_unlinked_refund_methods";
 
+    /// <summary>Task P2-T08 "Do this" #1 - the configurable adjustment reason list.</summary>
+    public const string PolicyAdjustmentReasons = "policy.adjustment_reasons";
+
+    /// <summary>
+    /// Task P2-T08's own "Risks" - the value above which an inbound adjustment warns towards a
+    /// GRN instead.
+    /// </summary>
+    public const string PolicyAdjustmentGrnWarningThreshold = "policy.adjustment_grn_warning_threshold";
+
     // ---- FR-10.6 Peripherals -------------------------------------------------------------
     public const string PeripheralReceiptPrinterName = "peripheral.receipt_printer_name";
     public const string PeripheralPaperWidthMm = "peripheral.paper_width_mm";
