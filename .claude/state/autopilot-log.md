@@ -273,3 +273,4 @@ it stopped.
 **Run ended 2026-09-13T01:35:17Z** — 2 completed, 0 halted
 - `2026-09-14T02:14:49Z` **P2-T08** start — Adjustments and damage
 - `2026-09-14T02:16:50Z` **P2-T08** implement-start — delegated to task-implementer
+- `2026-09-14T02:40:40Z` **P2-T08** tests-start — delegated to test-engineer
