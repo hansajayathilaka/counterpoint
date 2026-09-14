@@ -284,3 +284,4 @@ it stopped.
 - `2026-09-14T01:44:33Z` **P2-T05** implement-done — task-implementer finished; ledger 'done' mark reverted to in-progress (premature — tests/verify/review not yet run by orchestrator)
 - `2026-09-14T02:06:59Z` **P2-T05** verify — verify.sh green: 658+344+78+18 tests, 6 arch tests, 54 trigger-survival
 - `2026-09-14T02:07:40Z` **P2-T05** review-start — code-reviewer + data-modeler dispatched in parallel
+- `2026-09-14T02:09:53Z` **P2-T05** review-code — code-reviewer clean: 0 must-fix, 0 should-fix; 2 consider items (FR-5.14 expiry default tension, TenderRequest.Reference overload)
