@@ -6,11 +6,12 @@ namespace Counterpoint.Application.Sales;
 /// <remarks>
 /// Constants, not an enum: they are spelled out once, here, in the words the database's own
 /// <c>CHECK (tender_type IN (...))</c> constraint uses, so nothing has to spell them differently.
-/// <c>CREDIT_NOTE</c> and <c>ON_ACCOUNT</c> complete the constraint's list but are not offered by
-/// this task - a store-credit tender needs a credit note to redeem (P2-T05) and an on-account
-/// tender needs a credit customer with a balance (P5-T02). Neither exists yet, so the payment
-/// dialog (P1-T10) does not offer them; the database still accepts them the day their owning
-/// tasks start writing them.
+/// <c>ON_ACCOUNT</c> completes the constraint's list but is not offered by this task - an
+/// on-account tender needs a credit customer with a balance (P5-T02), which does not exist yet,
+/// so the payment dialog (P1-T10) does not offer it; the database still accepts it the day that
+/// task starts writing it. <see cref="CreditNote"/> is now backed by an actual
+/// <c>credit_note</c> row (task P2-T05, <see cref="Counterpoint.Application.Returns.RefundMethodMapping"/>
+/// issues one; <c>CompleteSaleHandler</c> redeems one).
 /// </remarks>
 public static class TenderTypes
 {
@@ -26,4 +27,12 @@ public static class TenderTypes
 
     /// <summary>A cheque.</summary>
     public const string Cheque = "CHEQUE";
+
+    /// <summary>
+    /// Store credit, redeemed against a numbered <c>credit_note</c> row (SRS FR-5 store credit,
+    /// FR-3 tender, task P2-T05). <see cref="TenderRequest.Reference"/> carries the credit note's
+    /// own <c>number</c> - the convention <c>CompleteSaleHandler</c> uses to find which note a
+    /// tender of this type is spending.
+    /// </summary>
+    public const string CreditNote = "CREDIT_NOTE";
 }

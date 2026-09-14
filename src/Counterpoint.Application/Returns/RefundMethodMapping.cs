@@ -14,13 +14,14 @@ namespace Counterpoint.Application.Returns;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="RefundMethod.CreditNote"/> is refused by every method here. Issuing a credit note
-/// needs a <c>credit_note</c> row to redeem it against later, and creating that row is P2-T05 -
-/// this class does not manufacture a document type it cannot back with one, in any of the three
-/// return-shaped flows.
+/// <see cref="RefundMethod.CreditNote"/> is now backed by an actual <c>credit_note</c> row
+/// (task P2-T05): <see cref="CreateReturnHandler"/> and <see cref="CreateUnlinkedReturnHandler"/>
+/// each issue one, in the same transaction as the return, whenever the refund method is this one -
+/// this class only decides the two tokens it is written as; the row itself is
+/// <c>ICreditNoteIssuer.IssueAsync</c>'s business.
 /// </para>
 /// <para>
-/// <see cref="RefundMethod.Exchange"/> is refused by <see cref="RequireSupported"/> too, but for a
+/// <see cref="RefundMethod.Exchange"/> is refused by <see cref="RequireSupported"/>, for a
 /// different reason: it is not a way of paying a refund out at all, it is a marker that the refund
 /// was settled by a paired sale instead (<c>CreateExchangeHandler</c>'s own remarks). A standalone
 /// return has no paired sale, so <see cref="CreateReturnCommand"/> and
@@ -32,18 +33,10 @@ namespace Counterpoint.Application.Returns;
 internal static class RefundMethodMapping
 {
     /// <exception cref="InvalidOperationException">
-    /// <paramref name="refundMethod"/> is <see cref="RefundMethod.CreditNote"/> or
-    /// <see cref="RefundMethod.Exchange"/>.
+    /// <paramref name="refundMethod"/> is <see cref="RefundMethod.Exchange"/>.
     /// </exception>
     public static void RequireSupported(RefundMethod refundMethod)
     {
-        if (refundMethod == RefundMethod.CreditNote)
-        {
-            throw new InvalidOperationException(
-                "Refunding by store credit needs a credit note to issue it against, and issuing "
-                + "credit notes is P2-T05. Refund by cash or card for now.");
-        }
-
         if (refundMethod == RefundMethod.Exchange)
         {
             throw new InvalidOperationException(
@@ -57,7 +50,7 @@ internal static class RefundMethodMapping
         RefundMethod.Cash => "CASH",
         RefundMethod.Card => "CARD",
         RefundMethod.Exchange => "EXCHANGE",
-        RefundMethod.CreditNote => throw new InvalidOperationException("Credit note refunds are P2-T05."),
+        RefundMethod.CreditNote => "CREDIT_NOTE",
         _ => throw new ArgumentOutOfRangeException(nameof(method), method, "Unknown refund method."),
     };
 
@@ -65,7 +58,7 @@ internal static class RefundMethodMapping
     {
         RefundMethod.Cash => TenderTypes.Cash,
         RefundMethod.Card => TenderTypes.Card,
-        RefundMethod.CreditNote => throw new InvalidOperationException("Credit note refunds are P2-T05."),
+        RefundMethod.CreditNote => TenderTypes.CreditNote,
         RefundMethod.Exchange => throw new InvalidOperationException(
             "Exchange has no payment.tender_type of its own - it is settled by the paired sale's "
             + "own tender, or, for any leftover, refunded as cash or card."),
