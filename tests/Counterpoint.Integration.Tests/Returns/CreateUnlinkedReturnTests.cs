@@ -285,11 +285,12 @@ public sealed class CreateUnlinkedReturnTests
     }
 
     [Fact]
-    public async Task DefaultSettingsRefuseCashAndCreditNoteButAllowCard()
+    public async Task DefaultSettingsRefuseCashButAllowCreditNoteAndCard()
     {
         await using var fixture = await SignedInAsCashierAsync();
         await EnableUnlinkedReturnsAsync(fixture);
         await SeedReturnNumberSequenceAsync(fixture);
+        await SeedCreditNoteNumberSequenceAsync(fixture);
 
         var cashToken = await RequestUnlinkedReturnOverrideAsync(fixture, "Trying cash.");
         var cashAttempt = async () => await fixture.Resolve<ICreateUnlinkedReturn>().CreateAsync(
@@ -298,14 +299,26 @@ public sealed class CreateUnlinkedReturnTests
         await cashAttempt.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*allowed_unlinked_refund_methods*", "cash is excluded from the default allow-list");
 
+        // Store credit is the default's own choice (task P2-T05 backs it with an actual
+        // credit_note row now - contrast the old refusal this test used to assert). Proven
+        // against the row itself, not merely the returned ids: a renamed assertion that still
+        // checked "was refused" under a new name would pass just as easily as this one - only a
+        // read of the actual credit_note row tells the two apart.
         var creditNoteToken = await RequestUnlinkedReturnOverrideAsync(fixture, "Trying credit note.");
-        var creditNoteAttempt = async () => await fixture.Resolve<ICreateUnlinkedReturn>().CreateAsync(
+        var creditNoteReturn = await fixture.Resolve<ICreateUnlinkedReturn>().CreateAsync(
             await CommandAsync(fixture, creditNoteToken, RefundMethod.CreditNote));
 
-        // Refused everywhere today, even though the default allow-list itself names it - P2-T05
-        // has not created a credit_note row to back one with yet (RefundMethodMapping's own remarks).
-        await creditNoteAttempt.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*P2-T05*");
+        creditNoteReturn.CreditNoteId.Should().NotBeNull();
+        creditNoteReturn.CreditNoteNumber.Should().NotBeNullOrWhiteSpace();
+        creditNoteReturn.CreditNotePrintJobId.Should().NotBeNull();
+
+        var issuedNote = await fixture.Resolve<Counterpoint.Application.Abstractions.Persistence.ICreditNoteQuery>()
+            .FindByNumberAsync(creditNoteReturn.CreditNoteNumber!);
+        issuedNote.Should().NotBeNull();
+        issuedNote!.Status.Should().Be("ACTIVE");
+        issuedNote.AmountIssued.Should().Be(creditNoteReturn.TotalRefund);
+        issuedNote.AmountRemaining.Should().Be(creditNoteReturn.TotalRefund, "a freshly issued note has never been spent");
+        issuedNote.SaleReturnId.Should().Be(creditNoteReturn.SaleReturnId);
 
         var cardToken = await RequestUnlinkedReturnOverrideAsync(fixture, "Card refund.");
         var created = await fixture.Resolve<ICreateUnlinkedReturn>().CreateAsync(
@@ -313,7 +326,7 @@ public sealed class CreateUnlinkedReturnTests
 
         created.TotalRefund.IsPositive.Should().BeTrue();
 
-        (await fixture.CountAsync("SELECT COUNT(*) FROM sale_return;")).Should().Be(1, "only the card attempt ever committed");
+        (await fixture.CountAsync("SELECT COUNT(*) FROM sale_return;")).Should().Be(2, "the credit note and card attempts both committed");
         (await fixture.ScalarAsync(
             $"SELECT tender_type FROM payment WHERE sale_return_id = {created.SaleReturnId};"))
             .Should().Be("CARD");
@@ -417,6 +430,10 @@ public sealed class CreateUnlinkedReturnTests
     private static Task<bool> SeedReturnNumberSequenceAsync(SaleFixture fixture) =>
         fixture.Resolve<INumberSequenceConfiguration>()
             .ConfigureAsync("RETURN", "RTN-", "{prefix}{yyyy}-{n:000000}", 1);
+
+    private static Task<bool> SeedCreditNoteNumberSequenceAsync(SaleFixture fixture) =>
+        fixture.Resolve<INumberSequenceConfiguration>()
+            .ConfigureAsync("CREDIT_NOTE", "CN-", "{prefix}{yyyy}-{n:000000}", 1);
 
     private static async Task<long> SeededVariantIdAsync(SaleFixture fixture) =>
         await fixture.CountAsync("SELECT id FROM product_variant ORDER BY id LIMIT 1;");

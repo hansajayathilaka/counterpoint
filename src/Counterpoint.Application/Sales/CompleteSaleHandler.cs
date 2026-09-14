@@ -78,6 +78,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     private readonly IDiscountAuthorisationService _discounts;
     private readonly ISettings _settings;
     private readonly ICustomerStore _customers;
+    private readonly ICreditNoteRedeemer _creditNotes;
 
     public CompleteSaleHandler(
         IUnitOfWork unitOfWork,
@@ -92,7 +93,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         ISession session,
         IDiscountAuthorisationService discounts,
         ISettings settings,
-        ICustomerStore customers)
+        ICustomerStore customers,
+        ICreditNoteRedeemer creditNotes)
     {
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(numbers);
@@ -107,6 +109,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         ArgumentNullException.ThrowIfNull(discounts);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(customers);
+        ArgumentNullException.ThrowIfNull(creditNotes);
 
         _unitOfWork = unitOfWork;
         _numbers = numbers;
@@ -121,6 +124,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         _discounts = discounts;
         _settings = settings;
         _customers = customers;
+        _creditNotes = creditNotes;
     }
 
     /// <inheritdoc />
@@ -198,6 +202,23 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                         saleId,
                         new NewTender(tender.TenderType, tender.Amount, tender.Reference, command.SoldAt),
                         token).ConfigureAwait(false);
+
+                    // Store credit (SRS FR-5 store credit, FR-3 tender, task P2-T05): the credit
+                    // note is spent here, inside this same sale transaction, with the guarded
+                    // decrement ICreditNoteRedeemer.RedeemAsync performs - not before the
+                    // transaction opens (task P2-T05's own over-redemption risk note). The
+                    // convention: TenderRequest.Reference carries the credit note's own number,
+                    // exactly as TenderTypes.CreditNote documents.
+                    if (string.Equals(tender.TenderType, TenderTypes.CreditNote, StringComparison.Ordinal))
+                    {
+                        await _creditNotes.RedeemAsync(
+                            RequireCreditNoteReference(tender.Reference),
+                            tender.Amount,
+                            saleId,
+                            command.SoldAt,
+                            bill.BusinessDate,
+                            token).ConfigureAwait(false);
+                    }
                 }
 
                 foreach (var line in bill.Lines)
@@ -599,6 +620,23 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                 "This shift was opened by someone else. Close it and open a new one, so the bill "
                 + "records who actually sold it.");
         }
+    }
+
+    /// <summary>
+    /// The convention a <c>CREDIT_NOTE</c> tender uses to name which note it is spending
+    /// (task P2-T05): <see cref="TenderRequest.Reference"/> carries the credit note's own
+    /// <c>number</c>, and nothing else does. A tender of this type with no reference is a
+    /// malformed request, not a note this system could ever look up.
+    /// </summary>
+    private static string RequireCreditNoteReference(string? reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            throw new InvalidOperationException(
+                "A CREDIT_NOTE tender must carry the credit note's own number in its reference.");
+        }
+
+        return reference;
     }
 
     /// <summary>
