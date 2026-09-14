@@ -27,6 +27,7 @@ public sealed class MigrationRunnerTests
         "20260908062332_UomActive0005",
         "20260908065449_ProductUomBaseUnit0006",
         "20260912110401_PaymentSaleReturnForeignKey0007",
+        "20260914140143_StockTakeNumber0008",
     ];
 
     [Fact]
@@ -159,7 +160,8 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6]);
+        result.AppliedMigrations.Should().Equal(
+            Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7]);
         result.BackupFilePath.Should().NotBeNull();
         File.Exists(result.BackupFilePath!).Should().BeTrue();
         Path.GetFileName(result.BackupFilePath!).Should().StartWith("counterpoint-pre-");
@@ -234,7 +236,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7]);
 
         await using (var check = factory.OpenConfiguredConnection())
         {
@@ -287,7 +289,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6], Chain[7]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -342,7 +344,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6], Chain[7]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -432,7 +434,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[6], Chain[7]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -470,6 +472,72 @@ public sealed class MigrationRunnerTests
 
         var deleteBlocked = await ExecuteExpectingSqliteExceptionAsync(check, "DELETE FROM payment WHERE id = 1;");
         deleteBlocked.Message.Should().Contain("payment is append-only");
+    }
+
+    /// <summary>
+    /// <c>StockTakeNumber0008</c> (P2-T10, docs/01_DATA_MODEL.md §4, §12): <c>stock_take</c> gets
+    /// the same numbered-document treatment as <c>goods_receipt.grn_no</c> and
+    /// <c>purchase_order.po_no</c> - FR-7.10 prints the count sheet alongside the GRN and the PO,
+    /// and <c>number_sequence</c>'s own <c>doc_type</c> CHECK has allowed <c>'STOCK_TAKE'</c>
+    /// since the skeleton migration. It is a plain <c>ADD COLUMN</c> - <c>stock_take</c> is not
+    /// append-only and carries no triggers to lose - and a stock take started before this
+    /// migration ran must pick up the default exactly as an existing till would.
+    /// </summary>
+    [Fact]
+    public async Task P2_T10_StockTakeGetsADocumentNumberColumn()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "PaymentSaleReturnForeignKey0007");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+        var result = await runner.ApplyPendingMigrationsAsync();
+
+        result.AppliedMigrations.Should().Equal(Chain[7]);
+
+        await using var check = factory.OpenConfiguredConnection();
+        await using var command = check.CreateCommand();
+
+        command.CommandText = "PRAGMA integrity_check;";
+        (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+        command.CommandText = "PRAGMA foreign_key_check;";
+        (await command.ExecuteScalarAsync()).Should().BeNull();
+
+        // The seeded stock take predates the migration; it still comes through, with the
+        // column's default rather than a number nobody allocated.
+        command.CommandText = "SELECT stock_take_no FROM stock_take WHERE id = 1;";
+        (await command.ExecuteScalarAsync()).Should().Be("");
+
+        // A newly started stock take gets a real number, and the index is really unique - not
+        // merely present in sqlite_schema's text.
+        command.CommandText =
+            "INSERT INTO stock_take (id, stock_take_no, scope, started_at, status, user_id) " +
+            "VALUES (2, 'ST-2026-000001', 'ALL', '2026-09-05T08:00:00.000+05:30', 'OPEN', 1);";
+        await command.ExecuteNonQueryAsync();
+
+        var duplicate = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO stock_take (id, stock_take_no, scope, started_at, status, user_id) " +
+            "VALUES (3, 'ST-2026-000001', 'CATEGORY:12', '2026-09-06T08:00:00.000+05:30', 'OPEN', 1);");
+        duplicate.SqliteExtendedErrorCode.Should().Be(SqliteConstraintUnique);
+        duplicate.Message.Should().Contain("stock_take.stock_take_no");
+
+        // A different number for a different scope, including a brand scope (the task's own
+        // "all, category, brand or rack location" list) - scope is unconstrained TEXT, the
+        // Application layer owns the 'BRAND:5' convention, not a CHECK. Two OPEN stock takes at
+        // once is deliberately not refused here the way a second open shift is (ux_one_open_shift)
+        // - unlike the till's one active session, non-overlapping scopes (different categories,
+        // different racks) may legitimately run at the same time.
+        command.CommandText =
+            "INSERT INTO stock_take (id, stock_take_no, scope, started_at, status, user_id) " +
+            "VALUES (4, 'ST-2026-000002', 'BRAND:5', '2026-09-06T08:00:00.000+05:30', 'OPEN', 1);";
+        await command.ExecuteNonQueryAsync();
     }
 
     private const int SqliteConstraintUnique = 2067;

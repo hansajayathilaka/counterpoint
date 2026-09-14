@@ -11,7 +11,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
     public partial class PosDbContextModel
     {
         private PosDbContextModel()
-            : base(skipDetectChanges: false, modelId: new Guid("903ccd79-e46a-403b-980f-2a456546621b"), entityTypeCount: 40)
+            : base(skipDetectChanges: false, modelId: new Guid("a2e2621b-e859-41b0-95ad-5c72204823f1"), entityTypeCount: 40)
         {
         }
 

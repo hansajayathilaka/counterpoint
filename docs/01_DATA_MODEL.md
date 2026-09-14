@@ -461,12 +461,15 @@ CREATE INDEX ix_grn_line_grn ON goods_receipt_line(goods_receipt_id);
 
 CREATE TABLE stock_take (
   id           INTEGER PRIMARY KEY,
-  scope        TEXT NOT NULL,        -- 'ALL' | 'CATEGORY:12' | 'LOCATION:A3'
+  scope        TEXT NOT NULL,        -- 'ALL' | 'CATEGORY:12' | 'BRAND:5' | 'LOCATION:A3'
   started_at   TEXT NOT NULL,
   completed_at TEXT,
   status       TEXT NOT NULL CHECK (status IN ('OPEN','POSTED','ABANDONED')),
-  user_id      INTEGER NOT NULL REFERENCES app_user(id)
+  user_id      INTEGER NOT NULL REFERENCES app_user(id),
+  stock_take_no TEXT NOT NULL         -- allocated from number_sequence, doc_type 'STOCK_TAKE'
 );
+CREATE UNIQUE INDEX ux_stock_take_no ON stock_take(stock_take_no);
+-- stock_take_no was added by StockTakeNumber0008 (P2-T10); see §13.
 
 CREATE TABLE stock_take_line (
   id                 INTEGER PRIMARY KEY,
@@ -1661,7 +1664,7 @@ Every change to one of these keys writes one `audit_log` row per changed key —
 | `ix_stock_take_line_take` | the same for a count sheet |
 | `ix_return_date` | every date-range report that nets returns off sales |
 | `ix_return_sale` | "has this bill already been returned against", asked on every return |
-| `ux_category_name_parent`, `ux_brand_name`, `ux_po_no`, `ux_grn_no`, `ux_return_no`, `ux_credit_note_number` | document numbers and names that must be unique. The `ux_*_no` ones also serve recall by number |
+| `ux_category_name_parent`, `ux_brand_name`, `ux_po_no`, `ux_grn_no`, `ux_stock_take_no`, `ux_return_no`, `ux_credit_note_number` | document numbers and names that must be unique. The `ux_*_no` ones also serve recall by number |
 | `ux_product_uom`, `ux_product_supplier` | one row per pair; the unique index is the constraint |
 
 **`price_change_log` has no index, deliberately.** Nothing reads it on a hot path: it is written
@@ -1695,6 +1698,7 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 | `UomActive0005` | P1-T04 | `uom.active INTEGER NOT NULL DEFAULT 1`, matching the `active` column its five catalogue siblings (`category`, `brand`, `tax_class`, `supplier`, `customer`) already carried — a plain `ADD COLUMN`, since `uom` carries no triggers to lose |
 | `ProductUomBaseUnit0006` | P1-T05 | The two halves of "exactly one base row per product with `conversion_factor = 10000`": the partial unique index `ux_product_uom_one_base` and the `trg_product_uom_base_factor_insert` / `_update` guard triggers — a trigger rather than a `CHECK`-adding rebuild, since `product_uom` carried no triggers to lose either way but a later rebuild might |
 | `PaymentSaleReturnForeignKey0007` | P2-T02 | The `payment.sale_return_id` foreign key to `sale_return(id)` — the third of the four dangling references (§13) — rebuilding `payment` and re-creating its two append-only triggers in the same migration, written as literal SQL rather than `AddForeignKey` so the triggers land after the rebuild instead of before it |
+| `StockTakeNumber0008` | P2-T10 | `stock_take.stock_take_no TEXT NOT NULL` and the unique index `ux_stock_take_no` — the count sheet's own document number, the same `number_sequence`-allocated treatment as `goods_receipt.grn_no` and `purchase_order.po_no`, needed to print it (FR-7.10) alongside the GRN and the PO. A plain `ADD COLUMN`, since `stock_take` carries no triggers to lose |
 
 Forty tables, forty-four indexes, thirty-one triggers, laid down across `Skeleton0001` through
 `ProductSearch0004`. Three migrations rather than one for that part, and the split is not
@@ -1703,7 +1707,9 @@ column to an existing table and changes none of those counts. `ProductUomBaseUni
 index and two triggers to an existing table — forty-five indexes, thirty-three triggers from
 here on — again without a rebuild. `PaymentSaleReturnForeignKey0007` adds one foreign key and
 rebuilds `payment`, changing neither the table, index nor trigger count — its two triggers are
-re-created, not added.
+re-created, not added. `StockTakeNumber0008` adds one column and one unique index to `stock_take`
+— forty-six indexes from here on, tables and triggers unchanged — again a plain `ADD COLUMN`,
+since `stock_take` is not append-only and carries no triggers to lose.
 
 ### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 
