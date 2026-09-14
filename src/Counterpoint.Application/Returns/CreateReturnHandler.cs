@@ -80,6 +80,9 @@ public sealed class CreateReturnHandler : ICreateReturn
     /// <summary>The <c>number_sequence.doc_type</c> a return is numbered from.</summary>
     private const string ReturnDocumentType = "RETURN";
 
+    /// <summary>The <c>number_sequence.doc_type</c> a credit note is numbered from (task P2-T05).</summary>
+    private const string CreditNoteDocumentType = "CREDIT_NOTE";
+
     /// <summary>The <c>stock_movement.movement_type</c> and <c>ref_doc_type</c> a SELLABLE line posts.</summary>
     private const string ReturnInMovementType = "RETURN_IN";
 
@@ -99,6 +102,8 @@ public sealed class CreateReturnHandler : ICreateReturn
     private readonly IReturnPolicyAuthorisationService _policy;
     private readonly ISettings _settings;
     private readonly ICategoryStore _categories;
+    private readonly ICreditNoteIssuer _creditNotes;
+    private readonly ICreditNoteReceiptRenderer _creditNoteReceipts;
 
     public CreateReturnHandler(
         IUnitOfWork unitOfWork,
@@ -113,7 +118,9 @@ public sealed class CreateReturnHandler : ICreateReturn
         ISession session,
         IReturnPolicyAuthorisationService policy,
         ISettings settings,
-        ICategoryStore categories)
+        ICategoryStore categories,
+        ICreditNoteIssuer creditNotes,
+        ICreditNoteReceiptRenderer creditNoteReceipts)
     {
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(numbers);
@@ -128,6 +135,8 @@ public sealed class CreateReturnHandler : ICreateReturn
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(categories);
+        ArgumentNullException.ThrowIfNull(creditNotes);
+        ArgumentNullException.ThrowIfNull(creditNoteReceipts);
 
         _unitOfWork = unitOfWork;
         _numbers = numbers;
@@ -142,6 +151,8 @@ public sealed class CreateReturnHandler : ICreateReturn
         _policy = policy;
         _settings = settings;
         _categories = categories;
+        _creditNotes = creditNotes;
+        _creditNoteReceipts = creditNoteReceipts;
     }
 
     /// <inheritdoc />
@@ -233,6 +244,16 @@ public sealed class CreateReturnHandler : ICreateReturn
                     }
                 }
 
+                // A credit note is issued (task P2-T05), if this is how the refund is paid, before
+                // the refund payment row so that row's own reference can carry the note's number -
+                // see CompleteSaleHandler's own remarks on TenderTypes.CreditNote for the
+                // convention this establishes: the credit note number travels in
+                // payment.reference / TenderRequest.Reference, never anywhere else.
+                (long CreditNoteId, string Number, Money Amount)? creditNote = command.RefundMethod == RefundMethod.CreditNote
+                    ? await IssueCreditNoteAsync(sale.BusinessDate, saleReturnId, sale.CustomerId, priced.TotalRefund, command, token)
+                        .ConfigureAwait(false)
+                    : null;
+
                 // One payment row for the whole refund (negative amount, sale_id left null so
                 // ck_payment_one_document holds) - split refunds across several tenders are not
                 // asked for by this task.
@@ -241,7 +262,7 @@ public sealed class CreateReturnHandler : ICreateReturn
                     new NewTender(
                         RefundMethodMapping.ToTenderType(command.RefundMethod),
                         priced.TotalRefund.Negate(),
-                        null,
+                        creditNote?.Number,
                         command.ReturnedAt),
                     token).ConfigureAwait(false);
 
@@ -271,9 +292,78 @@ public sealed class CreateReturnHandler : ICreateReturn
                     .EnqueueAsync(new PrintJobRequest(ReturnDocumentType, saleReturnId, payload), token)
                     .ConfigureAwait(false);
 
-                return new CreatedReturn(saleReturnId, returnNo, priced.TotalRefund, printJobId);
+                var creditNotePrintJobId = creditNote is { } issued
+                    ? await EnqueueCreditNoteReceiptAsync(
+                            returnNo, issued.CreditNoteId, issued.Number, issued.Amount, command, seller, token)
+                        .ConfigureAwait(false)
+                    : (long?)null;
+
+                return new CreatedReturn(
+                    saleReturnId,
+                    returnNo,
+                    priced.TotalRefund,
+                    printJobId,
+                    creditNote?.CreditNoteId,
+                    creditNote?.Number,
+                    creditNotePrintJobId);
             },
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Issues the credit note this return's refund is paid by (task P2-T05 step 1): allocates its
+    /// own number from <c>number_sequence</c>, inserts the <c>credit_note</c> row, all inside the
+    /// same transaction as the return itself.
+    /// </summary>
+    private async Task<(long CreditNoteId, string Number, Money Amount)> IssueCreditNoteAsync(
+        DateOnly businessDate,
+        long saleReturnId,
+        long? customerId,
+        Money amount,
+        CreateReturnCommand command,
+        CancellationToken cancellationToken)
+    {
+        var creditNoteNo = await _numbers
+            .AllocateAsync(CreditNoteDocumentType, businessDate, cancellationToken)
+            .ConfigureAwait(false);
+
+        var creditNoteId = await _creditNotes.IssueAsync(
+            new NewCreditNote(
+                creditNoteNo,
+                saleReturnId,
+                customerId,
+                amount,
+                command.ReturnedAt,
+                command.CreditNoteExpiresOn),
+            cancellationToken).ConfigureAwait(false);
+
+        return (creditNoteId, creditNoteNo, amount);
+    }
+
+    /// <summary>
+    /// Queues the credit note document (task P2-T05 step 4), a second and separate outbox row
+    /// from the return receipt itself - the two are different documents.
+    /// </summary>
+    private async Task<long> EnqueueCreditNoteReceiptAsync(
+        string returnNo,
+        long creditNoteId,
+        string creditNoteNo,
+        Money amount,
+        CreateReturnCommand command,
+        AuthenticatedUser seller,
+        CancellationToken cancellationToken)
+    {
+        var payload = _creditNoteReceipts.Render(new CreditNoteReceipt(
+            creditNoteNo,
+            returnNo,
+            command.ReturnedAt,
+            amount,
+            command.CreditNoteExpiresOn,
+            seller.DisplayName));
+
+        return await _printJobs
+            .EnqueueAsync(new PrintJobRequest(CreditNoteDocumentType, creditNoteId, payload), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>

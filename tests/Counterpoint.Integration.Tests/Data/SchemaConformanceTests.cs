@@ -38,6 +38,9 @@ public sealed class SchemaConformanceTests
         "app_setting.updated_by -> app_user",
         "audit_log.user_id -> app_user",
         "barcode.product_variant_id -> product_variant",
+        "bulk_break.destination_variant_id -> product_variant",
+        "bulk_break.source_variant_id -> product_variant",
+        "bulk_break.user_id -> app_user",
         "cash_movement.shift_id -> shift",
         "cash_movement.user_id -> app_user",
         "category.parent_id -> category",
@@ -104,7 +107,7 @@ public sealed class SchemaConformanceTests
     /// </summary>
     private static readonly string[] DocumentedTables =
     [
-        "app_setting", "app_user", "audit_log", "backup_record", "barcode", "brand",
+        "app_setting", "app_user", "audit_log", "backup_record", "barcode", "brand", "bulk_break",
         "cash_movement", "category", "credit_note", "credit_note_redemption", "customer",
         "daily_product_summary", "daily_sales_summary", "goods_receipt", "goods_receipt_line",
         "held_bill", "number_sequence", "payment", "price_change_log", "price_tier", "print_job",
@@ -119,6 +122,7 @@ public sealed class SchemaConformanceTests
     [
         "ix_audit_entity", "ix_audit_time",
         "ix_barcode_variant",
+        "ix_credit_note_customer",
         "ix_customer_phone",
         "ix_grn_line_grn",
         "ix_movement_ref", "ix_movement_time", "ix_movement_variant_time",
@@ -126,6 +130,7 @@ public sealed class SchemaConformanceTests
         "ix_price_tier_lookup",
         "ix_print_pending",
         "ix_product_active", "ix_product_brand", "ix_product_category",
+        "ix_redemption_credit_note",
         "ix_return_date", "ix_return_sale",
         "ix_sale_cust", "ix_sale_date", "ix_sale_line_sale", "ix_sale_line_variant",
         "ix_sale_shift", "ix_sale_soldat",

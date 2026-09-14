@@ -11,7 +11,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
     public partial class PosDbContextModel
     {
         private PosDbContextModel()
-            : base(skipDetectChanges: false, modelId: new Guid("a2e2621b-e859-41b0-95ad-5c72204823f1"), entityTypeCount: 40)
+            : base(skipDetectChanges: false, modelId: new Guid("d004e997-504c-4773-9dc5-f16beb154baf"), entityTypeCount: 41)
         {
         }
 
@@ -23,6 +23,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
             var backupRecord = BackupRecordEntityType.Create(this);
             var barcode = BarcodeEntityType.Create(this);
             var brand = BrandEntityType.Create(this);
+            var bulkBreak = BulkBreakEntityType.Create(this);
             var cashMovement = CashMovementEntityType.Create(this);
             var category = CategoryEntityType.Create(this);
             var creditNote = CreditNoteEntityType.Create(this);
@@ -61,6 +62,9 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
             AppSettingEntityType.CreateForeignKey1(appSetting, appUser);
             AuditLogEntityType.CreateForeignKey1(auditLog, appUser);
             BarcodeEntityType.CreateForeignKey1(barcode, productVariant);
+            BulkBreakEntityType.CreateForeignKey1(bulkBreak, productVariant);
+            BulkBreakEntityType.CreateForeignKey2(bulkBreak, productVariant);
+            BulkBreakEntityType.CreateForeignKey3(bulkBreak, appUser);
             CashMovementEntityType.CreateForeignKey1(cashMovement, shift);
             CashMovementEntityType.CreateForeignKey2(cashMovement, appUser);
             CategoryEntityType.CreateForeignKey1(category, category);
@@ -125,6 +129,7 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
             BackupRecordEntityType.CreateAnnotations(backupRecord);
             BarcodeEntityType.CreateAnnotations(barcode);
             BrandEntityType.CreateAnnotations(brand);
+            BulkBreakEntityType.CreateAnnotations(bulkBreak);
             CashMovementEntityType.CreateAnnotations(cashMovement);
             CategoryEntityType.CreateAnnotations(category);
             CreditNoteEntityType.CreateAnnotations(creditNote);

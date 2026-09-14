@@ -314,6 +314,22 @@ internal sealed class SaleFixture : IAsyncDisposable
         // ICreateReturn above.
         services.AddSingleton<ICreateExchange, CreateExchangeHandler>();
 
+        // P2-T08: adjustments and damage (SRS FR-4, NFR-S2) - owner-only, wired exactly as
+        // Counterpoint.App's CounterpointHostBuilderExtensions, decorated-only, same shape as
+        // ICancelSale above (NFR-S2, AC-17). IAdjustmentHistoryQuery is decorated inside
+        // AddCounterpointInfrastructure itself, so it needs no line here.
+        services.AddSingleton<IPostAdjustment>(p => RoleAuthorisation.Decorate<IPostAdjustment>(
+            ActivatorUtilities.CreateInstance<PostAdjustmentHandler>(p),
+            p.GetRequiredService<ISession>()));
+
+        // P2-T09: bulk breaking (SRS FR-4.9, AC-09) - owner-only, wired exactly as
+        // Counterpoint.App's CounterpointHostBuilderExtensions, decorated-only, same shape as
+        // IPostAdjustment above. IBulkBreakValueConservationQuery is decorated inside
+        // AddCounterpointInfrastructure itself, so it needs no line here.
+        services.AddSingleton<IPostBulkBreak>(p => RoleAuthorisation.Decorate<IPostBulkBreak>(
+            ActivatorUtilities.CreateInstance<PostBulkBreakHandler>(p),
+            p.GetRequiredService<ISession>()));
+
         // Bulk price update by category, brand or supplier (SRS FR-2.19) is owner only, wired
         // exactly as IProductMaintenance above.
         services.AddSingleton<IBulkPriceUpdateService>(p => RoleAuthorisation.Decorate<IBulkPriceUpdateService>(

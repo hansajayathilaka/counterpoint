@@ -140,7 +140,12 @@ public sealed partial class PolicySettingsViewModel : SettingsGroupViewModel
 
                 // Same reasoning, one field newer: task P2-T03 added this restriction but did not
                 // ask for a settings screen of its own.
-                snapshot.Policy.AllowedUnlinkedRefundMethods),
+                snapshot.Policy.AllowedUnlinkedRefundMethods,
+
+                // Same reasoning again: task P2-T08's adjustment reason list and GRN-warning
+                // threshold are edited from the adjustment screen that owns them, not this one.
+                snapshot.Policy.AdjustmentReasons,
+                snapshot.Policy.AdjustmentGrnWarningThreshold),
         };
     }
 }

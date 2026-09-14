@@ -3,10 +3,13 @@ using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Abstractions.Security;
 using Counterpoint.Application.Import;
+using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Sales;
+using Counterpoint.Application.Security;
 using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Backup;
 using Counterpoint.Infrastructure.Catalogue;
+using Counterpoint.Infrastructure.CreditNotes;
 using Counterpoint.Infrastructure.Dashboard;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Import;
@@ -102,11 +105,47 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IReturnableSaleLookup, SqliteReturnableSaleLookup>();
         services.AddSingleton<ISaleReturnWriter, SqliteSaleReturnWriter>();
 
+        // P2-T05: credit notes (SRS FR-5 store credit, FR-3 tender). One store backs both write
+        // ports - issuing and redeeming share the same guarded-decrement discipline - registered
+        // as its concrete type so both interfaces resolve to the one instance; ICreditNoteQuery is
+        // its own Dapper read side, no role requirement of its own for the same reason
+        // IReturnableSaleLookup above has none.
+        services.AddSingleton<SqliteCreditNoteStore>();
+        services.AddSingleton<ICreditNoteIssuer>(provider => provider.GetRequiredService<SqliteCreditNoteStore>());
+        services.AddSingleton<ICreditNoteRedeemer>(provider => provider.GetRequiredService<SqliteCreditNoteStore>());
+        services.AddSingleton<ICreditNoteQuery, SqliteCreditNoteQuery>();
+
         // P1-T07: the ledger's projection rebuild, its startup consistency check, and the
         // stock enquiry screen's read side (SRS FR-4, DM-05, SAD §3).
         services.AddSingleton<IRebuildStockBalance, RebuildStockBalanceCommand>();
         services.AddSingleton<IStockConsistencyCheck, SqliteStockConsistencyCheck>();
         services.AddSingleton<IStockPositionReader, SqliteStockPositionReader>();
+
+        // P2-T08: manual adjustments and damage write-offs (SRS FR-4, NFR-S2). The history query
+        // exposes cost (CLAUDE.md invariant 8), so unlike the read/write ports above it is
+        // decorated right here, the same way Counterpoint.Backup's own DI extension decorates
+        // IManualBackupTrigger/IGuidedRestoreService in front of a concrete class this project
+        // owns - RoleAuthorisation is Application-layer code, and Infrastructure is allowed to
+        // reference Application (CLAUDE.md "Project boundaries"). IPostAdjustment itself is an
+        // Application-layer handler (PostAdjustmentHandler) built and decorated in the
+        // composition root, exactly as ICancelSale/IGoodsReceiptService are.
+        services.AddSingleton<SqliteAdjustmentHistoryQuery>();
+        services.AddSingleton<IAdjustmentHistoryQuery>(provider => RoleAuthorisation.Decorate<IAdjustmentHistoryQuery>(
+            provider.GetRequiredService<SqliteAdjustmentHistoryQuery>(),
+            provider.GetRequiredService<ISession>()));
+
+        // P2-T09: bulk breaking (SRS FR-4.9, AC-09). IBulkBreakStore carries no role requirement of
+        // its own, the same split IGoodsReceiptStore draws above - the owner-only IPostBulkBreak
+        // built on top of it is wired decorated in the composition root. The value-conservation
+        // report is owner-only (it is cost-derived, CLAUDE.md invariant 8) and decorated right
+        // here, the same as IAdjustmentHistoryQuery just above.
+        services.AddSingleton<IBulkBreakStore, SqliteBulkBreakStore>();
+        services.AddSingleton<SqliteBulkBreakValueConservationQuery>();
+        services.AddSingleton<IBulkBreakValueConservationQuery>(provider =>
+            RoleAuthorisation.Decorate<IBulkBreakValueConservationQuery>(
+                provider.GetRequiredService<SqliteBulkBreakValueConservationQuery>(),
+                provider.GetRequiredService<ISession>()));
+
         services.AddSingleton<IAuditTrail, SqliteAuditTrail>();
         services.AddSingleton<IPrintJobOutbox, SqlitePrintJobOutbox>();
         services.AddSingleton<IUserStore, SqliteUserStore>();

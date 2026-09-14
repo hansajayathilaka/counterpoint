@@ -96,7 +96,10 @@ public static class SettingDefaults
     /// (task P2-T03) are off out of the box (SRS FR-5.19), and even once switched on may not be
     /// refunded by cash - credit note is the shop's intended default (its own remarks on
     /// <see cref="PolicySettings.AllowedUnlinkedRefundMethods"/> explain why card is also listed
-    /// today: credit notes are not redeemable until P2-T05).
+    /// today: credit notes are not redeemable until P2-T05). Task P2-T08 adds a starting reason
+    /// list for a manual stock adjustment and turns its inbound-value GRN warning on by default,
+    /// at a modest figure (see <see cref="PolicySettings.AdjustmentReasons"/> and
+    /// <see cref="PolicySettings.AdjustmentGrnWarningThreshold"/> for why).
     /// </summary>
     public static PolicySettings Policy { get; } = new(
         ReturnWindowDays: 14,
@@ -110,7 +113,23 @@ public static class SettingDefaults
         CombineRepeatScans: true,
         ReceiptRequired: true,
         NonReturnableCategoryIds: [],
-        AllowedUnlinkedRefundMethods: [RefundMethod.CreditNote, RefundMethod.Card]);
+        AllowedUnlinkedRefundMethods: [RefundMethod.CreditNote, RefundMethod.Card],
+
+        // Task P2-T08 "Do this" #1: a starting point for the reason picker, not a closed list -
+        // IPostAdjustment only refuses a blank reason, never one absent from here.
+        AdjustmentReasons:
+        [
+            "Stock count correction",
+            "Damaged in store",
+            "Expired",
+            "Theft or shrinkage",
+            "Data entry error",
+            "Other",
+        ],
+
+        // Task P2-T08's own "Risks": on by default at a modest figure, so the fraud-prevention
+        // nudge this task exists to add is live out of the box rather than opt-in.
+        AdjustmentGrnWarningThreshold: Money.FromDecimal(5000m));
 
     /// <summary>
     /// FR-10.6. What the Linux fakes need, which is also what an uncommissioned Windows terminal

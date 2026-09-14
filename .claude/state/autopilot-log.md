@@ -271,6 +271,53 @@ it stopped.
 - `2026-09-13T01:33:49Z` **P2-T04** done — 7 commits (feat x3 checkpoints, test, fix, chore x2), 16 new tests (4+12), 645 total, 3 review rounds (2 initial + 1 re-review), 1 fix attempt closed
 
 **Run ended 2026-09-13T01:35:17Z** — 2 completed, 0 halted
+
+## Run 2026-09-14T00:51:20Z
+
+- branch: `claude/autopilot-5hft1w`
+- head: `420a992`
+- budget: 2 task(s)
+
+- `2026-09-14T00:51:25Z` **P2-T05** start — Credit notes
+- `2026-09-14T01:09:30Z` **P2-T05** schema — credit_note bounds CHECK + 2 lookup indexes (migration 0008)
+- `2026-09-14T01:11:00Z` **P2-T05** implement-start — delegated to task-implementer
+- `2026-09-14T01:44:33Z` **P2-T05** implement-done — task-implementer finished; ledger 'done' mark reverted to in-progress (premature — tests/verify/review not yet run by orchestrator)
+- `2026-09-14T02:06:59Z` **P2-T05** verify — verify.sh green: 658+344+78+18 tests, 6 arch tests, 54 trigger-survival
+- `2026-09-14T02:07:40Z` **P2-T05** review-start — code-reviewer + data-modeler dispatched in parallel
+- `2026-09-14T02:09:53Z` **P2-T05** review-code — code-reviewer clean: 0 must-fix, 0 should-fix; 2 consider items (FR-5.14 expiry default tension, TenderRequest.Reference overload)
+- `2026-09-14T02:13:21Z` **P2-T05** review-data — data-modeler clean: 0 must-fix; 1 should-fix (doc/comment overstates what ix_redemption_credit_note backs for ReconcileAsync - not a functional defect); 2 consider items
+- `2026-09-14T02:13:28Z` **P2-T05** done — 26+3 files, 8 new tests + 1 renamed, 0 must-fix across 2 reviews
+- `2026-09-14T02:14:30Z` **P2-T05** pr — PR #33 opened against main, subscribed to activity
+- `2026-09-14T02:14:49Z` **P2-T08** start — Adjustments and damage
+- `2026-09-14T02:16:50Z` **P2-T08** implement-start — delegated to task-implementer
+- `2026-09-14T02:40:40Z` **P2-T08** tests-start — delegated to test-engineer
+- `2026-09-14T03:05:45Z` **P2-T08** verify — verify.sh green: 667+344+78+18 tests, 6 arch tests, 54 trigger-survival
+- `2026-09-14T03:06:20Z` **P2-T08** review-start — code-reviewer + data-modeler dispatched in parallel
+- `2026-09-14T08:41:06Z` **P2-T08** review-data — data-modeler clean: 0 must-fix; 1 should-fix (SqliteAdjustmentHistoryQuery's IS NULL OR date filter defeats ix_movement_time, forces full stock_movement scan even with narrow filters - confirmed via EXPLAIN QUERY PLAN, not a correctness/invariant issue); explicitly recommends against adding a movement_type index (wrong tradeoff for the hottest write-path table)
+- `2026-09-14T08:42:48Z` **P2-T08** review-code — code-reviewer: 1 must-fix disputed by orchestrator (claims no adjustment screen blocks the task; overridden - task's own Done-when explicitly calls AC-17 item a 'service-level test', and PolicySettingsViewModel's pass-through pattern for the two new settings is identical to P2-T01/P2-T03's own already-done precedent in the same file); 3 should-fix/consider carried to PR (pipe-delimiter validation gap, audit read via non-transactional connection relying on global single-writer invariant, Money.ToString in warning text)
+- `2026-09-14T08:42:58Z` **P2-T08** done — 28 files, 22 new tests, 0 must-fix across 2 reviews after 1 orchestrator override
+- `2026-09-14T08:43:59Z` **P2-T08** pr — PR #34 opened against main, subscribed to activity
+
+**Run ended 2026-09-14T08:44:00Z** — 2 completed, 0 halted
+
+## Run 2026-09-14T12:05:40Z
+
+- branch: `claude/vibrant-cerf-vizegg`
+- head: `9b5e8be`
+- budget: 2 task(s)
+
+- `2026-09-14T12:05:42Z` **P2-T09** start — Bulk breaking
+- `2026-09-14T13:01:19Z` **P2-T09** note — orchestrator reverted premature done-mark by task-implementer subagent; resuming at B4 (tests)
+- `2026-09-14T13:22:43Z` **P2-T09** fix-attempt — 1: value-conservation query uses exact-zero comparison but handler's own documented division produces bounded sub-cent rounding residuals as the ordinary case - needs a documented tolerance, not exact equality
+- `2026-09-14T13:45:37Z` **P2-T09** fix-attempt — 2: stale doc comment in BulkBreakTests.cs still describes the tolerance query as unfixed/failing (must-fix per data-modeler)
+- `2026-09-14T13:53:43Z` **P2-T09** done — 5 files schema + 8 files application/infra, 12 BulkBreakTests + migration test, review clean after 2 fix-attempts, PR #35
+
+## Run 2026-09-14T13:54:19Z
+
+- branch: `task/p2-t10-stock-take`
+- head: `9b5e8be`
+- budget: 2 task(s)
+
 - `2026-09-14T13:54:19Z` **P2-T10** start — Stock take
 - `2026-09-14T14:21:46Z` **P2-T10** note — commit ef19adc's message is stale (describes an interim known-issue state) but its diff is already the corrected version - two independent agents (the original data-modeler pass, which self-corrected mid-run, and a redundant verification pass) both confirm 1086/1086 tests pass on this commit; not amending per git safety protocol, noting here instead
 - `2026-09-14T14:57:47Z` **P2-T10** note — orchestrator reverted premature done-mark by task-implementer subagent; resuming at B4 (tests)

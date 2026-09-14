@@ -346,6 +346,9 @@ erDiagram
     STOCK_TAKE ||--|{ STOCK_TAKE_LINE : counts
     GOODS_RECEIPT_LINE ||--o{ STOCK_MOVEMENT : posts
     STOCK_TAKE_LINE ||--o{ STOCK_MOVEMENT : posts
+    PRODUCT_VARIANT ||--o{ BULK_BREAK : "broken from (source)"
+    PRODUCT_VARIANT ||--o{ BULK_BREAK : "broken into (destination)"
+    BULK_BREAK ||--o{ STOCK_MOVEMENT : "posts (OUT, IN, wastage DAMAGE)"
 
     STOCK_MOVEMENT {
         int id PK
@@ -365,6 +368,19 @@ erDiagram
         int qty_base
         int cost_avg "money"
         text updated_at
+    }
+    BULK_BREAK {
+        int id PK
+        int source_variant_id FK
+        int destination_variant_id FK
+        int source_qty_base
+        int expected_qty_base
+        int actual_qty_base
+        int wastage_qty_base
+        int total_value "money"
+        text reason
+        int user_id FK
+        text occurred_at
     }
 ```
 
@@ -481,6 +497,37 @@ CREATE TABLE stock_take_line (
   counted_at         TEXT
 );
 CREATE INDEX ix_stock_take_line_take ON stock_take_line(stock_take_id);
+
+-- P2-T09: converting one packaging form into another moves stock between two *different*
+-- product_variant rows (never the same one, ck_bulk_break_distinct_variants), unlike a UOM
+-- conversion. Not append-only (§13) - the same mutability as purchase_order, goods_receipt and
+-- stock_take above, none of which are on CLAUDE.md invariant 5's list either. Its only job the
+-- CHECK constraints below could not do alone is minting the id the BULK_BREAK_OUT, BULK_BREAK_IN
+-- and wastage DAMAGE stock_movement rows share as ref_doc_type = 'BULK_BREAK',
+-- ref_doc_id = bulk_break.id, the same role sale.id/goods_receipt.id/stock_take.id already play
+-- for their own documents above - stock_movement is append-only, so none of those three rows
+-- could be updated with a shared id once written, and only a header row inserted *before* them
+-- can hand one out.
+CREATE TABLE bulk_break (
+  id                      INTEGER PRIMARY KEY,
+  source_variant_id       INTEGER NOT NULL REFERENCES product_variant(id),
+  destination_variant_id  INTEGER NOT NULL REFERENCES product_variant(id),
+  source_qty_base         INTEGER NOT NULL CHECK (source_qty_base > 0),
+                          -- broken, in the source variant's base unit
+  expected_qty_base       INTEGER NOT NULL CHECK (expected_qty_base > 0),
+                          -- declared on the screen, in the destination's base unit
+  actual_qty_base         INTEGER NOT NULL CHECK (actual_qty_base > 0),
+                          -- what BULK_BREAK_IN actually posted, destination's base unit
+  wastage_qty_base        INTEGER NOT NULL DEFAULT 0 CHECK (wastage_qty_base >= 0),
+                          -- expected_qty_base - actual_qty_base; what the wastage DAMAGE
+                          -- movement, if any, was valued against
+  total_value             INTEGER NOT NULL,   -- money; source cost_avg x source_qty_base,
+                                               -- carried across and conserved by the pair
+  reason                  TEXT NOT NULL,
+  user_id                 INTEGER NOT NULL REFERENCES app_user(id),
+  occurred_at             TEXT NOT NULL,
+  CHECK (source_variant_id <> destination_variant_id)
+);
 ```
 
 ---
@@ -727,11 +774,12 @@ CREATE TABLE credit_note (
   sale_return_id   INTEGER NOT NULL REFERENCES sale_return(id),
   customer_id      INTEGER REFERENCES customer(id),
   amount_issued    INTEGER NOT NULL,
-  amount_remaining INTEGER NOT NULL,
+  amount_remaining INTEGER NOT NULL CHECK (amount_remaining >= 0 AND amount_remaining <= amount_issued),
   issued_at        TEXT NOT NULL,
   expires_on       TEXT,
   status           TEXT NOT NULL CHECK (status IN ('ACTIVE','SPENT','EXPIRED','VOID'))
 );
+CREATE INDEX ix_credit_note_customer ON credit_note(customer_id);
 
 CREATE TABLE credit_note_redemption (
   id             INTEGER PRIMARY KEY,
@@ -740,7 +788,16 @@ CREATE TABLE credit_note_redemption (
   amount         INTEGER NOT NULL,
   redeemed_at    TEXT NOT NULL
 );
+CREATE INDEX ix_redemption_credit_note ON credit_note_redemption(credit_note_id);
 ```
+
+**`ck_credit_note_amount_remaining_bounds`** (`CreditNoteConstraints0008`, P2-T05) is the database's
+half of the over-redemption risk note: the redeeming `UPDATE` is guarded inside the sale
+transaction (`... SET amount_remaining = amount_remaining - :amt WHERE id = :id AND
+amount_remaining >= :amt`, checked by rows-affected — Counterpoint is single-user, so there is no
+second writer to race against, but the guard still belongs in the transaction, not before it), and
+this CHECK is what stops a bug in that guard, or a hand-run repair `UPDATE`, from ever landing a
+negative or over-issued balance regardless.
 
 **AC-06 (no cumulative over-return)** is enforced inside the return transaction:
 `sale_line.qty_returned + requested_qty_base <= sale_line.qty_base`, checked with the row locked by the write transaction, then incremented. It is the one permitted `UPDATE` on `sale_line`.
@@ -1591,6 +1648,9 @@ place; see that key's own remarks for why it is read and written directly throug
 | | `policy.max_line_discount_rate`, `policy.max_bill_discount_rate` (both 10000 = 100%, i.e. no restriction — Q-12), `policy.restocking_fee_rate` (0) | `INT` (scaled) |
 | | `policy.receipt_required` (true — Q-03: "should have to previous bill no", P2-T01) | `BOOL` |
 | | `policy.non_returnable_category_ids` — `category.id` values, comma-separated and sorted, empty by default (FR-5.10, P2-T01; deliberately `STRING`, not `JSON` — see `SettingValueTypes`'s remarks) | `STRING` |
+| | `policy.allowed_unlinked_refund_methods` — `RefundMethod` tokens, comma-separated and sorted, `CREDIT_NOTE,CARD` by default (FR-5.19, P2-T03) | `STRING` |
+| | `policy.adjustment_reasons` — free-text reason picker entries, pipe-separated (`\|`, not `,` — a reason is text an owner types and may itself contain a comma), in the order given (FR-4, P2-T08) | `STRING` |
+| | `policy.adjustment_grn_warning_threshold` (5000.00 — the value above which an inbound adjustment warns towards a GRN instead; 0 disables the warning, P2-T08) | `MONEY` |
 | Peripherals (FR-10.6) | `peripheral.receipt_printer_name`, `peripheral.label_printer_name`, `peripheral.scale_port`, `peripheral.scanner_suffix` (`ENTER`/`TAB`/`NONE`) | `STRING` |
 | | `peripheral.paper_width_mm` (80), `peripheral.receipt_copies` (1), `peripheral.drawer_kick_pin` (2), `peripheral.scanner_minimum_length` (4), `peripheral.scale_baud_rate` (9600) | `INT` |
 | | `peripheral.open_drawer_on_cash_sale` (true), `peripheral.scale_enabled` (false) | `BOOL` |
@@ -1664,6 +1724,8 @@ Every change to one of these keys writes one `audit_log` row per changed key —
 | `ix_stock_take_line_take` | the same for a count sheet |
 | `ix_return_date` | every date-range report that nets returns off sales |
 | `ix_return_sale` | "has this bill already been returned against", asked on every return |
+| `ix_credit_note_customer` | P2-T05: "does this customer have store credit" — asked at the till, not only in a report, whenever a customer does not have the slip in hand |
+| `ix_redemption_credit_note` | P2-T05: redemption history for one credit note, and the outstanding-credit reconciliation report (issued minus redeemed) grouping by it |
 | `ux_category_name_parent`, `ux_brand_name`, `ux_po_no`, `ux_grn_no`, `ux_stock_take_no`, `ux_return_no`, `ux_credit_note_number` | document numbers and names that must be unique. The `ux_*_no` ones also serve recall by number |
 | `ux_product_uom`, `ux_product_supplier` | one row per pair; the unique index is the constraint |
 
@@ -1672,11 +1734,19 @@ when a price changes and read by an owner looking at one variant's history, whic
 small table. An index there would cost a write on the catalogue path to serve a screen nobody
 opens twice a day. P1-T08 adds one if the price-history screen needs it.
 
-**`held_bill`, `credit_note_redemption`, `purchase_order_line`, `sale_return_line` and
-`daily_product_summary` have none either.** Each is read by its parent key, and for the first four
-that key belongs to a table small enough to scan — a shop holds a handful of parked bills and a
-purchase order has a dozen lines. `daily_product_summary` is covered by its composite primary key,
-which leads on `business_date`, the column every range query filters on.
+**`held_bill`, `purchase_order_line`, `sale_return_line`, `daily_product_summary` and
+`bulk_break` have none either.** Each is read by its parent key, and for the first three that key
+belongs to a table small enough to scan — a shop holds a handful of parked bills and a purchase
+order has a dozen lines. `daily_product_summary` is covered by its composite primary key, which
+leads on `business_date`, the column every range query filters on. `bulk_break` (P2-T09) is the
+same shape as `goods_receipt`, `purchase_order` and `stock_take`: a shop posts a handful of bulk
+breaks a day, so any screen or report reading it in full is scanning a table too small to justify
+a write-path index, and the value-conservation report runs against
+`stock_movement(ref_doc_type, ref_doc_id)` — already indexed — rather than against this table at
+all. `credit_note_redemption` was in this list until P2-T05: a
+lookup by `credit_note_id` moved from "small enough to scan" to indexed once redemption history and
+the outstanding-credit reconciliation report both needed it, and a plain index costs nothing SQLite
+cannot add without a rebuild (`CreditNoteConstraints0008`, §13).
 
 **From the skeleton migration onwards, every index in this schema is one somebody chose.** EF
 Core's `ForeignKeyIndexConvention` is removed in `PosDbContext.ConfigureConventions`, so a foreign
@@ -1698,6 +1768,8 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 | `UomActive0005` | P1-T04 | `uom.active INTEGER NOT NULL DEFAULT 1`, matching the `active` column its five catalogue siblings (`category`, `brand`, `tax_class`, `supplier`, `customer`) already carried — a plain `ADD COLUMN`, since `uom` carries no triggers to lose |
 | `ProductUomBaseUnit0006` | P1-T05 | The two halves of "exactly one base row per product with `conversion_factor = 10000`": the partial unique index `ux_product_uom_one_base` and the `trg_product_uom_base_factor_insert` / `_update` guard triggers — a trigger rather than a `CHECK`-adding rebuild, since `product_uom` carried no triggers to lose either way but a later rebuild might |
 | `PaymentSaleReturnForeignKey0007` | P2-T02 | The `payment.sale_return_id` foreign key to `sale_return(id)` — the third of the four dangling references (§13) — rebuilding `payment` and re-creating its two append-only triggers in the same migration, written as literal SQL rather than `AddForeignKey` so the triggers land after the rebuild instead of before it |
+| `CreditNoteConstraints0008` | P2-T05 | `ix_credit_note_customer` (no rebuild) and `ix_redemption_credit_note` (no rebuild); `ck_credit_note_amount_remaining_bounds` on `credit_note` (`0 <= amount_remaining <= amount_issued`), which does rebuild `credit_note` — written as literal SQL, in docs/01_DATA_MODEL.md §6's declared column order, because `credit_note` carries no triggers to re-create but EF's SQLite generator would otherwise have reordered its columns alphabetically the same way it did to `product` in `ProductForeignKeys0003` |
+| `BulkBreak0009` | P2-T09 | The `bulk_break` table — a pure `CREATE TABLE`, so no existing table is touched and there is nothing to rebuild or re-create. It exists to hand the `BULK_BREAK_OUT`, `BULK_BREAK_IN` and wastage `DAMAGE` `stock_movement` rows a `ref_doc_id` all three can share, the same role `sale.id`, `goods_receipt.id` and `stock_take.id` already play for their own documents — not on CLAUDE.md invariant 5's append-only list, the same as those three |
 | `StockTakeNumber0008` | P2-T10 | `stock_take.stock_take_no TEXT NOT NULL` and the unique index `ux_stock_take_no` — the count sheet's own document number, the same `number_sequence`-allocated treatment as `goods_receipt.grn_no` and `purchase_order.po_no`, needed to print it (FR-7.10) alongside the GRN and the PO. A plain `ADD COLUMN`, since `stock_take` carries no triggers to lose |
 
 Forty tables, forty-four indexes, thirty-one triggers, laid down across `Skeleton0001` through
@@ -1707,9 +1779,15 @@ column to an existing table and changes none of those counts. `ProductUomBaseUni
 index and two triggers to an existing table — forty-five indexes, thirty-three triggers from
 here on — again without a rebuild. `PaymentSaleReturnForeignKey0007` adds one foreign key and
 rebuilds `payment`, changing neither the table, index nor trigger count — its two triggers are
-re-created, not added. `StockTakeNumber0008` adds one column and one unique index to `stock_take`
-— forty-six indexes from here on, tables and triggers unchanged — again a plain `ADD COLUMN`,
-since `stock_take` is not append-only and carries no triggers to lose.
+re-created, not added. `CreditNoteConstraints0008` adds two indexes and one CHECK constraint and
+rebuilds `credit_note` — forty-seven indexes from here on, no change in trigger count, since
+`credit_note` and `credit_note_redemption` are not append-only and have none to lose or re-create.
+`BulkBreak0009` adds one table, `bulk_break` — forty-one tables from here on — and changes
+neither the index nor the trigger count: it is a plain `CREATE TABLE`, carries no index beyond
+its own primary key (§12), and is not append-only, so there is no trigger to add. `StockTakeNumber0008`
+adds one column and one unique index to `stock_take` — forty-eight indexes from here on, tables
+and triggers unchanged — again a plain `ADD COLUMN`, since `stock_take` is not append-only and
+carries no triggers to lose.
 
 ### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 

@@ -20,8 +20,8 @@ namespace Counterpoint.Application.Returns;
 /// <param name="Lines">What is coming back, and how. At least one.</param>
 /// <param name="RefundMethod">
 /// How the refund is paid out. <see cref="Counterpoint.Application.Settings.RefundMethod.CreditNote"/>
-/// is refused here - issuing and redeeming a credit note is P2-T05, and this task does not create
-/// a payment row for a document type it cannot back with one.
+/// issues a numbered <c>credit_note</c> row alongside the refund payment (task P2-T05) - see
+/// <see cref="CreditNoteExpiresOn"/> for its optional expiry.
 /// </param>
 /// <param name="BillReferencePresented">
 /// True when the bill was identified by its own number, scanned or typed, rather than only found
@@ -51,6 +51,13 @@ namespace Counterpoint.Application.Returns;
 /// The return's own reason, recorded on <c>sale_return.reason</c> alongside each line's own
 /// (<see cref="ReturnLineRequest.Reason"/>).
 /// </param>
+/// <param name="CreditNoteExpiresOn">
+/// The last business date a credit note issued by this return may be redeemed on, or null to
+/// never expire (task P2-T05). Ignored unless <paramref name="RefundMethod"/> is
+/// <see cref="Counterpoint.Application.Settings.RefundMethod.CreditNote"/> - there is no
+/// shop-wide default expiry policy in <c>PolicySettings</c> for this to fall back to, so a caller
+/// that wants one always states it.
+/// </param>
 public sealed record CreateReturnCommand(
     long OriginalSaleId,
     long UserId,
@@ -63,4 +70,5 @@ public sealed record CreateReturnCommand(
     OverrideToken? NonReturnableOverride = null,
     OverrideToken? ReceiptRequirementOverride = null,
     OverrideToken? CashRefundLimitOverride = null,
-    string? Reason = null);
+    string? Reason = null,
+    DateOnly? CreditNoteExpiresOn = null);

@@ -283,6 +283,12 @@ public static class SettingsSerializer
         rows.Add(Text(
             SettingKeys.PolicyAllowedUnlinkedRefundMethods,
             WriteRefundMethodList(policy.AllowedUnlinkedRefundMethods)));
+        rows.Add(Text(
+            SettingKeys.PolicyAdjustmentReasons,
+            WriteStringList(policy.AdjustmentReasons)));
+        rows.Add(MoneyRow(
+            SettingKeys.PolicyAdjustmentGrnWarningThreshold,
+            policy.AdjustmentGrnWarningThreshold));
     }
 
     private static PolicySettings ReadPolicy(
@@ -304,7 +310,10 @@ public static class SettingsSerializer
             ReadBool(rows, SettingKeys.PolicyReceiptRequired, fallback.ReceiptRequired),
             ReadLongList(rows, SettingKeys.PolicyNonReturnableCategoryIds, fallback.NonReturnableCategoryIds),
             ReadRefundMethodList(
-                rows, SettingKeys.PolicyAllowedUnlinkedRefundMethods, fallback.AllowedUnlinkedRefundMethods));
+                rows, SettingKeys.PolicyAllowedUnlinkedRefundMethods, fallback.AllowedUnlinkedRefundMethods),
+            ReadStringList(rows, SettingKeys.PolicyAdjustmentReasons, fallback.AdjustmentReasons),
+            ReadMoney(
+                rows, SettingKeys.PolicyAdjustmentGrnWarningThreshold, fallback.AdjustmentGrnWarningThreshold));
 
     // ---- FR-10.6 Peripherals -----------------------------------------------------------------
 
@@ -480,6 +489,18 @@ public static class SettingsSerializer
     private static string WriteRefundMethodList(IReadOnlyCollection<RefundMethod> values) =>
         string.Join(',', values.Distinct().OrderBy(method => method).Select(SettingTokens.From));
 
+    /// <summary>
+    /// A pipe-separated list of free-text strings in one <c>STRING</c> row, the same
+    /// "one scalar row, not <c>JSON</c>" shape as <see cref="WriteLongList"/> and
+    /// <see cref="WriteRefundMethodList"/> - deliberately <c>|</c> rather than <c>,</c>, because
+    /// unlike an id or an enum token, <see cref="PolicySettings.AdjustmentReasons"/> is text an
+    /// owner types, and a reason such as "Stock count correction, annual audit" would otherwise
+    /// silently split into two. Order is preserved, not sorted: this is a picker's own menu order,
+    /// not a set an owner expects to see alphabetised.
+    /// </summary>
+    private static string WriteStringList(IReadOnlyCollection<string> values) =>
+        string.Join('|', values.Select(value => value.Trim()).Where(value => value.Length > 0));
+
     // ---- Row readers -------------------------------------------------------------------------
 
     private static string ReadText(
@@ -620,5 +641,29 @@ public static class SettingsSerializer
         }
 
         return methods;
+    }
+
+    /// <summary>
+    /// Reads back what <see cref="WriteStringList"/> wrote. An empty row is an empty list, not a
+    /// missing one, the same "one corrupt value must not stop the till trading" rule
+    /// <see cref="ReadLongList"/> follows (CLAUDE.md invariant 7) - there is no token here that
+    /// can fail to parse, since every entry is free text.
+    /// </summary>
+    private static IReadOnlyList<string> ReadStringList(
+        IReadOnlyDictionary<string, StoredSetting> rows,
+        string key,
+        IReadOnlyList<string> fallback)
+    {
+        if (!rows.TryGetValue(key, out var stored))
+        {
+            return fallback;
+        }
+
+        if (stored.Value.Length == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return stored.Value.Split('|', StringSplitOptions.RemoveEmptyEntries);
     }
 }

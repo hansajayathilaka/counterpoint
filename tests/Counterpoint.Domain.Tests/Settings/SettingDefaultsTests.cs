@@ -361,7 +361,9 @@ public sealed class SettingDefaultsTests
             CombineRepeatScans: false,
             ReceiptRequired: false,
             NonReturnableCategoryIds: [3, 7],
-            AllowedUnlinkedRefundMethods: [RefundMethod.Card]),
+            AllowedUnlinkedRefundMethods: [RefundMethod.Card],
+            AdjustmentReasons: ["Stock count correction, annual audit", "Water damage"],
+            AdjustmentGrnWarningThreshold: Money.FromDecimal(12500m)),
         new PeripheralSettings(
             "EPSON TM-T82",
             PaperWidthMm: 58,
