@@ -271,3 +271,5 @@ it stopped.
 - `2026-09-13T01:33:49Z` **P2-T04** done — 7 commits (feat x3 checkpoints, test, fix, chore x2), 16 new tests (4+12), 645 total, 3 review rounds (2 initial + 1 re-review), 1 fix attempt closed
 
 **Run ended 2026-09-13T01:35:17Z** — 2 completed, 0 halted
+- `2026-09-14T02:14:49Z` **P2-T08** start — Adjustments and damage
+- `2026-09-14T02:16:50Z` **P2-T08** implement-start — delegated to task-implementer
