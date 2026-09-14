@@ -274,3 +274,5 @@ it stopped.
 - `2026-09-14T02:14:49Z` **P2-T08** start — Adjustments and damage
 - `2026-09-14T02:16:50Z` **P2-T08** implement-start — delegated to task-implementer
 - `2026-09-14T02:40:40Z` **P2-T08** tests-start — delegated to test-engineer
+- `2026-09-14T03:05:45Z` **P2-T08** verify — verify.sh green: 667+344+78+18 tests, 6 arch tests, 54 trigger-survival
+- `2026-09-14T03:06:20Z` **P2-T08** review-start — code-reviewer + data-modeler dispatched in parallel
