@@ -273,3 +273,4 @@ it stopped.
 **Run ended 2026-09-13T01:35:17Z** — 2 completed, 0 halted
 - `2026-09-14T13:54:19Z` **P2-T10** start — Stock take
 - `2026-09-14T14:21:46Z` **P2-T10** note — commit ef19adc's message is stale (describes an interim known-issue state) but its diff is already the corrected version - two independent agents (the original data-modeler pass, which self-corrected mid-run, and a redundant verification pass) both confirm 1086/1086 tests pass on this commit; not amending per git safety protocol, noting here instead
+- `2026-09-14T14:57:47Z` **P2-T10** note — orchestrator reverted premature done-mark by task-implementer subagent; resuming at B4 (tests)

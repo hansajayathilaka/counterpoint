@@ -61,6 +61,9 @@ public static class SettingKeys
     public const string NumberingShiftPrefix = "numbering.shift.prefix";
     public const string NumberingShiftPattern = "numbering.shift.pattern";
     public const string NumberingShiftStartingNumber = "numbering.shift.starting_number";
+    public const string NumberingStockTakePrefix = "numbering.stock_take.prefix";
+    public const string NumberingStockTakePattern = "numbering.stock_take.pattern";
+    public const string NumberingStockTakeStartingNumber = "numbering.stock_take.starting_number";
 
     // ---- FR-10.5 Policy ------------------------------------------------------------------
     public const string PolicyReturnWindowDays = "policy.return_window_days";

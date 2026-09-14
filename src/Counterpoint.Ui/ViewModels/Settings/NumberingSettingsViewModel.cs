@@ -34,9 +34,12 @@ public sealed class NumberingSettingsViewModel : SettingsGroupViewModel
     /// <summary>Shifts. Not named in FR-10.4, but the till cannot open one without a series.</summary>
     public DocumentNumberingViewModel Shift { get; } = new("Shifts");
 
+    /// <summary>Stock takes (task P2-T10, FR-7.10). Not named in FR-10.4 either, for the same reason <see cref="Shift"/> is not.</summary>
+    public DocumentNumberingViewModel StockTake { get; } = new("Stock takes");
+
     /// <summary>Every series, in the order the screen lists them.</summary>
     public IReadOnlyList<DocumentNumberingViewModel> Series =>
-        [Bill, Return, CreditNote, GoodsReceipt, PurchaseOrder, Shift];
+        [Bill, Return, CreditNote, GoodsReceipt, PurchaseOrder, Shift, StockTake];
 
     public NumberingSettingsViewModel()
     {
@@ -64,6 +67,7 @@ public sealed class NumberingSettingsViewModel : SettingsGroupViewModel
         GoodsReceipt.Load(snapshot.Numbering.GoodsReceipt);
         PurchaseOrder.Load(snapshot.Numbering.PurchaseOrder);
         Shift.Load(snapshot.Numbering.Shift);
+        StockTake.Load(snapshot.Numbering.StockTake);
     }
 
     /// <inheritdoc />
@@ -79,7 +83,8 @@ public sealed class NumberingSettingsViewModel : SettingsGroupViewModel
                 CreditNote.Apply(snapshot.Numbering.CreditNote),
                 GoodsReceipt.Apply(snapshot.Numbering.GoodsReceipt),
                 PurchaseOrder.Apply(snapshot.Numbering.PurchaseOrder),
-                Shift.Apply(snapshot.Numbering.Shift)),
+                Shift.Apply(snapshot.Numbering.Shift),
+                StockTake.Apply(snapshot.Numbering.StockTake)),
         };
     }
 }

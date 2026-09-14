@@ -52,7 +52,10 @@ public sealed class FirstRunSetupTests
         (await fixture.ScalarAsync("SELECT prefix FROM number_sequence WHERE doc_type = 'SALE';"))
             .Should().Be("NH-");
         (await fixture.ScalarAsync("SELECT COUNT(*) FROM number_sequence;"))
-            .Should().Be("6", "every series FR-10.4 names, plus the shift series the till needs");
+            .Should().Be(
+                "7",
+                "every series FR-10.4 names, plus the shift series the till needs and the stock "
+                + "take series task P2-T10 adds");
 
         // 5. The passphrase is in the protected store, not in the database.
         fixture.Resolve<IBackupPassphraseStore>().HasPassphrase().Should().BeTrue();

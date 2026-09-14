@@ -113,6 +113,15 @@ internal static class CounterpointHostBuilderExtensions
             ActivatorUtilities.CreateInstance<GoodsReceiptService>(p),
             p.GetRequiredService<ISession>()));
 
+        // P2-T10: stock take (SRS FR-4 stock take, AC-10) - mixed authorisation, wired exactly as
+        // ISettings is (RoleAuthorisation.Decorate forwards a call with no [RequiresRole] on it
+        // untouched, and only checks the role on PostAsync/AbandonAsync, which carry one).
+        // Starting a count and recording one are therefore reachable by any signed-in session,
+        // the same "check stock" capability IStockEnquiry already is.
+        builder.Services.AddSingleton<IStockTakeService>(p => RoleAuthorisation.Decorate<IStockTakeService>(
+            ActivatorUtilities.CreateInstance<StockTakeService>(p),
+            p.GetRequiredService<ISession>()));
+
         // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19, FR-3.7-FR-3.10, Q-12).
         // IDiscountAuthorisationService is not owner-only - a cashier applies a discount inside
         // the cap without needing anyone's role, and going over it is gated by an OverrideToken,

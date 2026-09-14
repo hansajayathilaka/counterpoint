@@ -68,7 +68,7 @@ hands them back.
 | P2-T07 | Goods receipt (GRN) | done | 2026-09-12 | 1dcc10a Goods receipt GRN (FR-4.7, FR-4.8, AC-08), PR #30 |
 | P2-T08 | Adjustments and damage | todo | | |
 | P2-T09 | Bulk breaking | todo | | |
-| P2-T10 | Stock take | in-progress | | |
+| P2-T10 | Stock take | in-progress | 2026-09-14 | reverted: task-implementer prematurely marked done before test-engineer/verify/review passes; continuing normal B4-B10 loop |
 | P2-T11 | Reorder alerts and stock reports (interim) | todo | | |
 | P2-T12 | Phase 2 acceptance gate | todo | | |
 
@@ -151,7 +151,7 @@ Update as tests land. `automated` means a passing test exists in
 | AC-07 | P1-T13 | automated (CatalogueImportTests.AC_07_OneHundredSkusImportFromASpreadsheetWithValidationReportAndCorrectStockAndPrices, tests/Counterpoint.Integration.Tests/Import/CatalogueImportTests.cs) |
 | AC-08 | P2-T07 | automated (AC_08_ABoxToPieceGoodsReceiptIncreasesStockInBaseUnitsAndUpdatesMovingAverageCostCorrectly, tests/Counterpoint.Integration.Tests/Purchasing/GoodsReceiptServiceTests.cs - 2 boxes of 100 land as 200 pieces in the base unit, stock_balance.qty_base and cost_avg both proven against a hand-worked moving-average example) |
 | AC-09 | P2-T09 | not started |
-| AC-10 | P2-T10 | not started |
+| AC-10 | P2-T10 | automated (AC_10_AStockTakeAcrossOneCategoryProducesACorrectVarianceReportAndPostsCorrectionsInOneBatch, tests/Counterpoint.Integration.Tests/Inventory/StockTakeServiceTests.cs - a category-scoped count sheet freezes exactly the two in-category variants, the variance report sorts by absolute value impact and skips a zero-variance line, and posting writes exactly one STOCK_TAKE movement, leaves the zero-variance and out-of-scope variants untouched, and closes the stock take POSTED; P2_T10_ItemsSoldDuringTheCountEndAtTheArithmeticallyCorrectFinalBalance proves the task's own named risk with a real intervening sale between count and post, and P2_T10_PostingIsOneTransactionAFailureRollsBackTheWholeBatch proves the batch's atomicity via a cancelled-token rollback) |
 | AC-11 | P3-T03 | not started |
 | AC-12 | P3-T09 | not started |
 | AC-13 | P1-T16 (software), HW-T09 (on hardware) | automated (software half; AC13_NoNetworkTouchDuringATradingDayTests, tests/Counterpoint.Integration.Tests/Sales/AC13_NoNetworkTouchDuringATradingDayTests.cs - EventListener over every System.Net.* source proves zero network activity across a full simulated trading day, with a positive-control test proving the guard itself detects real socket activity; physical cable-out day is HW-T09) |

@@ -1507,7 +1507,7 @@ Mirror these exactly as C# enums in `Domain/Enums/`. The `CHECK` constraints abo
 |---|---|
 | `uom` | Piece (pc, 0dp), Metre (m, 3dp), Kilogram (kg, 3dp), Litre (L, 3dp), Box, Coil, Packet, Roll, Bundle |
 | `tax_class` | Whatever the wizard is given. Default: one `Exempt` class at 0 — Q-02 defers the regime, and a rate this build invented would be a wrong number printed on a bill. |
-| `number_sequence` | `SALE` → `INV-{yyyy}-{n:000000}`, `RETURN` → `RTN-…`, `CREDIT_NOTE` → `CN-…`, `GRN` → `GRN-…`, `PO` → `PO-…`, `SHIFT` → `SH-…`, all `next_val = 1` (Q-16) |
+| `number_sequence` | `SALE` → `INV-{yyyy}-{n:000000}`, `RETURN` → `RTN-…`, `CREDIT_NOTE` → `CN-…`, `GRN` → `GRN-…`, `PO` → `PO-…`, `SHIFT` → `SH-…`, `STOCK_TAKE` → `ST-…` (P2-T10), all `next_val = 1` (Q-16) |
 | `app_user` | One `OWNER` account created in the wizard. No default password, ever. |
 | `app_setting` | Full defaults per FR-10.1–10.8 (see `Application/Settings/SettingDefaults.cs`) |
 | `category` | Plumbing, Electrical, Fasteners, Tools, Paint, Adhesives, Garden, Building — editable |
@@ -1582,7 +1582,7 @@ place; see that key's own remarks for why it is read and written directly throug
 | Tax (FR-10.3) | `tax.default_class_name` (`Exempt`), `tax.label` (`Tax`) | `STRING` |
 | | `tax.prices_include_tax` (true) | `BOOL` |
 | | `tax.default_rate` (0 — Q-02 defers the regime) | `INT` (scaled) |
-| Numbering (FR-10.4) | `numbering.{bill,return,credit_note,goods_receipt,purchase_order,shift}.{prefix,pattern}` | `STRING` |
+| Numbering (FR-10.4) | `numbering.{bill,return,credit_note,goods_receipt,purchase_order,shift,stock_take}.{prefix,pattern}` | `STRING` |
 | | `numbering.….starting_number` (all 1) | `INT` |
 | Policy (FR-10.5) | `policy.default_refund_method` (`CASH`), `policy.negative_stock` (`ALLOW` — Q-11) | `STRING` |
 | | `policy.return_window_days` (14) | `INT` |
