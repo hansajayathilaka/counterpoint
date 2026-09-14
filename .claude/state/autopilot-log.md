@@ -271,6 +271,23 @@ it stopped.
 - `2026-09-13T01:33:49Z` **P2-T04** done — 7 commits (feat x3 checkpoints, test, fix, chore x2), 16 new tests (4+12), 645 total, 3 review rounds (2 initial + 1 re-review), 1 fix attempt closed
 
 **Run ended 2026-09-13T01:35:17Z** — 2 completed, 0 halted
+
+## Run 2026-09-14T00:51:20Z
+
+- branch: `claude/autopilot-5hft1w`
+- head: `420a992`
+- budget: 2 task(s)
+
+- `2026-09-14T00:51:25Z` **P2-T05** start — Credit notes
+- `2026-09-14T01:09:30Z` **P2-T05** schema — credit_note bounds CHECK + 2 lookup indexes (migration 0008)
+- `2026-09-14T01:11:00Z` **P2-T05** implement-start — delegated to task-implementer
+- `2026-09-14T01:44:33Z` **P2-T05** implement-done — task-implementer finished; ledger 'done' mark reverted to in-progress (premature — tests/verify/review not yet run by orchestrator)
+- `2026-09-14T02:06:59Z` **P2-T05** verify — verify.sh green: 658+344+78+18 tests, 6 arch tests, 54 trigger-survival
+- `2026-09-14T02:07:40Z` **P2-T05** review-start — code-reviewer + data-modeler dispatched in parallel
+- `2026-09-14T02:09:53Z` **P2-T05** review-code — code-reviewer clean: 0 must-fix, 0 should-fix; 2 consider items (FR-5.14 expiry default tension, TenderRequest.Reference overload)
+- `2026-09-14T02:13:21Z` **P2-T05** review-data — data-modeler clean: 0 must-fix; 1 should-fix (doc/comment overstates what ix_redemption_credit_note backs for ReconcileAsync - not a functional defect); 2 consider items
+- `2026-09-14T02:13:28Z` **P2-T05** done — 26+3 files, 8 new tests + 1 renamed, 0 must-fix across 2 reviews
+- `2026-09-14T02:14:30Z` **P2-T05** pr — PR #33 opened against main, subscribed to activity
 - `2026-09-14T02:14:49Z` **P2-T08** start — Adjustments and damage
 - `2026-09-14T02:16:50Z` **P2-T08** implement-start — delegated to task-implementer
 - `2026-09-14T02:40:40Z` **P2-T08** tests-start — delegated to test-engineer

@@ -724,11 +724,12 @@ CREATE TABLE credit_note (
   sale_return_id   INTEGER NOT NULL REFERENCES sale_return(id),
   customer_id      INTEGER REFERENCES customer(id),
   amount_issued    INTEGER NOT NULL,
-  amount_remaining INTEGER NOT NULL,
+  amount_remaining INTEGER NOT NULL CHECK (amount_remaining >= 0 AND amount_remaining <= amount_issued),
   issued_at        TEXT NOT NULL,
   expires_on       TEXT,
   status           TEXT NOT NULL CHECK (status IN ('ACTIVE','SPENT','EXPIRED','VOID'))
 );
+CREATE INDEX ix_credit_note_customer ON credit_note(customer_id);
 
 CREATE TABLE credit_note_redemption (
   id             INTEGER PRIMARY KEY,
@@ -737,7 +738,16 @@ CREATE TABLE credit_note_redemption (
   amount         INTEGER NOT NULL,
   redeemed_at    TEXT NOT NULL
 );
+CREATE INDEX ix_redemption_credit_note ON credit_note_redemption(credit_note_id);
 ```
+
+**`ck_credit_note_amount_remaining_bounds`** (`CreditNoteConstraints0008`, P2-T05) is the database's
+half of the over-redemption risk note: the redeeming `UPDATE` is guarded inside the sale
+transaction (`... SET amount_remaining = amount_remaining - :amt WHERE id = :id AND
+amount_remaining >= :amt`, checked by rows-affected — Counterpoint is single-user, so there is no
+second writer to race against, but the guard still belongs in the transaction, not before it), and
+this CHECK is what stops a bug in that guard, or a hand-run repair `UPDATE`, from ever landing a
+negative or over-issued balance regardless.
 
 **AC-06 (no cumulative over-return)** is enforced inside the return transaction:
 `sale_line.qty_returned + requested_qty_base <= sale_line.qty_base`, checked with the row locked by the write transaction, then incremented. It is the one permitted `UPDATE` on `sale_line`.
@@ -1664,6 +1674,8 @@ Every change to one of these keys writes one `audit_log` row per changed key —
 | `ix_stock_take_line_take` | the same for a count sheet |
 | `ix_return_date` | every date-range report that nets returns off sales |
 | `ix_return_sale` | "has this bill already been returned against", asked on every return |
+| `ix_credit_note_customer` | P2-T05: "does this customer have store credit" — asked at the till, not only in a report, whenever a customer does not have the slip in hand |
+| `ix_redemption_credit_note` | P2-T05: redemption history for one credit note, and the outstanding-credit reconciliation report (issued minus redeemed) grouping by it |
 | `ux_category_name_parent`, `ux_brand_name`, `ux_po_no`, `ux_grn_no`, `ux_return_no`, `ux_credit_note_number` | document numbers and names that must be unique. The `ux_*_no` ones also serve recall by number |
 | `ux_product_uom`, `ux_product_supplier` | one row per pair; the unique index is the constraint |
 
@@ -1672,11 +1684,14 @@ when a price changes and read by an owner looking at one variant's history, whic
 small table. An index there would cost a write on the catalogue path to serve a screen nobody
 opens twice a day. P1-T08 adds one if the price-history screen needs it.
 
-**`held_bill`, `credit_note_redemption`, `purchase_order_line`, `sale_return_line` and
-`daily_product_summary` have none either.** Each is read by its parent key, and for the first four
-that key belongs to a table small enough to scan — a shop holds a handful of parked bills and a
-purchase order has a dozen lines. `daily_product_summary` is covered by its composite primary key,
-which leads on `business_date`, the column every range query filters on.
+**`held_bill`, `purchase_order_line`, `sale_return_line` and `daily_product_summary` have none
+either.** Each is read by its parent key, and for the first three that key belongs to a table small
+enough to scan — a shop holds a handful of parked bills and a purchase order has a dozen lines.
+`daily_product_summary` is covered by its composite primary key, which leads on `business_date`,
+the column every range query filters on. `credit_note_redemption` was in this list until P2-T05: a
+lookup by `credit_note_id` moved from "small enough to scan" to indexed once redemption history and
+the outstanding-credit reconciliation report both needed it, and a plain index costs nothing SQLite
+cannot add without a rebuild (`CreditNoteConstraints0008`, §13).
 
 **From the skeleton migration onwards, every index in this schema is one somebody chose.** EF
 Core's `ForeignKeyIndexConvention` is removed in `PosDbContext.ConfigureConventions`, so a foreign
@@ -1698,6 +1713,7 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 | `UomActive0005` | P1-T04 | `uom.active INTEGER NOT NULL DEFAULT 1`, matching the `active` column its five catalogue siblings (`category`, `brand`, `tax_class`, `supplier`, `customer`) already carried — a plain `ADD COLUMN`, since `uom` carries no triggers to lose |
 | `ProductUomBaseUnit0006` | P1-T05 | The two halves of "exactly one base row per product with `conversion_factor = 10000`": the partial unique index `ux_product_uom_one_base` and the `trg_product_uom_base_factor_insert` / `_update` guard triggers — a trigger rather than a `CHECK`-adding rebuild, since `product_uom` carried no triggers to lose either way but a later rebuild might |
 | `PaymentSaleReturnForeignKey0007` | P2-T02 | The `payment.sale_return_id` foreign key to `sale_return(id)` — the third of the four dangling references (§13) — rebuilding `payment` and re-creating its two append-only triggers in the same migration, written as literal SQL rather than `AddForeignKey` so the triggers land after the rebuild instead of before it |
+| `CreditNoteConstraints0008` | P2-T05 | `ix_credit_note_customer` (no rebuild) and `ix_redemption_credit_note` (no rebuild); `ck_credit_note_amount_remaining_bounds` on `credit_note` (`0 <= amount_remaining <= amount_issued`), which does rebuild `credit_note` — written as literal SQL, in docs/01_DATA_MODEL.md §6's declared column order, because `credit_note` carries no triggers to re-create but EF's SQLite generator would otherwise have reordered its columns alphabetically the same way it did to `product` in `ProductForeignKeys0003` |
 
 Forty tables, forty-four indexes, thirty-one triggers, laid down across `Skeleton0001` through
 `ProductSearch0004`. Three migrations rather than one for that part, and the split is not
@@ -1706,7 +1722,9 @@ column to an existing table and changes none of those counts. `ProductUomBaseUni
 index and two triggers to an existing table — forty-five indexes, thirty-three triggers from
 here on — again without a rebuild. `PaymentSaleReturnForeignKey0007` adds one foreign key and
 rebuilds `payment`, changing neither the table, index nor trigger count — its two triggers are
-re-created, not added.
+re-created, not added. `CreditNoteConstraints0008` adds two indexes and one CHECK constraint and
+rebuilds `credit_note` — forty-seven indexes from here on, no change in trigger count, since
+`credit_note` and `credit_note_redemption` are not append-only and have none to lose or re-create.
 
 ### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 

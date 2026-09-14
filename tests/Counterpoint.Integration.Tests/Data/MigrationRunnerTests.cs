@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
@@ -27,6 +28,7 @@ public sealed class MigrationRunnerTests
         "20260908062332_UomActive0005",
         "20260908065449_ProductUomBaseUnit0006",
         "20260912110401_PaymentSaleReturnForeignKey0007",
+        "20260914005508_CreditNoteConstraints0008",
     ];
 
     [Fact]
@@ -159,7 +161,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7]);
         result.BackupFilePath.Should().NotBeNull();
         File.Exists(result.BackupFilePath!).Should().BeTrue();
         Path.GetFileName(result.BackupFilePath!).Should().StartWith("counterpoint-pre-");
@@ -234,7 +236,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7]);
 
         await using (var check = factory.OpenConfiguredConnection())
         {
@@ -287,7 +289,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6], Chain[7]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -342,7 +344,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6], Chain[7]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -432,7 +434,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[6]);
+        result.AppliedMigrations.Should().Equal(Chain[6], Chain[7]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -470,6 +472,111 @@ public sealed class MigrationRunnerTests
 
         var deleteBlocked = await ExecuteExpectingSqliteExceptionAsync(check, "DELETE FROM payment WHERE id = 1;");
         deleteBlocked.Message.Should().Contain("payment is append-only");
+    }
+
+    /// <summary>
+    /// <c>CreditNoteConstraints0008</c> (P2-T05, docs/01_DATA_MODEL.md §6): the two lookup indexes
+    /// redemption needs, and <c>ck_credit_note_amount_remaining_bounds</c> - the database's half of
+    /// the over-redemption risk note, alongside the guarded UPDATE the sale transaction still owns.
+    /// Migrated forward from a database already carrying <c>TradingDaySeed</c>'s seeded credit note
+    /// (issued and never redeemed, <c>amount_remaining = amount_issued</c>), so what is under test
+    /// is that the rebuild keeps that row, keeps its documented column order, and enforces the new
+    /// bound without needing any triggers - <c>credit_note</c> is not on CLAUDE.md's append-only
+    /// list, so unlike <c>PaymentSaleReturnForeignKey0007</c> there is nothing to re-create here.
+    /// </summary>
+    [Fact]
+    public async Task P2_T05_CreditNoteGetsItsAmountRemainingBoundAndTwoLookupIndexes()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "PaymentSaleReturnForeignKey0007");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+        var result = await runner.ApplyPendingMigrationsAsync();
+
+        result.AppliedMigrations.Should().Equal(Chain[7]);
+
+        await using var check = factory.OpenConfiguredConnection();
+        await using var command = check.CreateCommand();
+
+        command.CommandText = "PRAGMA integrity_check;";
+        (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+        command.CommandText = "PRAGMA foreign_key_check;";
+        (await command.ExecuteScalarAsync()).Should().BeNull();
+
+        // The seeded credit note - inserted before this migration ran - came through the rebuild
+        // unchanged.
+        command.CommandText =
+            "SELECT number || ' ' || amount_issued || ' ' || amount_remaining || ' ' || status " +
+            "FROM credit_note WHERE id = 1;";
+        (await command.ExecuteScalarAsync()).Should().Be("CN-2026-000001 1437500 1437500 ACTIVE");
+
+        // docs/01_DATA_MODEL.md §6's declared order, not the alphabetical order an unannotated
+        // rebuild would have produced.
+        command.CommandText = "SELECT name FROM pragma_table_info('credit_note');";
+        var columns = new List<string>();
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                columns.Add(reader.GetString(0));
+            }
+        }
+
+        columns.Should().Equal(
+            "id", "number", "sale_return_id", "customer_id", "amount_issued", "amount_remaining",
+            "issued_at", "expires_on", "status");
+
+        // Both indexes are really there, not merely present in some other table's shadow.
+        command.CommandText =
+            "SELECT count(*) FROM sqlite_schema WHERE type = 'index' " +
+            "AND name = 'ix_credit_note_customer' AND tbl_name = 'credit_note';";
+        (await command.ExecuteScalarAsync()).Should().Be(1L);
+
+        command.CommandText =
+            "SELECT count(*) FROM sqlite_schema WHERE type = 'index' " +
+            "AND name = 'ix_redemption_credit_note' AND tbl_name = 'credit_note_redemption';";
+        (await command.ExecuteScalarAsync()).Should().Be(1L);
+
+        command.CommandText =
+            "SELECT count(*) FROM sqlite_schema WHERE type = 'index' " +
+            "AND name = 'ux_credit_note_number' AND tbl_name = 'credit_note';";
+        (await command.ExecuteScalarAsync()).Should().Be(1L, "the rebuild must not have lost it");
+
+        // The bound is enforced: over-issuing amount_remaining above amount_issued is refused...
+        var overIssued = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO credit_note (id, number, sale_return_id, amount_issued, amount_remaining," +
+            " issued_at, status) VALUES (99, 'CN-2026-000099', 1, 100000, 100001," +
+            " '2026-09-04T10:00:00.000+05:30', 'ACTIVE');");
+        overIssued.SqliteExtendedErrorCode.Should().Be(SqliteConstraintCheck);
+        overIssued.Message.Should().Contain("ck_credit_note_amount_remaining_bounds");
+
+        // ...and so is a negative remaining balance, the other half of the bound.
+        var negative = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO credit_note (id, number, sale_return_id, amount_issued, amount_remaining," +
+            " issued_at, status) VALUES (98, 'CN-2026-000098', 1, 100000, -1," +
+            " '2026-09-04T10:00:00.000+05:30', 'ACTIVE');");
+        negative.SqliteExtendedErrorCode.Should().Be(SqliteConstraintCheck);
+        negative.Message.Should().Contain("ck_credit_note_amount_remaining_bounds");
+
+        // Fully spent - amount_remaining = 0 - and fully outstanding - amount_remaining =
+        // amount_issued - are both the boundary the CHECK must still allow.
+        command.CommandText =
+            "INSERT INTO credit_note (id, number, sale_return_id, amount_issued, amount_remaining," +
+            " issued_at, status) VALUES (97, 'CN-2026-000097', 1, 100000, 0," +
+            " '2026-09-04T10:00:00.000+05:30', 'SPENT');";
+        await command.ExecuteNonQueryAsync();
+
+        // The rebuild did not leave the temporary table behind.
+        command.CommandText = "SELECT count(*) FROM sqlite_schema WHERE name = 'ef_temp_credit_note';";
+        (await command.ExecuteScalarAsync()).Should().Be(0L);
     }
 
     private const int SqliteConstraintUnique = 2067;

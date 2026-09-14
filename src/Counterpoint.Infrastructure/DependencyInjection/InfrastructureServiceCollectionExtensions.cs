@@ -9,6 +9,7 @@ using Counterpoint.Application.Security;
 using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Backup;
 using Counterpoint.Infrastructure.Catalogue;
+using Counterpoint.Infrastructure.CreditNotes;
 using Counterpoint.Infrastructure.Dashboard;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.Import;
@@ -103,6 +104,16 @@ public static class InfrastructureServiceCollectionExtensions
         // for a sale.
         services.AddSingleton<IReturnableSaleLookup, SqliteReturnableSaleLookup>();
         services.AddSingleton<ISaleReturnWriter, SqliteSaleReturnWriter>();
+
+        // P2-T05: credit notes (SRS FR-5 store credit, FR-3 tender). One store backs both write
+        // ports - issuing and redeeming share the same guarded-decrement discipline - registered
+        // as its concrete type so both interfaces resolve to the one instance; ICreditNoteQuery is
+        // its own Dapper read side, no role requirement of its own for the same reason
+        // IReturnableSaleLookup above has none.
+        services.AddSingleton<SqliteCreditNoteStore>();
+        services.AddSingleton<ICreditNoteIssuer>(provider => provider.GetRequiredService<SqliteCreditNoteStore>());
+        services.AddSingleton<ICreditNoteRedeemer>(provider => provider.GetRequiredService<SqliteCreditNoteStore>());
+        services.AddSingleton<ICreditNoteQuery, SqliteCreditNoteQuery>();
 
         // P1-T07: the ledger's projection rebuild, its startup consistency check, and the
         // stock enquiry screen's read side (SRS FR-4, DM-05, SAD §3).
