@@ -133,6 +133,19 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IAdjustmentHistoryQuery>(provider => RoleAuthorisation.Decorate<IAdjustmentHistoryQuery>(
             provider.GetRequiredService<SqliteAdjustmentHistoryQuery>(),
             provider.GetRequiredService<ISession>()));
+
+        // P2-T09: bulk breaking (SRS FR-4.9, AC-09). IBulkBreakStore carries no role requirement of
+        // its own, the same split IGoodsReceiptStore draws above - the owner-only IPostBulkBreak
+        // built on top of it is wired decorated in the composition root. The value-conservation
+        // report is owner-only (it is cost-derived, CLAUDE.md invariant 8) and decorated right
+        // here, the same as IAdjustmentHistoryQuery just above.
+        services.AddSingleton<IBulkBreakStore, SqliteBulkBreakStore>();
+        services.AddSingleton<SqliteBulkBreakValueConservationQuery>();
+        services.AddSingleton<IBulkBreakValueConservationQuery>(provider =>
+            RoleAuthorisation.Decorate<IBulkBreakValueConservationQuery>(
+                provider.GetRequiredService<SqliteBulkBreakValueConservationQuery>(),
+                provider.GetRequiredService<ISession>()));
+
         services.AddSingleton<IAuditTrail, SqliteAuditTrail>();
         services.AddSingleton<IPrintJobOutbox, SqlitePrintJobOutbox>();
         services.AddSingleton<IUserStore, SqliteUserStore>();

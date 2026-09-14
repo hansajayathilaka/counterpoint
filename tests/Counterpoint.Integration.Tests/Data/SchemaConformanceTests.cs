@@ -38,6 +38,9 @@ public sealed class SchemaConformanceTests
         "app_setting.updated_by -> app_user",
         "audit_log.user_id -> app_user",
         "barcode.product_variant_id -> product_variant",
+        "bulk_break.destination_variant_id -> product_variant",
+        "bulk_break.source_variant_id -> product_variant",
+        "bulk_break.user_id -> app_user",
         "cash_movement.shift_id -> shift",
         "cash_movement.user_id -> app_user",
         "category.parent_id -> category",
@@ -104,7 +107,7 @@ public sealed class SchemaConformanceTests
     /// </summary>
     private static readonly string[] DocumentedTables =
     [
-        "app_setting", "app_user", "audit_log", "backup_record", "barcode", "brand",
+        "app_setting", "app_user", "audit_log", "backup_record", "barcode", "brand", "bulk_break",
         "cash_movement", "category", "credit_note", "credit_note_redemption", "customer",
         "daily_product_summary", "daily_sales_summary", "goods_receipt", "goods_receipt_line",
         "held_bill", "number_sequence", "payment", "price_change_log", "price_tier", "print_job",

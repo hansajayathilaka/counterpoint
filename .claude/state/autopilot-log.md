@@ -299,3 +299,15 @@ it stopped.
 - `2026-09-14T08:43:59Z` **P2-T08** pr — PR #34 opened against main, subscribed to activity
 
 **Run ended 2026-09-14T08:44:00Z** — 2 completed, 0 halted
+
+## Run 2026-09-14T12:05:40Z
+
+- branch: `claude/vibrant-cerf-vizegg`
+- head: `9b5e8be`
+- budget: 2 task(s)
+
+- `2026-09-14T12:05:42Z` **P2-T09** start — Bulk breaking
+- `2026-09-14T13:01:19Z` **P2-T09** note — orchestrator reverted premature done-mark by task-implementer subagent; resuming at B4 (tests)
+- `2026-09-14T13:22:43Z` **P2-T09** fix-attempt — 1: value-conservation query uses exact-zero comparison but handler's own documented division produces bounded sub-cent rounding residuals as the ordinary case - needs a documented tolerance, not exact equality
+- `2026-09-14T13:45:37Z` **P2-T09** fix-attempt — 2: stale doc comment in BulkBreakTests.cs still describes the tolerance query as unfixed/failing (must-fix per data-modeler)
+- `2026-09-14T13:53:43Z` **P2-T09** done — 5 files schema + 8 files application/infra, 12 BulkBreakTests + migration test, review clean after 2 fix-attempts, PR #35
