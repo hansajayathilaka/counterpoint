@@ -289,30 +289,34 @@ public sealed class BulkBreakTests
     /// 1 000 individual <c>BEGIN IMMEDIATE</c>/fsync pairs rather than one.
     /// </para>
     /// <para>
-    /// <b>This assertion fails, honestly, against the query as currently written - a genuine
-    /// finding, not a test defect.</b> <c>PostBulkBreakHandler</c>'s own remarks already document
-    /// that <c>unitCostIn</c> - a single ordinary decimal division, quantised to
-    /// <see cref="Money"/>'s four decimal places only once it is written to <c>stock_movement</c> -
-    /// cannot reconstruct an arbitrary target bit-for-bit whenever
+    /// <b>This assertion originally failed, honestly, against the query as it was first
+    /// written - a genuine finding, not a test defect.</b> <c>PostBulkBreakHandler</c>'s own
+    /// remarks already documented that <c>unitCostIn</c> - a single ordinary decimal division,
+    /// quantised to <see cref="Money"/>'s four decimal places only once it is written to
+    /// <c>stock_movement</c> - cannot reconstruct an arbitrary target bit-for-bit whenever
     /// <see cref="BulkBreakCommand.ActualQuantity"/> does not evenly divide the combined
     /// source-plus-wastage value, and that the residual this leaves is bounded by half of
     /// <see cref="Money.MoneyScale"/>'s smallest unit, multiplied by that same quantity. Running
-    /// this test against the real handler and the real query (not assumed, run) shows that bound
-    /// is honoured - the worst of 1 000 random breaks, drawn with a quantity as high as 300, nets
-    /// to a few hundredths of a cent, nowhere near the documented ceiling of about 1.5 cents for
-    /// that scale - but <see cref="Counterpoint.Infrastructure.Inventory.SqliteBulkBreakValueConservationQuery"/>'s own
-    /// <c>HAVING SUM(qty_base * unit_cost) &lt;&gt; 0</c> is exact, zero-tolerance integer
-    /// comparison, by the query's own documented design ("a group is excluded only when it is
-    /// genuinely balanced to the last unit the database can represent"). Those two designs
-    /// disagree: the handler's own documentation calls a sub-cent residual acceptable and
-    /// expected; the report built to catch value-conservation defects has no tolerance for one at
-    /// all. Constraining this test's random generation to only the (rare, essentially
-    /// hand-picked) quantities that happen to divide evenly would not make that disagreement
-    /// go away - it would only stop this test from ever exercising the ordinary case a shop
-    /// actually produces, which is exactly what a generative test here exists to catch. See this
-    /// task's own handoff notes for the design question this raises: whether
-    /// <see cref="IBulkBreakValueConservationQuery"/> should carry the same documented, bounded
-    /// tolerance <c>PostBulkBreakHandler</c> already reasons about, rather than none.
+    /// this test against the real handler and the original query (not assumed, run) showed that
+    /// bound was honoured - the worst of 1 000 random breaks, drawn with a quantity as high as
+    /// 300, netted to a few hundredths of a cent, nowhere near the documented ceiling of about
+    /// 1.5 cents for that scale - but the query's original
+    /// <c>HAVING SUM(qty_base * unit_cost) &lt;&gt; 0</c> was exact, zero-tolerance integer
+    /// comparison ("a group is excluded only when it is genuinely balanced to the last unit the
+    /// database can represent"). Those two designs disagreed: the handler's own documentation
+    /// called a sub-cent residual acceptable and expected; the report built to catch
+    /// value-conservation defects had no tolerance for one at all - so the exact-zero comparison
+    /// flagged ordinary rounding noise as if it were a value leak, on nearly every one of the
+    /// 1 000 breaks. Constraining this test's random generation to only the (rare, essentially
+    /// hand-picked) quantities that happen to divide evenly would not have made that
+    /// disagreement go away - it would only have stopped this test from ever exercising the
+    /// ordinary case a shop actually produces, which is exactly what a generative test here
+    /// exists to catch. The fix landed in
+    /// <see cref="Counterpoint.Infrastructure.Inventory.SqliteBulkBreakValueConservationQuery"/>
+    /// itself: its <c>HAVING</c> clause now carries the same documented, bounded tolerance
+    /// <c>PostBulkBreakHandler</c> already reasoned about, derived from that same bound rather
+    /// than padded "for safety" (see that class's own doc comment for the derivation). With the
+    /// bounded tolerance in place, this assertion passes.
     /// </para>
     /// </remarks>
     [Fact]
