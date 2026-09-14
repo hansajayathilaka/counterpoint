@@ -279,3 +279,6 @@ it stopped.
 - `2026-09-14T08:41:06Z` **P2-T08** review-data — data-modeler clean: 0 must-fix; 1 should-fix (SqliteAdjustmentHistoryQuery's IS NULL OR date filter defeats ix_movement_time, forces full stock_movement scan even with narrow filters - confirmed via EXPLAIN QUERY PLAN, not a correctness/invariant issue); explicitly recommends against adding a movement_type index (wrong tradeoff for the hottest write-path table)
 - `2026-09-14T08:42:48Z` **P2-T08** review-code — code-reviewer: 1 must-fix disputed by orchestrator (claims no adjustment screen blocks the task; overridden - task's own Done-when explicitly calls AC-17 item a 'service-level test', and PolicySettingsViewModel's pass-through pattern for the two new settings is identical to P2-T01/P2-T03's own already-done precedent in the same file); 3 should-fix/consider carried to PR (pipe-delimiter validation gap, audit read via non-transactional connection relying on global single-writer invariant, Money.ToString in warning text)
 - `2026-09-14T08:42:58Z` **P2-T08** done — 28 files, 22 new tests, 0 must-fix across 2 reviews after 1 orchestrator override
+- `2026-09-14T08:43:59Z` **P2-T08** pr — PR #34 opened against main, subscribed to activity
+
+**Run ended 2026-09-14T08:44:00Z** — 2 completed, 0 halted
