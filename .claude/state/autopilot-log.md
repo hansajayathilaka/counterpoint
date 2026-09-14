@@ -285,3 +285,5 @@ it stopped.
 - `2026-09-14T02:06:59Z` **P2-T05** verify — verify.sh green: 658+344+78+18 tests, 6 arch tests, 54 trigger-survival
 - `2026-09-14T02:07:40Z` **P2-T05** review-start — code-reviewer + data-modeler dispatched in parallel
 - `2026-09-14T02:09:53Z` **P2-T05** review-code — code-reviewer clean: 0 must-fix, 0 should-fix; 2 consider items (FR-5.14 expiry default tension, TenderRequest.Reference overload)
+- `2026-09-14T02:13:21Z` **P2-T05** review-data — data-modeler clean: 0 must-fix; 1 should-fix (doc/comment overstates what ix_redemption_credit_note backs for ReconcileAsync - not a functional defect); 2 consider items
+- `2026-09-14T02:13:28Z` **P2-T05** done — 26+3 files, 8 new tests + 1 renamed, 0 must-fix across 2 reviews
