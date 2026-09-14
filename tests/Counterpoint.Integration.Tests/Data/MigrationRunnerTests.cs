@@ -29,6 +29,7 @@ public sealed class MigrationRunnerTests
         "20260908065449_ProductUomBaseUnit0006",
         "20260912110401_PaymentSaleReturnForeignKey0007",
         "20260914005508_CreditNoteConstraints0008",
+        "20260914121222_BulkBreak0009",
     ];
 
     [Fact]
@@ -47,7 +48,7 @@ public sealed class MigrationRunnerTests
             "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '\\_\\_EF%' ESCAPE '\\' " +
             "AND name NOT LIKE 'product\\_search\\_%' ESCAPE '\\' ORDER BY name;");
 
-        tables.Should().HaveCount(41, "forty documented tables plus the product_search index");
+        tables.Should().HaveCount(42, "forty-one documented tables plus the product_search index");
         tables.Should().Contain("product_search");
     }
 
@@ -161,7 +162,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7]);
+        result.AppliedMigrations.Should().Equal(Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7], Chain[8]);
         result.BackupFilePath.Should().NotBeNull();
         File.Exists(result.BackupFilePath!).Should().BeTrue();
         Path.GetFileName(result.BackupFilePath!).Should().StartWith("counterpoint-pre-");
@@ -236,7 +237,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7]);
+        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7], Chain[8]);
 
         await using (var check = factory.OpenConfiguredConnection())
         {
@@ -289,7 +290,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6], Chain[7]);
+        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6], Chain[7], Chain[8]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -344,7 +345,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6], Chain[7]);
+        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6], Chain[7], Chain[8]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -434,7 +435,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[6], Chain[7]);
+        result.AppliedMigrations.Should().Equal(Chain[6], Chain[7], Chain[8]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -500,7 +501,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[7]);
+        result.AppliedMigrations.Should().Equal(Chain[7], Chain[8]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -577,6 +578,121 @@ public sealed class MigrationRunnerTests
         // The rebuild did not leave the temporary table behind.
         command.CommandText = "SELECT count(*) FROM sqlite_schema WHERE name = 'ef_temp_credit_note';";
         (await command.ExecuteScalarAsync()).Should().Be(0L);
+    }
+
+    /// <summary>
+    /// <c>BulkBreak0009</c> (P2-T09, docs/01_DATA_MODEL.md §4): a pure additive
+    /// <c>CREATE TABLE bulk_break</c> and nothing else, so unlike every rebuild-driven migration
+    /// above there is no existing table's triggers to lose or re-create here - what is under test
+    /// is that the new table lands with its foreign keys and CHECK constraints intact against a
+    /// database that already has a day's trade in it.
+    /// </summary>
+    [Fact]
+    public async Task P2_T09_BulkBreakGetsAHeaderTableForLinkingTheBalancedMovementPair()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "CreditNoteConstraints0008");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+
+            // A second product/variant to break into - the seeded catalogue only carries one,
+            // and a bulk break's own "distinct variants" rule needs two.
+            await using var destination = connection.CreateCommand();
+            destination.CommandText = """
+                INSERT INTO product (id, code, name, name_alt, category_id, brand_id, base_uom_id,
+                                     type, tax_class_id, cost_avg, reorder_level, reorder_qty,
+                                     location, non_returnable, min_sell_qty, max_discount_rate,
+                                     warranty_days, notes, image_path, active, created_at, updated_at)
+                VALUES (2, 'P-002', 'Loose wire, 1m', NULL, NULL, NULL, 1, 'STANDARD',
+                        1, 0, 0, 0, 'A4', 0, 0, NULL, NULL, NULL, NULL, 1,
+                        '2026-09-04T08:00:00.000+05:30', '2026-09-04T08:00:00.000+05:30');
+
+                INSERT INTO product_variant (id, product_id, sku, attributes, price, active, created_at)
+                VALUES (2, 2, 'SKU-002', '{}', 15000, 1, '2026-09-04T08:00:00.000+05:30');
+                """;
+            await destination.ExecuteNonQueryAsync();
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+        var result = await runner.ApplyPendingMigrationsAsync();
+
+        result.AppliedMigrations.Should().Equal(Chain[8]);
+
+        await using var check = factory.OpenConfiguredConnection();
+        await using var command = check.CreateCommand();
+
+        command.CommandText = "PRAGMA integrity_check;";
+        (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+        command.CommandText = "PRAGMA foreign_key_check;";
+        (await command.ExecuteScalarAsync()).Should().BeNull();
+
+        // One coil (1000 base units at 90.0000 cost) broken into 900 base units of loose wire,
+        // with 20 base units of declared wastage - the AC-09 shape, id-for-id with the pair of
+        // stock_movement rows a real posting would write beside it, sharing this row's id as
+        // their ref_doc_id.
+        command.CommandText = """
+            INSERT INTO bulk_break (id, source_variant_id, destination_variant_id, source_qty_base,
+                                    expected_qty_base, actual_qty_base, wastage_qty_base,
+                                    total_value, reason, user_id, occurred_at)
+            VALUES (1, 1, 2, 10000, 9200, 9000, 200, 900000,
+                    'Coil broken into loose metres for counter sale', 1,
+                    '2026-09-04T10:00:00.000+05:30');
+            """;
+        await command.ExecuteNonQueryAsync();
+
+        command.CommandText =
+            "SELECT source_variant_id || '|' || destination_variant_id || '|' || total_value " +
+            "FROM bulk_break WHERE id = 1;";
+        (await command.ExecuteScalarAsync()).Should().Be("1|2|900000");
+
+        // The foreign keys are real, not merely columns that happen to be named right.
+        command.CommandText =
+            "SELECT count(*) FROM pragma_foreign_key_list('bulk_break') WHERE \"table\" = 'product_variant';";
+        (await command.ExecuteScalarAsync()).Should().Be(2L);
+
+        // ck_bulk_break_distinct_variants: a break that names the same variant on both sides -
+        // the one thing that would make this indistinguishable from a UOM conversion - is refused.
+        var sameVariant = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO bulk_break (id, source_variant_id, destination_variant_id, source_qty_base," +
+            " expected_qty_base, actual_qty_base, wastage_qty_base, total_value, reason, user_id," +
+            " occurred_at) VALUES (2, 1, 1, 10000, 9200, 9000, 200, 900000, 'bad', 1," +
+            " '2026-09-04T10:00:00.000+05:30');");
+        sameVariant.SqliteExtendedErrorCode.Should().Be(SqliteConstraintCheck);
+        sameVariant.Message.Should().Contain("ck_bulk_break_distinct_variants");
+
+        // ck_bulk_break_wastage_qty_base: a negative wastage would silently invent value rather
+        // than write it off through a DAMAGE movement.
+        var negativeWastage = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO bulk_break (id, source_variant_id, destination_variant_id, source_qty_base," +
+            " expected_qty_base, actual_qty_base, wastage_qty_base, total_value, reason, user_id," +
+            " occurred_at) VALUES (3, 1, 2, 10000, 9200, 9400, -200, 900000, 'bad', 1," +
+            " '2026-09-04T10:00:00.000+05:30');");
+        negativeWastage.SqliteExtendedErrorCode.Should().Be(SqliteConstraintCheck);
+        negativeWastage.Message.Should().Contain("ck_bulk_break_wastage_qty_base");
+
+        // A break naming a product_variant that does not exist is refused, the same way every
+        // other document header in this schema refuses an orphan reference.
+        var orphanSource = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO bulk_break (id, source_variant_id, destination_variant_id, source_qty_base," +
+            " expected_qty_base, actual_qty_base, wastage_qty_base, total_value, reason, user_id," +
+            " occurred_at) VALUES (4, 4242, 2, 10000, 9200, 9000, 200, 900000, 'bad', 1," +
+            " '2026-09-04T10:00:00.000+05:30');");
+        orphanSource.SqliteExtendedErrorCode.Should().Be(SqliteConstraintForeignKey);
+
+        // Not append-only: unlike stock_movement, a mistaken bulk_break header row can be edited -
+        // the same mutability goods_receipt, purchase_order and stock_take already carry, and
+        // deliberately not CLAUDE.md invariant 5's protection, since bulk_break is never itself the
+        // ledger - the stock_movement rows it anchors are.
+        command.CommandText = "UPDATE bulk_break SET reason = 'corrected' WHERE id = 1;";
+        await command.ExecuteNonQueryAsync();
+
+        command.CommandText = "SELECT reason FROM bulk_break WHERE id = 1;";
+        (await command.ExecuteScalarAsync()).Should().Be("corrected");
     }
 
     private const int SqliteConstraintUnique = 2067;
