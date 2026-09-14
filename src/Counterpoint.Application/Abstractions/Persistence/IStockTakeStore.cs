@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Counterpoint.Domain.Inventory;
 using Counterpoint.Domain.ValueObjects;
 
 namespace Counterpoint.Application.Abstractions.Persistence;
@@ -40,6 +41,41 @@ public interface IStockTakeStore
     /// The scope matches no active, sellable variant - there would be nothing to count.
     /// </exception>
     public Task<long> StartAsync(NewStockTake request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every active variant <paramref name="scope"/> currently resolves to - <c>product</c> and
+    /// <c>product_variant</c> alone, the exact same resolution <see cref="StartAsync"/> itself
+    /// performs before freezing <c>system_qty</c>. Exposed separately so
+    /// <c>Counterpoint.Application.Inventory.StockTakeService.StartAsync</c>'s own overlap guard
+    /// can resolve a candidate scope to variant ids without creating anything yet - see
+    /// <see cref="ListOpenVariantSetsAsync"/>'s own remarks for what it is checked against.
+    /// </summary>
+    public Task<IReadOnlyList<long>> ResolveScopeAsync(
+        StockTakeScope scope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The already-resolved variant set behind every currently-<c>OPEN</c> stock take, one entry
+    /// per take (<c>stock_take_line.product_variant_id</c> for lines whose parent
+    /// <c>stock_take.status = 'OPEN'</c>).
+    /// </summary>
+    /// <remarks>
+    /// What <c>StockTakeService.StartAsync</c> checks a new scope's resolved variant set against
+    /// before creating it: two OPEN stock takes with non-overlapping scopes (different categories,
+    /// different racks) are meant to run concurrently, but two whose scopes share a variant would
+    /// each post their own correct-looking variance for it at posting time and the corrections
+    /// would silently sum, over-adjusting the real balance - a gap the migration test's own comment
+    /// next to <c>ux_one_open_shift</c> (deliberately not mirrored as
+    /// <c>ux_one_open_stock_take</c>, because non-overlapping scopes are fine) used to explain away
+    /// as "safe because variance, not an absolute quantity, is posted" alone. That protects against
+    /// a sale happening *between* one stock take's freeze and its own post
+    /// (<c>P2_T10_ItemsSoldDuringTheCountEndAtTheArithmeticallyCorrectFinalBalance</c>); it does not
+    /// protect against two independently-started counts of the same stock, which is what this
+    /// method exists to let the Application layer guard against instead of a schema constraint (no
+    /// unique index can express "no overlapping variant sets" for arbitrary scope combinations).
+    /// </remarks>
+    public Task<IReadOnlyList<OpenStockTakeVariantSet>> ListOpenVariantSetsAsync(
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Records one line's physical count: sets <c>counted_qty</c>, computes
@@ -89,6 +125,15 @@ public interface IStockTakeStore
 /// <param name="UserId">Who started the count.</param>
 /// <param name="StartedAt">When the count sheet was generated - what every line's freeze reflects.</param>
 public sealed record NewStockTake(string Scope, string StockTakeNo, long UserId, DateTimeOffset StartedAt);
+
+/// <summary>
+/// One currently-<c>OPEN</c> stock take's already-resolved variant set
+/// (<see cref="IStockTakeStore.ListOpenVariantSetsAsync"/>).
+/// </summary>
+/// <param name="Id"><c>stock_take.id</c>.</param>
+/// <param name="StockTakeNo">What <c>StockTakeService.StartAsync</c> names in its refusal message.</param>
+/// <param name="VariantIds">Every distinct <c>product_variant_id</c> this open take's lines cover.</param>
+public sealed record OpenStockTakeVariantSet(long Id, string StockTakeNo, IReadOnlyList<long> VariantIds);
 
 /// <summary>One row of the stock take list screen.</summary>
 public sealed record StockTakeSummaryRecord(

@@ -106,7 +106,7 @@ internal sealed class SqliteStockTakeStore : IStockTakeStore
         // GoodsReceiptService keeps for its own pricing: catalogue reads and the current-position
         // reads through IStockPositionReader are not part of the write, and the writer lock should
         // be held for the insert alone.
-        var variantIds = await ResolveScopeAsync(scope, cancellationToken).ConfigureAwait(false);
+        var variantIds = await ResolveScopeCoreAsync(scope, cancellationToken).ConfigureAwait(false);
 
         if (variantIds.Count == 0)
         {
@@ -159,8 +159,40 @@ internal sealed class SqliteStockTakeStore : IStockTakeStore
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<long>> ResolveScopeAsync(
+        StockTakeScope scope, CancellationToken cancellationToken = default) =>
+        await ResolveScopeCoreAsync(scope, cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<OpenStockTakeVariantSet>> ListOpenVariantSetsAsync(
+        CancellationToken cancellationToken = default) =>
+        _unitOfWork.ExecuteInTransactionAsync(
+            async (_, _, token) =>
+            {
+                using var context = _unitOfWork.CreateDbContext();
+
+                var rows = await (
+                    from take in context.Set<StockTake>()
+                    where take.Status == StockTakeStatuses.OpenToken
+                    join line in context.Set<StockTakeLine>() on take.Id equals line.StockTakeId
+                    select new { take.Id, take.StockTakeNo, line.ProductVariantId })
+                    .ToListAsync(token)
+                    .ConfigureAwait(false);
+
+                IReadOnlyList<OpenStockTakeVariantSet> result = [.. rows
+                    .GroupBy(row => new { row.Id, row.StockTakeNo })
+                    .Select(group => new OpenStockTakeVariantSet(
+                        group.Key.Id,
+                        group.Key.StockTakeNo,
+                        [.. group.Select(row => row.ProductVariantId).Distinct()]))];
+
+                return result;
+            },
+            cancellationToken);
+
     /// <summary>Every active, sellable variant a scope matches - <c>product</c> and <c>product_variant</c> alone.</summary>
-    private async Task<IReadOnlyList<long>> ResolveScopeAsync(StockTakeScope scope, CancellationToken cancellationToken) =>
+    private async Task<IReadOnlyList<long>> ResolveScopeCoreAsync(StockTakeScope scope, CancellationToken cancellationToken) =>
         await _unitOfWork.ExecuteInTransactionAsync(
             async (_, _, token) =>
             {

@@ -394,6 +394,79 @@ public sealed class StockTakeServiceTests
     }
 
     [Fact]
+    public async Task P2_T10_TwoOpenStockTakesWithOverlappingScopesAreRefusedAndWriteNothing()
+    {
+        // The fix-loop finding: two independently-started OPEN stock takes whose scopes overlap on
+        // the same variant would each later post their own correct-looking variance for it, and the
+        // corrections would silently sum, over-adjusting the real balance by roughly double the
+        // true variance. The second start must be refused before it writes anything, including a
+        // document number - the same "refused before anything is consumed" discipline
+        // FR_4_AMalformedScopeIsRejectedBeforeConsumingADocumentNumber already proves for a
+        // malformed scope.
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await ConfigureStockTakeSeriesAsync(fixture);
+        var (fixingsCategoryId, _) = await SeedCategoriesAsync(fixture);
+        var (variantId, _, _) = await SeedProductAsync(fixture, "ST-OVERLAP-A", fixingsCategoryId);
+        await PostOpeningStockAsync(fixture, variantId, await PieceUomIdAsync(fixture), 20m, 1.00m);
+
+        var stockTakes = fixture.Resolve<IStockTakeService>();
+        var first = await stockTakes.StartAsync(new StartStockTakeCommand(
+            "CATEGORY:" + fixingsCategoryId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            StartedAt));
+
+        // ALL resolves every active variant, including the one the first, still-OPEN, take already
+        // covers - a genuine overlap, not merely the same scope token.
+        var act = () => stockTakes.StartAsync(new StartStockTakeCommand("ALL", StartedAt.AddMinutes(5)));
+
+        var exception = await act.Should().ThrowAsync<InvalidOperationException>();
+        exception.Which.Message.Should().Contain(first.StockTakeNo, "the refusal must name which OPEN stock take the new scope collides with");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_take;")).Should().Be(
+            1, "only the first, non-overlapping start actually wrote a row");
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_take_line;")).Should().Be(1);
+
+        (await fixture.ScalarAsync("SELECT next_val FROM number_sequence WHERE doc_type = 'STOCK_TAKE';"))
+            .Should().Be("2", "the first take consumed ST-...-000001; the refused second attempt must not have consumed another");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM audit_log WHERE action = 'STOCK_TAKE_STARTED';"))
+            .Should().Be(1, "only the first, successful start is audited");
+    }
+
+    [Fact]
+    public async Task P2_T10_TwoOpenStockTakesWithNonOverlappingScopesAreBothAllowed()
+    {
+        // The intended, unaffected case (docs comment next to ux_one_open_shift): non-overlapping
+        // scopes genuinely may run at the same time, e.g. one for CATEGORY:5 and another for a
+        // different category with no shared variants - two different parts of the shop being
+        // counted at once. This must not regress.
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await ConfigureStockTakeSeriesAsync(fixture);
+        var pieceUomId = await PieceUomIdAsync(fixture);
+        var (fixingsCategoryId, timberCategoryId) = await SeedCategoriesAsync(fixture);
+        var (fixingsVariant, _, _) = await SeedProductAsync(fixture, "ST-DISJOINT-A", fixingsCategoryId);
+        var (timberVariant, _, _) = await SeedProductAsync(fixture, "ST-DISJOINT-B", timberCategoryId);
+
+        await PostOpeningStockAsync(fixture, fixingsVariant, pieceUomId, 15m, 1.00m);
+        await PostOpeningStockAsync(fixture, timberVariant, pieceUomId, 25m, 1.00m);
+
+        var stockTakes = fixture.Resolve<IStockTakeService>();
+
+        var first = await stockTakes.StartAsync(new StartStockTakeCommand(
+            "CATEGORY:" + fixingsCategoryId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            StartedAt));
+
+        var second = await stockTakes.StartAsync(new StartStockTakeCommand(
+            "CATEGORY:" + timberCategoryId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            StartedAt.AddMinutes(5)));
+
+        first.LineCount.Should().Be(1);
+        second.LineCount.Should().Be(1);
+        second.StockTakeId.Should().NotBe(first.StockTakeId);
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_take WHERE status = 'OPEN';")).Should().Be(2);
+    }
+
+    [Fact]
     public async Task P2_T10_RecordingACountOnAStockTakeThatIsNotOpenIsRefused()
     {
         // RecordCountAsync's own doc comment: "for as long as the stock take stays OPEN" - a count

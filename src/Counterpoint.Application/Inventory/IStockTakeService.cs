@@ -52,9 +52,20 @@ public interface IStockTakeService
     /// active variants, and freezes each one's current stock position as <c>system_qty</c>, all in
     /// one transaction (CLAUDE.md invariant 4).
     /// </summary>
+    /// <remarks>
+    /// Refuses when the resolved scope shares so much as one variant with any currently-<c>OPEN</c>
+    /// stock take's own already-resolved scope, before the number is allocated - two OPEN counts of
+    /// the same stock would each later post their own variance for it and the corrections would
+    /// silently sum. Two OPEN stock takes with genuinely non-overlapping scopes (different
+    /// categories, different racks) are unaffected and continue to run concurrently, exactly as
+    /// before - see
+    /// <see cref="Counterpoint.Application.Abstractions.Persistence.IStockTakeStore.ListOpenVariantSetsAsync"/>'s
+    /// own remarks.
+    /// </remarks>
     /// <exception cref="System.InvalidOperationException">
     /// Nobody is signed in, the scope is not <c>ALL</c>/<c>CATEGORY:&lt;id&gt;</c>/
-    /// <c>BRAND:&lt;id&gt;</c>/<c>LOCATION:&lt;rack&gt;</c>, or it matches no active variant.
+    /// <c>BRAND:&lt;id&gt;</c>/<c>LOCATION:&lt;rack&gt;</c>, it matches no active variant, or it
+    /// overlaps a currently-<c>OPEN</c> stock take's own scope on at least one variant.
     /// </exception>
     public Task<StartedStockTake> StartAsync(
         StartStockTakeCommand command,

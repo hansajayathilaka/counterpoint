@@ -96,6 +96,38 @@ internal sealed class StockTakeService : IStockTakeService
         var (id, stockTakeNo) = await _unitOfWork.ExecuteInTransactionAsync(
             async token =>
             {
+                // Resolved and checked before the number is allocated at all - the same "refused
+                // before anything is consumed" point the malformed-scope and no-active-variant
+                // refusals above already keep. Two OPEN stock takes with non-overlapping scopes
+                // (different categories, different racks) are meant to run concurrently - there is
+                // deliberately no ux_one_open_stock_take the way there is a ux_one_open_shift
+                // (MigrationRunnerTests' own comment). But two whose scopes share so much as one
+                // variant would each later post their own correct-looking variance for it, and the
+                // corrections would silently sum, over-adjusting the real balance by roughly double
+                // the true variance - genuine stock corruption, not two independently-correct
+                // adjustments. IStockLedger.PostAsync's relative-adjustment posting protects against
+                // a sale happening *between* one stock take's freeze and its own post; it does
+                // nothing for two independent counts of the same stock, so this guard is the
+                // Application-layer check for exactly that gap.
+                var candidateVariantIds = await _store.ResolveScopeAsync(scope, token).ConfigureAwait(false);
+                var candidateVariantSet = new HashSet<long>(candidateVariantIds);
+
+                if (candidateVariantSet.Count > 0)
+                {
+                    var openTakes = await _store.ListOpenVariantSetsAsync(token).ConfigureAwait(false);
+                    var collision = openTakes.FirstOrDefault(
+                        open => open.VariantIds.Any(candidateVariantSet.Contains));
+
+                    if (collision is not null)
+                    {
+                        throw new InvalidOperationException(string.Create(
+                            CultureInfo.InvariantCulture,
+                            $"Scope '{scope.ToToken()}' overlaps stock take {collision.StockTakeNo}, "
+                            + $"which is still OPEN and covers at least one of the same variants. Post "
+                            + $"or abandon it before starting a new count over the same stock."));
+                    }
+                }
+
                 var stockTakeNo = await _numbers
                     .AllocateAsync(StockTakeDocumentType, businessDate, token)
                     .ConfigureAwait(false);

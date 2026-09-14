@@ -531,9 +531,17 @@ public sealed class MigrationRunnerTests
         // A different number for a different scope, including a brand scope (the task's own
         // "all, category, brand or rack location" list) - scope is unconstrained TEXT, the
         // Application layer owns the 'BRAND:5' convention, not a CHECK. Two OPEN stock takes at
-        // once is deliberately not refused here the way a second open shift is (ux_one_open_shift)
-        // - unlike the till's one active session, non-overlapping scopes (different categories,
-        // different racks) may legitimately run at the same time.
+        // once is deliberately not refused here at the schema the way a second open shift is
+        // (ux_one_open_shift) - unlike the till's one active session, non-overlapping scopes
+        // (different categories, different racks) may legitimately run at the same time, and no
+        // unique index can express "no overlapping variant sets" for arbitrary scope combinations
+        // anyway. Two scopes that *do* share a variant are instead refused one layer up, in
+        // StockTakeService.StartAsync (Counterpoint.Application.Inventory) - it resolves the new
+        // scope's variant set and checks it against every currently-OPEN stock take's own resolved
+        // set before creating anything, because two independent counts of the same stock would
+        // otherwise each post their own correct-looking variance and the corrections would silently
+        // sum. That is an Application-layer guard, not something this migration or its indexes are
+        // responsible for.
         command.CommandText =
             "INSERT INTO stock_take (id, stock_take_no, scope, started_at, status, user_id) " +
             "VALUES (4, 'ST-2026-000002', 'BRAND:5', '2026-09-06T08:00:00.000+05:30', 'OPEN', 1);";
