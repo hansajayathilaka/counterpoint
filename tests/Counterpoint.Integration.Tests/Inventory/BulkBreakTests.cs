@@ -156,6 +156,255 @@ public sealed class BulkBreakTests
         (await fixture.CountAsync("SELECT COUNT(*) FROM bulk_break;")).Should().Be(1);
     }
 
+    // ---- Validation gaps: PostBulkBreakHandler's own documented refusals -----------------------
+
+    [Fact]
+    public async Task FR_4_9_TheSourceAndDestinationVariantCannotBeTheSame()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var (sourceId, _) = await SeedSourceAndDestinationAsync(fixture, "SAME");
+        await PostOpeningStockAsync(fixture, sourceId, 1m, 9000.00m);
+
+        var attempt = async () => await fixture.Resolve<IPostBulkBreak>().PostAsync(
+            new BulkBreakCommand(sourceId, 1m, sourceId, 90m, 90m, "Break coil into itself", PostedAt));
+
+        await attempt.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*cannot be the same variant*");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM bulk_break;")).Should().Be(0);
+        (await fixture.CountAsync(
+            "SELECT COUNT(*) FROM stock_movement WHERE movement_type IN ('BULK_BREAK_OUT','BULK_BREAK_IN','DAMAGE');"))
+            .Should().Be(0);
+    }
+
+    [Fact]
+    public async Task FR_4_9_AnActualQuantityExceedingTheExpectedQuantityIsRefused()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var (sourceId, destinationId) = await SeedSourceAndDestinationAsync(fixture, "OVER");
+        await PostOpeningStockAsync(fixture, sourceId, 1m, 9000.00m);
+
+        // A break cannot yield more than it was expected to.
+        var attempt = async () => await fixture.Resolve<IPostBulkBreak>().PostAsync(
+            new BulkBreakCommand(sourceId, 1m, destinationId, 90m, 95m, "Yielded more than expected", PostedAt));
+
+        await attempt.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*cannot exceed what the break was expected to yield*");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM bulk_break;")).Should().Be(0);
+        (await fixture.CountAsync(
+            "SELECT COUNT(*) FROM stock_movement WHERE movement_type IN ('BULK_BREAK_OUT','BULK_BREAK_IN','DAMAGE');"))
+            .Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(ProductType.Service)]
+    [InlineData(ProductType.NonInventory)]
+    public async Task FR_4_9_ABulkBreakWhoseSourceCarriesNoStockIsRefused(ProductType type)
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var (_, destinationId) = await SeedSourceAndDestinationAsync(fixture, "NOSRC-" + type);
+        var noStockSourceId = await SeedNonStockVariantAsync(fixture, type, "NOSRC-" + type + "-V");
+
+        var attempt = async () => await fixture.Resolve<IPostBulkBreak>().PostAsync(
+            new BulkBreakCommand(noStockSourceId, 1m, destinationId, 90m, 90m, "Break a service item", PostedAt));
+
+        await attempt.Should().ThrowAsync<InvalidOperationException>().WithMessage("*does not carry stock*");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM bulk_break;")).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(ProductType.Service)]
+    [InlineData(ProductType.NonInventory)]
+    public async Task FR_4_9_ABulkBreakWhoseDestinationCarriesNoStockIsRefused(ProductType type)
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var (sourceId, _) = await SeedSourceAndDestinationAsync(fixture, "NODST-" + type);
+        await PostOpeningStockAsync(fixture, sourceId, 1m, 9000.00m);
+        var noStockDestinationId = await SeedNonStockVariantAsync(fixture, type, "NODST-" + type + "-V");
+
+        var attempt = async () => await fixture.Resolve<IPostBulkBreak>().PostAsync(
+            new BulkBreakCommand(sourceId, 1m, noStockDestinationId, 90m, 90m, "Break into a service item", PostedAt));
+
+        await attempt.Should().ThrowAsync<InvalidOperationException>().WithMessage("*does not carry stock*");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM bulk_break;")).Should().Be(0);
+        (await fixture.CountAsync(
+            "SELECT COUNT(*) FROM stock_movement WHERE movement_type IN ('BULK_BREAK_OUT','BULK_BREAK_IN','DAMAGE');"))
+            .Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task FR_4_9_ABlankOrWhitespaceReasonIsRefused(string blankReason)
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var (sourceId, destinationId) = await SeedSourceAndDestinationAsync(fixture, "REASON");
+        await PostOpeningStockAsync(fixture, sourceId, 1m, 9000.00m);
+
+        var attempt = async () => await fixture.Resolve<IPostBulkBreak>().PostAsync(
+            new BulkBreakCommand(sourceId, 1m, destinationId, 90m, 90m, blankReason, PostedAt));
+
+        await attempt.Should().ThrowAsync<InvalidOperationException>().WithMessage("*needs a reason*");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM bulk_break;")).Should().Be(0);
+        (await fixture.CountAsync(
+            "SELECT COUNT(*) FROM stock_movement WHERE movement_type IN ('BULK_BREAK_OUT','BULK_BREAK_IN','DAMAGE');"))
+            .Should().Be(0);
+    }
+
+    // ---- Done when #4: the value-conservation report finds no unbalanced pairs at scale --------
+
+    /// <summary>
+    /// 1 000 random bulk breaks - random source/destination pairs drawn from a shared pool,
+    /// random quantities, random wastage including a genuine share of zero-wastage breaks -
+    /// posted against a real SQLite file, then <see cref="IBulkBreakValueConservationQuery"/> is
+    /// asked once, at the end, whether anything is unbalanced.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberately does not hand-pick "nice" numbers the way <c>AC_09_...</c> and the wastage
+    /// test above do: costs and quantities are drawn from a fixed-seed <see cref="Random"/> and
+    /// rounded to at most four decimal places - the same precision <see cref="Money"/> and
+    /// <see cref="Quantity"/> themselves carry, i.e. what an owner could actually type - not
+    /// values chosen so that every division happens to come out even.
+    /// </para>
+    /// <para>
+    /// Each of the 1 000 breaks is its own, separately committed call to
+    /// <see cref="IPostBulkBreak.PostAsync"/> - deliberately <em>not</em> batched inside one
+    /// shared outer transaction the way <c>RebuildStockBalanceCommandTests</c> batches its own
+    /// 10 000 <c>IStockLedger.PostAsync</c> calls. That trick is safe there because every read
+    /// <c>IStockLedger.PostAsync</c> makes goes through the same ambient write connection/EF
+    /// context. <c>PostBulkBreakHandler</c> additionally reads the source's moving-average cost
+    /// through <c>IStockPositionReader</c>, which opens its own, separate read connection - under
+    /// WAL, a reader on a different connection only ever sees committed data, so batching many
+    /// breaks inside one still-open outer transaction would have every break after the first read
+    /// a stale <c>cost_avg</c> that does not match what <c>StockLedgerMath.Apply</c> then reads
+    /// fresh off the ambient write connection for the actual movement it posts - a real
+    /// inconsistency, but one this test's own batching would have manufactured, not one a shop
+    /// still posting one bulk break at a time would ever hit. One committed transaction per break
+    /// is what production does, so it is what this test does too, even though it costs roughly
+    /// 1 000 individual <c>BEGIN IMMEDIATE</c>/fsync pairs rather than one.
+    /// </para>
+    /// <para>
+    /// <b>This assertion fails, honestly, against the query as currently written - a genuine
+    /// finding, not a test defect.</b> <c>PostBulkBreakHandler</c>'s own remarks already document
+    /// that <c>unitCostIn</c> - a single ordinary decimal division, quantised to
+    /// <see cref="Money"/>'s four decimal places only once it is written to <c>stock_movement</c> -
+    /// cannot reconstruct an arbitrary target bit-for-bit whenever
+    /// <see cref="BulkBreakCommand.ActualQuantity"/> does not evenly divide the combined
+    /// source-plus-wastage value, and that the residual this leaves is bounded by half of
+    /// <see cref="Money.MoneyScale"/>'s smallest unit, multiplied by that same quantity. Running
+    /// this test against the real handler and the real query (not assumed, run) shows that bound
+    /// is honoured - the worst of 1 000 random breaks, drawn with a quantity as high as 300, nets
+    /// to a few hundredths of a cent, nowhere near the documented ceiling of about 1.5 cents for
+    /// that scale - but <see cref="Counterpoint.Infrastructure.Inventory.SqliteBulkBreakValueConservationQuery"/>'s own
+    /// <c>HAVING SUM(qty_base * unit_cost) &lt;&gt; 0</c> is exact, zero-tolerance integer
+    /// comparison, by the query's own documented design ("a group is excluded only when it is
+    /// genuinely balanced to the last unit the database can represent"). Those two designs
+    /// disagree: the handler's own documentation calls a sub-cent residual acceptable and
+    /// expected; the report built to catch value-conservation defects has no tolerance for one at
+    /// all. Constraining this test's random generation to only the (rare, essentially
+    /// hand-picked) quantities that happen to divide evenly would not make that disagreement
+    /// go away - it would only stop this test from ever exercising the ordinary case a shop
+    /// actually produces, which is exactly what a generative test here exists to catch. See this
+    /// task's own handoff notes for the design question this raises: whether
+    /// <see cref="IBulkBreakValueConservationQuery"/> should carry the same documented, bounded
+    /// tolerance <c>PostBulkBreakHandler</c> already reasons about, rather than none.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task P2_T09_TheValueConservationReportFindsNoUnbalancedPairsAcross1000RandomBreaks()
+    {
+        const int VariantCount = 12;
+        const int BreakCount = 1_000;
+        const int Seed = 20_260_914;
+
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var pieceUomId = await PieceUomIdAsync(fixture);
+        var taxClassId = await ExemptTaxClassIdAsync(fixture);
+        var products = fixture.Resolve<IProductMaintenance>();
+
+        var seedRandom = new Random(Seed);
+        var variantIds = new List<long>();
+        for (var i = 0; i < VariantCount; i++)
+        {
+            var code = "P2T09-" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var productId = await products.CreateAsync(new SaveProductCommand(
+                code,
+                "Bulk break stock " + i,
+                NameAlt: null,
+                CategoryId: null,
+                BrandId: null,
+                pieceUomId,
+                ProductType.Standard,
+                taxClassId,
+                Location: null,
+                NonReturnable: false,
+                WarrantyDays: null,
+                Notes: null,
+                MaxDiscountRate: null,
+                ConfirmDuplicate: true));
+            var variantId = await products.CreateVariantAsync(
+                productId, new SaveProductVariantCommand(code + "-A", EmptyAttributes, Money.FromDecimal(100m)));
+            variantIds.Add(variantId);
+
+            // Deep enough that 1 000 breaks, spread across a pool of 12 variants used
+            // interchangeably as source and destination, never run one dry - and an "ugly" 4dp
+            // opening cost, not a round one, so cost_avg carries the same kind of awkward
+            // fraction a real shelf would.
+            var openingCost = Math.Round(seedRandom.Next(500, 999_999) / 10_000m, 4);
+            await PostOpeningStockAsync(fixture, variantId, 1_000_000m, openingCost);
+        }
+
+        var random = new Random(Seed);
+        var startedAt = new DateTimeOffset(2026, 9, 14, 9, 0, 0, TimeSpan.FromHours(5.5));
+        var postBulkBreak = fixture.Resolve<IPostBulkBreak>();
+
+        for (var i = 0; i < BreakCount; i++)
+        {
+            var sourceIndex = random.Next(variantIds.Count);
+            int destinationIndex;
+            do
+            {
+                destinationIndex = random.Next(variantIds.Count);
+            }
+            while (destinationIndex == sourceIndex);
+
+            var sourceQuantity = Math.Round((decimal)(random.NextDouble() * 20) + 0.0001m, 4);
+            var expectedQuantity = Math.Round((decimal)(random.NextDouble() * 300) + 0.0001m, 4);
+
+            // ~1 in 5 breaks yields exactly what was expected - the zero-wastage case the
+            // "Done when" list calls out by name - the rest waste a random share of it.
+            var actualQuantity = random.Next(5) == 0
+                ? expectedQuantity
+                : Math.Round(expectedQuantity * (1m - (decimal)(random.NextDouble() * 0.4)), 4);
+            if (actualQuantity <= 0m)
+            {
+                actualQuantity = expectedQuantity;
+            }
+
+            await postBulkBreak.PostAsync(
+                new BulkBreakCommand(
+                    variantIds[sourceIndex],
+                    sourceQuantity,
+                    variantIds[destinationIndex],
+                    expectedQuantity,
+                    actualQuantity,
+                    "Random break " + i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    startedAt.AddSeconds(i)));
+        }
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM bulk_break;")).Should().Be(BreakCount);
+
+        var unbalanced = await fixture.Resolve<IBulkBreakValueConservationQuery>().FindUnbalancedAsync();
+        unbalanced.Should().BeEmpty(
+            "every one of 1 000 randomly generated breaks, however awkward its quantities and "
+            + "wastage, must still post a group that nets to zero");
+    }
+
     private static async Task<(long SourceId, long DestinationId)> SeedSourceAndDestinationAsync(
         SaleFixture fixture, string code)
     {
@@ -200,6 +449,34 @@ public sealed class BulkBreakTests
             destinationProductId, new SaveProductVariantCommand(code + "-METRE-A", EmptyAttributes, Money.FromDecimal(150.00m)));
 
         return (sourceVariantId, destinationVariantId);
+    }
+
+    /// <summary>A SERVICE or NON_INVENTORY product's single variant - nothing to hold in stock.</summary>
+    private static async Task<long> SeedNonStockVariantAsync(SaleFixture fixture, ProductType type, string code)
+    {
+        var products = fixture.Resolve<IProductMaintenance>();
+        var pieceUomId = await PieceUomIdAsync(fixture);
+        var taxClassId = await ExemptTaxClassIdAsync(fixture);
+
+        var productId = await products.CreateAsync(new SaveProductCommand(
+            code,
+            "Non-stock product " + code,
+            NameAlt: null,
+            CategoryId: null,
+            BrandId: null,
+            pieceUomId,
+            type,
+            taxClassId,
+            Location: null,
+            NonReturnable: false,
+            WarrantyDays: null,
+            Notes: null,
+            MaxDiscountRate: null,
+            ConfirmDuplicate: true));
+
+        return await products.CreateVariantAsync(
+            productId,
+            new SaveProductVariantCommand(code + "-A", EmptyAttributes, Money.FromDecimal(500.00m)));
     }
 
     private static async Task<long> PieceUomIdAsync(SaleFixture fixture) =>

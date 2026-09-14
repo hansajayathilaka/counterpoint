@@ -308,3 +308,4 @@ it stopped.
 
 - `2026-09-14T12:05:42Z` **P2-T09** start — Bulk breaking
 - `2026-09-14T13:01:19Z` **P2-T09** note — orchestrator reverted premature done-mark by task-implementer subagent; resuming at B4 (tests)
+- `2026-09-14T13:22:43Z` **P2-T09** fix-attempt — 1: value-conservation query uses exact-zero comparison but handler's own documented division produces bounded sub-cent rounding residuals as the ordinary case - needs a documented tolerance, not exact equality
