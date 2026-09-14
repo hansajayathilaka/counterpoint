@@ -361,6 +361,107 @@ public sealed class StockTakeServiceTests
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         (await fixture.CountAsync("SELECT COUNT(*) FROM stock_take;")).Should().Be(0);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_take_line;")).Should().Be(0);
+
+        // The number allocation and the "no variants matched" check both run inside the same
+        // ExecuteInTransactionAsync block (SqliteUnitOfWork's re-entrant ambient transaction), so
+        // the failed attempt must not have consumed a STOCK_TAKE number either - "writes nothing"
+        // means nothing, not merely no stock_take row.
+        (await fixture.ScalarAsync("SELECT next_val FROM number_sequence WHERE doc_type = 'STOCK_TAKE';"))
+            .Should().Be("1", "a refused stock take must not consume a document number");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM audit_log WHERE action = 'STOCK_TAKE_STARTED';"))
+            .Should().Be(0);
+    }
+
+    [Fact]
+    public async Task FR_4_AMalformedScopeIsRejectedBeforeConsumingADocumentNumber()
+    {
+        // StockTakeService.StartAsync's own remarks: the scope is parsed and canonicalised before
+        // the transaction opens at all, so a typo in the scope string must fail before anything -
+        // including a STOCK_TAKE number - is ever allocated. Distinct from the "well-formed scope,
+        // matches nothing" case above, which fails *inside* the transaction instead.
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await ConfigureStockTakeSeriesAsync(fixture);
+
+        var stockTakes = fixture.Resolve<IStockTakeService>();
+        var act = () => stockTakes.StartAsync(new StartStockTakeCommand("NOT-A-SCOPE", StartedAt));
+
+        await act.Should().ThrowAsync<ArgumentException>();
+        (await fixture.CountAsync("SELECT COUNT(*) FROM stock_take;")).Should().Be(0);
+        (await fixture.ScalarAsync("SELECT next_val FROM number_sequence WHERE doc_type = 'STOCK_TAKE';"))
+            .Should().Be("1", "a malformed scope must not consume a document number");
+    }
+
+    [Fact]
+    public async Task P2_T10_RecordingACountOnAStockTakeThatIsNotOpenIsRefused()
+    {
+        // RecordCountAsync's own doc comment: "for as long as the stock take stays OPEN" - a count
+        // sheet that has already been posted or abandoned is closed for editing, so a scanner
+        // still pointed at it (a stale screen, a race with the owner posting) must be refused
+        // rather than silently mutating a terminal document.
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await ConfigureStockTakeSeriesAsync(fixture);
+        var pieceUomId = await PieceUomIdAsync(fixture);
+        var (categoryId, _) = await SeedCategoriesAsync(fixture);
+        var (variantId, _, _) = await SeedProductAsync(fixture, "ST-CLOSED-A", categoryId);
+        await PostOpeningStockAsync(fixture, variantId, pieceUomId, 6m, 1.00m);
+
+        var stockTakes = fixture.Resolve<IStockTakeService>();
+        var started = await stockTakes.StartAsync(new StartStockTakeCommand(
+            "CATEGORY:" + categoryId.ToString(System.Globalization.CultureInfo.InvariantCulture), StartedAt));
+
+        await stockTakes.AbandonAsync(new AbandonStockTakeCommand(started.StockTakeId, "wrong scope"));
+
+        var act = () => stockTakes.RecordCountAsync(
+            new RecordStockTakeCountCommand(started.StockTakeId, variantId, 5m));
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+
+        (await fixture.ScalarAsync(
+            "SELECT counted_qty FROM stock_take_line WHERE stock_take_id = " + started.StockTakeId
+            + " AND product_variant_id = " + variantId + ";"))
+            .Should().BeNull("the abandoned take's line must not pick up a count after the fact");
+    }
+
+    [Fact]
+    public async Task P2_T10_PostingAStockTakeWithNoCountedLinesPostsCleanlyWithZeroMovements()
+    {
+        // Every line frozen but never counted (the count sheet was printed and the take was
+        // posted straight back out, or every physical count matched nothing worth entering) - this
+        // must not be an error. PostAsync's own remarks: an uncounted line is left alone, and
+        // nothing in "Do this" #4 requires at least one correction to exist before a batch can
+        // close.
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        await ConfigureStockTakeSeriesAsync(fixture);
+        var pieceUomId = await PieceUomIdAsync(fixture);
+        var (categoryId, _) = await SeedCategoriesAsync(fixture);
+        var (variantA, _, _) = await SeedProductAsync(fixture, "ST-EMPTY-A", categoryId);
+        var (variantB, _, _) = await SeedProductAsync(fixture, "ST-EMPTY-B", categoryId);
+
+        await PostOpeningStockAsync(fixture, variantA, pieceUomId, 3m, 1.00m);
+        await PostOpeningStockAsync(fixture, variantB, pieceUomId, 4m, 1.00m);
+
+        var stockTakes = fixture.Resolve<IStockTakeService>();
+        var started = await stockTakes.StartAsync(new StartStockTakeCommand(
+            "CATEGORY:" + categoryId.ToString(System.Globalization.CultureInfo.InvariantCulture), StartedAt));
+
+        var posted = await stockTakes.PostAsync(new PostStockTakeCommand(started.StockTakeId, StartedAt.AddHours(1)));
+
+        posted.MovementsPosted.Should().Be(0);
+        posted.LinesSkipped.Should().Be(2);
+
+        (await fixture.ScalarAsync("SELECT status FROM stock_take WHERE id = " + started.StockTakeId + ";"))
+            .Should().Be("POSTED", "a stock take with nothing to correct still closes cleanly");
+
+        (await fixture.CountAsync(
+            "SELECT COUNT(*) FROM stock_movement WHERE movement_type = 'STOCK_TAKE' AND ref_doc_id = " + started.StockTakeId + ";"))
+            .Should().Be(0);
+
+        (await fixture.ScalarAsync("SELECT qty_base FROM stock_balance WHERE product_variant_id = " + variantA + ";"))
+            .Should().Be(Quantity.FromDecimal(3m, pieceUomId).ToScaled().ToString(), "untouched - nothing was counted");
+        (await fixture.ScalarAsync("SELECT qty_base FROM stock_balance WHERE product_variant_id = " + variantB + ";"))
+            .Should().Be(Quantity.FromDecimal(4m, pieceUomId).ToScaled().ToString(), "untouched - nothing was counted");
     }
 
     private static Task<bool> ConfigureStockTakeSeriesAsync(SaleFixture fixture) =>
