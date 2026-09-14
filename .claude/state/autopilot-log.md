@@ -281,3 +281,4 @@ it stopped.
 - `2026-09-14T00:51:25Z` **P2-T05** start — Credit notes
 - `2026-09-14T01:09:30Z` **P2-T05** schema — credit_note bounds CHECK + 2 lookup indexes (migration 0008)
 - `2026-09-14T01:11:00Z` **P2-T05** implement-start — delegated to task-implementer
+- `2026-09-14T01:44:33Z` **P2-T05** implement-done — task-implementer finished; ledger 'done' mark reverted to in-progress (premature — tests/verify/review not yet run by orchestrator)

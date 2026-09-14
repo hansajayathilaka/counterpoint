@@ -32,9 +32,10 @@ namespace Counterpoint.Application.Returns;
 /// <param name="Lines">What is coming back, and at what price. At least one.</param>
 /// <param name="RefundMethod">
 /// How the refund is paid out - restricted to
-/// <see cref="PolicySettings.AllowedUnlinkedRefundMethods"/> (task P2-T03 step 4), and, as
-/// <see cref="CreateReturnCommand.RefundMethod"/>, never <see cref="RefundMethod.CreditNote"/>
-/// until P2-T05 exists to back one with an actual <c>credit_note</c> row.
+/// <see cref="PolicySettings.AllowedUnlinkedRefundMethods"/> (task P2-T03 step 4).
+/// <see cref="RefundMethod.CreditNote"/> issues a numbered <c>credit_note</c> row alongside the
+/// refund payment (task P2-T05), the default for this flow (<c>SettingDefaults</c>) - see
+/// <see cref="CreditNoteExpiresOn"/> for its optional expiry.
 /// </param>
 /// <param name="Override">
 /// A token from <c>IOwnerOverrideService.RequestAsync</c> for
@@ -46,6 +47,11 @@ namespace Counterpoint.Application.Returns;
 /// refuses a blank reason for the override itself.
 /// </param>
 /// <param name="CustomerId">The customer this return is against, if known. Optional.</param>
+/// <param name="CreditNoteExpiresOn">
+/// The last business date a credit note issued by this return may be redeemed on, or null to
+/// never expire (task P2-T05). Ignored unless <paramref name="RefundMethod"/> is
+/// <see cref="RefundMethod.CreditNote"/>.
+/// </param>
 public sealed record CreateUnlinkedReturnCommand(
     long UserId,
     long ShiftId,
@@ -54,4 +60,5 @@ public sealed record CreateUnlinkedReturnCommand(
     RefundMethod RefundMethod,
     OverrideToken Override,
     string Reason,
-    long? CustomerId = null);
+    long? CustomerId = null,
+    DateOnly? CreditNoteExpiresOn = null);
