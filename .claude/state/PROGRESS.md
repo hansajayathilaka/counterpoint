@@ -68,7 +68,7 @@ hands them back.
 | P2-T07 | Goods receipt (GRN) | done | 2026-09-12 | 1dcc10a Goods receipt GRN (FR-4.7, FR-4.8, AC-08), PR #30 |
 | P2-T08 | Adjustments and damage | todo | | |
 | P2-T09 | Bulk breaking | todo | | |
-| P2-T10 | Stock take | todo | | |
+| P2-T10 | Stock take | in-progress | | |
 | P2-T11 | Reorder alerts and stock reports (interim) | todo | | |
 | P2-T12 | Phase 2 acceptance gate | todo | | |
 
