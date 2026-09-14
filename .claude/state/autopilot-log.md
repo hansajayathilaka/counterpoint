@@ -276,3 +276,5 @@ it stopped.
 - `2026-09-14T14:57:47Z` **P2-T10** note — orchestrator reverted premature done-mark by task-implementer subagent; resuming at B4 (tests)
 - `2026-09-14T15:39:00Z` **P2-T10** fix-attempt — 1: two OPEN stock takes with overlapping scopes could each post a variance for the same variant, summing into silent double-correction - data-modeler review flagged as real stock-ledger corruption risk, not a style nit; adding an overlap guard at StartAsync
 - `2026-09-14T16:04:41Z` **P2-T10** done — schema (stock_take_no column) + application/infra layers, 15 StockTakeServiceTests + 12 StockTakeScopeTests + migration test, review clean after 1 fix-attempt closing a real stock-ledger integrity gap
+
+**Run ended 2026-09-14T16:05:55Z** — 2 completed, 0 halted
