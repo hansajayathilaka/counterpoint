@@ -276,3 +276,4 @@ it stopped.
 - `2026-09-14T02:40:40Z` **P2-T08** tests-start — delegated to test-engineer
 - `2026-09-14T03:05:45Z` **P2-T08** verify — verify.sh green: 667+344+78+18 tests, 6 arch tests, 54 trigger-survival
 - `2026-09-14T03:06:20Z` **P2-T08** review-start — code-reviewer + data-modeler dispatched in parallel
+- `2026-09-14T08:41:06Z` **P2-T08** review-data — data-modeler clean: 0 must-fix; 1 should-fix (SqliteAdjustmentHistoryQuery's IS NULL OR date filter defeats ix_movement_time, forces full stock_movement scan even with narrow filters - confirmed via EXPLAIN QUERY PLAN, not a correctness/invariant issue); explicitly recommends against adding a movement_type index (wrong tradeoff for the hottest write-path table)
