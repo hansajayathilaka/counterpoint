@@ -175,6 +175,15 @@ internal static class CounterpointHostBuilderExtensions
         // mandatory-override shape as ICreateUnlinkedReturn above.
         builder.Services.AddSingleton<INoSaleDrawerService, NoSaleDrawerService>();
 
+        // P3-T02: the X report (SRS FR-8.3, RPT-04) - a cashier capability for their own shift,
+        // not owner-only in its own right, so it is registered plain; XReportService itself
+        // refuses a cashier's request for a shift other than the one they are currently trading
+        // in (the same own-shift rule ICashMovementService.GetHistoryAsync already enforces). Not
+        // wired through RoleAuthorisation.Decorate because the restriction depends on which shift
+        // is asked for, not on the caller's role alone.
+        builder.Services.AddSingleton<IXReportService, XReportService>();
+        builder.Services.AddSingleton<IXReportPrintService, XReportPrintService>();
+
         // P2-T08: adjustments and damage (SRS FR-4, NFR-S2) - owner-only, wired exactly as
         // ICancelSale above. IAdjustmentHistoryQuery is registered and decorated in
         // AddCounterpointInfrastructure instead, next to its own concrete reader.
