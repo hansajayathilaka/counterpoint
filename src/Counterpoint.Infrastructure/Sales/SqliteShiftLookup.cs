@@ -17,15 +17,17 @@ internal sealed class SqliteShiftLookup : IShiftLookup
 {
     private const string Sql =
         """
-        SELECT id AS ShiftId,
-               shift_no AS ShiftNo,
-               user_id AS UserId,
-               opened_at AS OpenedAtText,
-               business_date AS BusinessDateText,
-               opening_float AS OpeningFloatScaled,
-               status AS Status
-          FROM shift
-         WHERE id = @ShiftId;
+        SELECT s.id AS ShiftId,
+               s.shift_no AS ShiftNo,
+               s.user_id AS UserId,
+               u.display_name AS CashierDisplayName,
+               s.opened_at AS OpenedAtText,
+               s.business_date AS BusinessDateText,
+               s.opening_float AS OpeningFloatScaled,
+               s.status AS Status
+          FROM shift s
+          JOIN app_user u ON u.id = s.user_id
+         WHERE s.id = @ShiftId;
         """;
 
     private readonly IPosConnectionFactory _connectionFactory;
@@ -51,6 +53,7 @@ internal sealed class SqliteShiftLookup : IShiftLookup
                     row.ShiftId,
                     row.ShiftNo,
                     row.UserId,
+                    row.CashierDisplayName,
                     DateTimeOffset.ParseExact(
                         row.OpenedAtText,
                         Iso8601TimestampConverter.Format,
@@ -70,6 +73,8 @@ internal sealed class SqliteShiftLookup : IShiftLookup
         public string ShiftNo { get; set; } = string.Empty;
 
         public long UserId { get; set; }
+
+        public string CashierDisplayName { get; set; } = string.Empty;
 
         public string OpenedAtText { get; set; } = string.Empty;
 

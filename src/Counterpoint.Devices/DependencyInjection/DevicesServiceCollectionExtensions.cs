@@ -99,6 +99,10 @@ public static class DevicesServiceCollectionExtensions
         // cancellation slip above.
         services.AddSingleton<ICashSlipRenderer, EscPosCashSlipRenderer>();
 
+        // P3-T02: the X report (SRS FR-8.3, RPT-04) - the same renderer/capabilities pair, over
+        // its own fixed layout, the same shape as the cash-movement slip above.
+        services.AddSingleton<IXReportReceiptRenderer, EscPosXReportRenderer>();
+
         // P1-T12: the shelf-label printer - a separate device abstraction from the receipt
         // printer above, because most shelf-label printers speak TSPL rather than ESC/POS. The
         // Windows raw spooler adapter is HW-T03's, and it swaps in here and nowhere else.

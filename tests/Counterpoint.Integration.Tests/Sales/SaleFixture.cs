@@ -328,6 +328,12 @@ internal sealed class SaleFixture : IAsyncDisposable
         services.AddSingleton<IExpectedCashService, ExpectedCashService>();
         services.AddSingleton<INoSaleDrawerService, NoSaleDrawerService>();
 
+        // P3-T02: the X report (SRS FR-8.3, RPT-04), wired exactly as Counterpoint.App's
+        // CounterpointHostBuilderExtensions - registered plain, own-shift authorisation enforced
+        // inside XReportService itself.
+        services.AddSingleton<IXReportService, XReportService>();
+        services.AddSingleton<IXReportPrintService, XReportPrintService>();
+
         // P2-T08: adjustments and damage (SRS FR-4, NFR-S2) - owner-only, wired exactly as
         // Counterpoint.App's CounterpointHostBuilderExtensions, decorated-only, same shape as
         // ICancelSale above (NFR-S2, AC-17). IAdjustmentHistoryQuery is decorated inside
