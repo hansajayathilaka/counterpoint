@@ -72,7 +72,12 @@ hands them back.
 | P2-T11 | Reorder alerts and stock reports (interim) | done | 2026-09-15 | 28b3613 feat(P2-T11): reorder alerts and stock reports (FR-4 reorder, FR-9.7) - 4/4 Done-when proven (verify.sh green: 718 integration + 6 architecture + 54 trigger-survival tests); reorder list matches hand-computed low/high-stock expectation and documented preferred-supplier algorithm (0/1/2+ linked suppliers, most-recent-GRN tie-break); valuation ties exactly to raw SUM(stock_balance.qty_base*cost_avg) (Money unrounded until ToScaled); AC-17-style test + independent code-reviewer trace of RoleAuthorisationProxy confirm a cashier cannot resolve the valuation query at all; all three reports proven under the 10s budget (500-product seeded test, plus data-modeler's own out-of-band 8000-product/26k-GRN-line run at 58ms). New Counterpoint.Reporting project populated for the first time via IReportConnectionFactory seam; no UI screen (matches P2-T02-P2-T10 precedent). code-reviewer + data-modeler reviewed independently, 0 must-fix; should-fix carried to PR: StockValuationQuery does qty*cost multiplication in raw SQL (SQLite silently promotes to double on int64 overflow, unreachable at real shop scale but inconsistent with this codebase's C#-side Money/Quantity arithmetic elsewhere) and its Lines/Total are two non-atomic reads that could drift if a stock movement lands between them; checked-in perf test only exercises the single-supplier/no-GRN-history path of ReorderListQuery, not the multi-supplier window-function path (functionally proven fine at 16x scale out-of-band, but not by the committed test) |
 | P2-T12 | Phase 2 acceptance gate | todo | | |
 
-## Phase 3 — Reports and cash discipline (0/9)
+## Phase 3 — Reports and cash discipline (1/16)
+
+Includes P3-T10–P3-T16, the UI redesign added 2026-09-15 via `/plan-feature` (owner request:
+"revamp the whole UI" — light/dark theme, side-panel contrast fix, reusable add/edit/delete
+dialog, persistent field labels, role-based cashier/back-office shells). Full task detail in
+`docs/05_PHASE_3_reports_cash.md`. These do not block, and are not blocked by, P3-T09.
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
@@ -85,6 +90,13 @@ hands them back.
 | P3-T07 | Export and print for all reports | todo | | |
 | P3-T08 | Audit log viewer and exception reporting | todo | | |
 | P3-T09 | Phase 3 acceptance gate | todo | | |
+| P3-T10 | Theme tokens: light and dark mode | todo | | UI redesign, added 2026-09-15 |
+| P3-T11 | Reusable add/edit/delete dialog framework | todo | | UI redesign, added 2026-09-15 |
+| P3-T12 | Reusable labelled form-field control | todo | | UI redesign, added 2026-09-15 |
+| P3-T13 | Role-based navigation shell (cashier vs back office) | todo | | UI redesign, added 2026-09-15 |
+| P3-T14 | Retrofit: sales screen and side panel | todo | | UI redesign, added 2026-09-15 |
+| P3-T15 | Retrofit: catalogue and settings screens | todo | | UI redesign, added 2026-09-15 |
+| P3-T16 | Retrofit: remaining windows and UI redesign gate | todo | | UI redesign, added 2026-09-15 |
 
 ## Phase 4 — Backup and resilience (0/9)
 
@@ -162,6 +174,10 @@ Update as tests land. `automated` means a passing test exists in
 | AC-18 | P1-T16 (regression guard), HW-T07 (absolute budgets) | automated (regression guard; PerformanceRegressionGuardTests, tests/Counterpoint.Integration.Tests/Performance/PerformanceRegressionGuardTests.cs - measures NFR-P1/P2/P3/P4/P6 against the real 20,000-SKU/100,000-historical-bill-line database (PerformanceDatasetSeeder) and fails on >20% drift from docs/perf-regression-baseline.json; absolute budgets stay unmeasured in docs/perf-baseline.md until HW-T07) |
 | AC-19 | P1-T16 | automated (AC19_GaplessBillNumberingAcrossFiveHundredBillsTests, tests/Counterpoint.Integration.Tests/Sales/AC19_GaplessBillNumberingAcrossFiveHundredBillsTests.cs - 500 real bills through ICompleteSale, 1 in 20 cancelled through ICancelSale, sequence proven gapless 1..500 and hash chain proven intact) |
 | AC-20 | P5-T07 | not started |
+| AC-21 *(new, UI redesign, added 2026-09-15)* | P3-T16 | not started |
+| AC-22 *(new, UI redesign, added 2026-09-15)* | P3-T16 | not started |
+| AC-23 *(new, UI redesign, added 2026-09-15)* | P3-T16 | not started |
+| AC-24 *(new, UI redesign, added 2026-09-15)* | P3-T16 | not started |
 
 ---
 
