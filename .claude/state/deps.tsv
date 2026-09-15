@@ -54,6 +54,13 @@ P3-T06	P3-T04,P2-T11	2	auto	Stock, tax and cash reports
 P3-T07	P3-T05,P3-T06	1.5	auto	Export and print for all reports
 P3-T08	P3-T04	1.5	auto	Audit log viewer and exception reporting
 P3-T09	P3-T01,P3-T02,P3-T03,P3-T04,P3-T05,P3-T06,P3-T07,P3-T08	1.5	auto	Phase 3 acceptance gate
+P3-T10	P0-T01,P1-T03	2	auto	Theme tokens: light and dark mode
+P3-T11	P3-T10	2.5	auto	Reusable add/edit/delete dialog framework
+P3-T12	P3-T10	1.5	auto	Reusable labelled form-field control
+P3-T13	P1-T02,P3-T10	2	auto	Role-based navigation shell (cashier vs back office)
+P3-T14	P3-T10,P3-T12,P3-T13	2	auto	Retrofit: sales screen and side panel
+P3-T15	P3-T11,P3-T12,P3-T13	3	auto	Retrofit: catalogue and settings screens
+P3-T16	P3-T14,P3-T15	2.5	auto	Retrofit: remaining windows and UI redesign gate
 P4-T01	P1-T15	1.5	auto	Backup target abstraction
 P4-T02	P4-T01	1	human	Least-privilege and immutability setup
 P4-T03	P4-T01	2	auto	Upload worker with retry and backoff
