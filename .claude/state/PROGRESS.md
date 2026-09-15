@@ -76,7 +76,7 @@ hands them back.
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
-| P3-T01 | Shift lifecycle and cash management | todo | | |
+| P3-T01 | Shift lifecycle and cash management | in-progress | | |
 | P3-T02 | X report | todo | | |
 | P3-T03 | Z report, shift close and rollups | todo | | |
 | P3-T04 | Report query layer | todo | | |
