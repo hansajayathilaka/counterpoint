@@ -27,6 +27,7 @@ using Counterpoint.Devices.Printing;
 using Counterpoint.Domain.Services;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.DependencyInjection;
+using Counterpoint.Reporting.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Counterpoint.Integration.Tests.Sales;
@@ -151,6 +152,12 @@ internal sealed class SaleFixture : IAsyncDisposable
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(clock);
         services.AddCounterpointInfrastructure(root);
+
+        // P2-T11: the reorder alert list, the stock valuation report and the slow-moving/
+        // non-moving stock report, wired exactly as Counterpoint.App's
+        // CounterpointHostBuilderExtensions wires them.
+        services.AddCounterpointReporting();
+
         services.AddCounterpointDevices(
             new FileReceiptPrinterOptions
             {

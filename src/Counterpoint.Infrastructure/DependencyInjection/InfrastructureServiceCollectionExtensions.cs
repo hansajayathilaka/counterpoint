@@ -67,6 +67,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IPosConnectionFactory>(provider =>
             provider.GetRequiredService<PosConnectionFactory>());
 
+        // P2-T11: the seam a Counterpoint.Reporting query uses to open a read connection without
+        // that project referencing this one (CLAUDE.md "Project boundaries"; see
+        // IReportConnectionFactory's own remarks).
+        services.AddSingleton<IReportConnectionFactory, PosReportConnectionFactory>();
+
         services.AddSingleton<SqliteUnitOfWork>();
         services.AddSingleton<IUnitOfWork>(provider => provider.GetRequiredService<SqliteUnitOfWork>());
 

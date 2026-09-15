@@ -1,5 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Versions come from Directory.Packages.props. Every query here reaches the database through
+    Counterpoint.Application.Abstractions.Persistence.IReportConnectionFactory, never
+    Microsoft.Data.Sqlite directly - Counterpoint.Reporting references only
+    Counterpoint.Application and Counterpoint.Domain (CLAUDE.md "Project boundaries"), the same
+    rule Counterpoint.Ui follows.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Counterpoint.Application\Counterpoint.Application.csproj" />
     <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />

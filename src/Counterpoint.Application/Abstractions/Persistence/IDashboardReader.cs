@@ -42,7 +42,10 @@ public interface IDashboardReader
     /// <summary>
     /// How many active products are at or below their reorder level (SRS FR-2.2, FR-4.17), summed
     /// across their variants. A product with no reorder level configured (the default, zero) is
-    /// never counted - zero means "not tracked", not "reorder immediately".
+    /// never counted - zero means "not tracked", not "reorder immediately". This is the exact
+    /// count task P2-T11's <c>Counterpoint.Application.Inventory.IReorderListQuery</c> lists in
+    /// full: the two share the identical predicate (each implementation documents the other by
+    /// name) so the dashboard's number and the reorder alert list's row count never drift apart.
     /// </summary>
     public Task<int> GetLowStockCountAsync(CancellationToken cancellationToken = default);
 }
