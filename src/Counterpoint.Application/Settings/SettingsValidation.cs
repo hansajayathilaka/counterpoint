@@ -55,6 +55,9 @@ public static class SettingsValidation
         CategoryIds(snapshot.Policy.NonReturnableCategoryIds);
         NotNegative(snapshot.Policy.AdjustmentGrnWarningThreshold, "The adjustment GRN-warning threshold");
         AdjustmentReasons(snapshot.Policy.AdjustmentReasons);
+        ReasonList(snapshot.Policy.CashInReasons, "cash-in");
+        ReasonList(snapshot.Policy.CashOutReasons, "cash-out");
+        NotNegative(snapshot.Policy.CashOutAuthorisationThreshold, "The cash-out authorisation threshold");
 
         Range(snapshot.Peripherals.PaperWidthMm, 1, 210, "The paper width, in millimetres");
         Range(snapshot.Peripherals.ReceiptCopies, 1, 9, "The number of receipt copies");
@@ -163,6 +166,24 @@ public static class SettingsValidation
             {
                 throw new ArgumentException(
                     "An adjustment reason in the list cannot be blank.", nameof(reasons));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The same rule <see cref="AdjustmentReasons"/> enforces on its own list: none of a reason
+    /// picker's own entries may be blank. An empty list is fine - it just leaves free text as the
+    /// only way in (task P3-T01 "Do this" #1).
+    /// </summary>
+    private static void ReasonList(IReadOnlyList<string> reasons, string what)
+    {
+        foreach (var reason in reasons)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new ArgumentException(
+                    string.Create(CultureInfo.CurrentCulture, $"A {what} reason in the list cannot be blank."),
+                    nameof(reasons));
             }
         }
     }

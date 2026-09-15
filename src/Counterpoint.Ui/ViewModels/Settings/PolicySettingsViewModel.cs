@@ -145,7 +145,14 @@ public sealed partial class PolicySettingsViewModel : SettingsGroupViewModel
                 // Same reasoning again: task P2-T08's adjustment reason list and GRN-warning
                 // threshold are edited from the adjustment screen that owns them, not this one.
                 snapshot.Policy.AdjustmentReasons,
-                snapshot.Policy.AdjustmentGrnWarningThreshold),
+                snapshot.Policy.AdjustmentGrnWarningThreshold,
+
+                // Same reasoning once more: task P3-T01's cash-in/cash-out reason lists and
+                // authorisation threshold are edited from the cash-drawer screen that owns them,
+                // not this one.
+                snapshot.Policy.CashInReasons,
+                snapshot.Policy.CashOutReasons,
+                snapshot.Policy.CashOutAuthorisationThreshold),
         };
     }
 }

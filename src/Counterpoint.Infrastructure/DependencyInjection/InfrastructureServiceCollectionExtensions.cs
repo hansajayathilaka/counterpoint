@@ -8,6 +8,7 @@ using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Infrastructure.Audit;
 using Counterpoint.Infrastructure.Backup;
+using Counterpoint.Infrastructure.Cash;
 using Counterpoint.Infrastructure.Catalogue;
 using Counterpoint.Infrastructure.CreditNotes;
 using Counterpoint.Infrastructure.Dashboard;
@@ -93,7 +94,13 @@ public static class InfrastructureServiceCollectionExtensions
 
         // P1-T14: opening a shift (SRS FR-8.1) and the home-screen dashboard (SRS FR-9.7).
         services.AddSingleton<IShiftWriter, SqliteShiftWriter>();
+        services.AddSingleton<IShiftLookup, SqliteShiftLookup>();
         services.AddSingleton<IDashboardReader, SqliteDashboardReader>();
+
+        // P3-T01: cash in, cash out and the expected-drawer calculation's own read side (SRS
+        // FR-8.1, FR-8.2).
+        services.AddSingleton<ICashMovementWriter, SqliteCashMovementWriter>();
+        services.AddSingleton<ICashMovementReader, SqliteCashMovementReader>();
         services.AddSingleton<ILastBackupStatusReader, SqliteLastBackupStatusReader>();
 
         // P1-T10: reads a completed sale back for cancellation (SRS FR-3.34).

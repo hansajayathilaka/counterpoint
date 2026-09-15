@@ -71,6 +71,25 @@ namespace Counterpoint.Application.Settings;
 /// a shortcut for receipts, hiding cost"). <see cref="Money.Zero"/> switches the warning off
 /// entirely, the same "zero means no limit" convention <see cref="CashRefundLimit"/> already uses.
 /// </param>
+/// <param name="CashInReasons">
+/// The configurable reason list a cash-in picks from before typing free text on top (SRS FR-8.2,
+/// task P3-T01 "Do this" #1: "a reason from a configurable list") - a float top-up or an owner
+/// deposit, not the same starting point <see cref="CashOutReasons"/> offers, because money coming
+/// into the drawer and money leaving it are different events for an owner reviewing the day. Never
+/// itself enforced as exhaustive, the same "starting point, not a closed set" rule
+/// <see cref="AdjustmentReasons"/> already follows - <c>ICashMovementService</c> only refuses a
+/// blank reason.
+/// </param>
+/// <param name="CashOutReasons">
+/// The same starting point as <see cref="CashInReasons"/>, for money leaving the drawer - a petty
+/// expense, a supplier payment or banking (SRS FR-8.2).
+/// </param>
+/// <param name="CashOutAuthorisationThreshold">
+/// The amount, in scaled money, above which a cash-out needs an owner override before it can be
+/// recorded (SRS FR-1.7, task P3-T01 "Do this" #3). Unlike <see cref="CashRefundLimit"/>, zero does
+/// not mean "no limit" here - it means every cash-out, however small, needs authorising, which is a
+/// shop's own valid (if strict) choice, not a state this setting refuses to represent.
+/// </param>
 public sealed record PolicySettings(
     int ReturnWindowDays,
     bool AllowUnlinkedReturns,
@@ -85,7 +104,10 @@ public sealed record PolicySettings(
     IReadOnlyList<long> NonReturnableCategoryIds,
     IReadOnlyList<RefundMethod> AllowedUnlinkedRefundMethods,
     IReadOnlyList<string> AdjustmentReasons,
-    Money AdjustmentGrnWarningThreshold)
+    Money AdjustmentGrnWarningThreshold,
+    IReadOnlyList<string> CashInReasons,
+    IReadOnlyList<string> CashOutReasons,
+    Money CashOutAuthorisationThreshold)
 {
     /// <summary>
     /// Value equality for every field, <see cref="NonReturnableCategoryIds"/> included.
@@ -114,7 +136,10 @@ public sealed record PolicySettings(
         && NonReturnableCategoryIds.SequenceEqual(other.NonReturnableCategoryIds)
         && AllowedUnlinkedRefundMethods.SequenceEqual(other.AllowedUnlinkedRefundMethods)
         && AdjustmentReasons.SequenceEqual(other.AdjustmentReasons, StringComparer.Ordinal)
-        && AdjustmentGrnWarningThreshold == other.AdjustmentGrnWarningThreshold;
+        && AdjustmentGrnWarningThreshold == other.AdjustmentGrnWarningThreshold
+        && CashInReasons.SequenceEqual(other.CashInReasons, StringComparer.Ordinal)
+        && CashOutReasons.SequenceEqual(other.CashOutReasons, StringComparer.Ordinal)
+        && CashOutAuthorisationThreshold == other.CashOutAuthorisationThreshold;
 
     /// <inheritdoc cref="Equals(PolicySettings?)" />
     public override int GetHashCode()
@@ -147,6 +172,18 @@ public sealed record PolicySettings(
         }
 
         hash.Add(AdjustmentGrnWarningThreshold);
+
+        foreach (var reason in CashInReasons)
+        {
+            hash.Add(reason, StringComparer.Ordinal);
+        }
+
+        foreach (var reason in CashOutReasons)
+        {
+            hash.Add(reason, StringComparer.Ordinal);
+        }
+
+        hash.Add(CashOutAuthorisationThreshold);
 
         return hash.ToHashCode();
     }

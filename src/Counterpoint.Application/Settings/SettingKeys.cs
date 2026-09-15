@@ -88,6 +88,15 @@ public static class SettingKeys
     /// </summary>
     public const string PolicyAdjustmentGrnWarningThreshold = "policy.adjustment_grn_warning_threshold";
 
+    /// <summary>Task P3-T01 "Do this" #1 - the configurable cash-in reason list.</summary>
+    public const string PolicyCashInReasons = "policy.cash_in_reasons";
+
+    /// <summary>Task P3-T01 "Do this" #1 - the configurable cash-out reason list.</summary>
+    public const string PolicyCashOutReasons = "policy.cash_out_reasons";
+
+    /// <summary>Task P3-T01 "Do this" #3 - the cash-out owner-authorisation threshold.</summary>
+    public const string PolicyCashOutAuthorisationThreshold = "policy.cash_out_authorisation_threshold";
+
     // ---- FR-10.6 Peripherals -------------------------------------------------------------
     public const string PeripheralReceiptPrinterName = "peripheral.receipt_printer_name";
     public const string PeripheralPaperWidthMm = "peripheral.paper_width_mm";
