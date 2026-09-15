@@ -59,6 +59,24 @@ public sealed class EscPosXReportRendererTests
         lines.Should().NotContain(line => line.Contains("CARD refunds", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// <see cref="Report"/>'s <c>DiscountTotal</c> is zero, the same as every other test in this
+    /// file - a renderer bug in <c>FormatAmount(report.DiscountTotal)</c> specifically would pass
+    /// every test above unnoticed, including the committed byte-stream snapshot. This is the one
+    /// case that gives the "Discounts" line a real, non-zero figure to get right (task P3-T02
+    /// "Do this" #1: X report content includes discounts).
+    /// </summary>
+    [Fact]
+    public void FR_8_3_ANonZeroDiscountFigureReachesThePaper()
+    {
+        var report = Report() with { DiscountTotal = Money.FromDecimal(35.00m) };
+
+        var lines = Print(report);
+
+        lines.Should().Contain(
+            line => line.Contains("Discounts", StringComparison.Ordinal) && line.TrimEnd().EndsWith("35.00", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void TheExpectedDrawerFigureReachesThePaper()
     {

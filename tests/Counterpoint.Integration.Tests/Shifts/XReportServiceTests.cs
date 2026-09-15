@@ -11,6 +11,7 @@ using Counterpoint.Application.Sales;
 using Counterpoint.Application.Security;
 using Counterpoint.Application.Settings;
 using Counterpoint.Application.Shifts;
+using Counterpoint.Domain.Pricing;
 using Counterpoint.Domain.Returns;
 using Counterpoint.Domain.Security;
 using Counterpoint.Domain.ValueObjects;
@@ -128,11 +129,79 @@ public sealed class XReportServiceTests
         report.ShiftDuration.Should().Be(TimeSpan.FromHours(3), "the clock advanced exactly 3 hours since the shift opened");
     }
 
+    /// <summary>
+    /// The other hand-computed test above deliberately has no discount at all
+    /// (<c>DiscountTotal.Should().Be(Money.Zero)</c>), which proves nothing about
+    /// <c>XReportFiguresReader</c>'s <c>SUM(line_discount + bill_discount)</c> - a reader with the
+    /// wrong column, a missing addend or a sign error would still pass a shift with no discount on
+    /// it. This seeds a bill carrying both a line discount and a bill discount together, so
+    /// <see cref="XReportSummary.DiscountTotal"/> is only right if both addends, and the summation
+    /// itself, are right (task P3-T02 "Do this" #1: "discounts").
+    /// </summary>
+    [Fact]
+    public async Task FR_8_3_XReportDiscountTotalSumsTheLineDiscountAndTheBillDiscountTogether()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+
+        var user = fixture.Resolve<ISession>().CurrentUser!;
+        var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+        var variantId = await SeedTaxedVariantAsync(fixture);
+
+        // 3 pieces @ 100.00 = 300.00 gross, less a 10% line discount (30.00) -> line total 270.00,
+        // 10% tax on that net figure = 27.00. Less a further 5.00 flat bill discount -> total
+        // 270.00 - 5.00 + 27.00 = 292.00. Every figure below is chosen to land on a whole cent, so
+        // there is no rounding step to obscure whether the sum is right.
+        var lines = new List<SaleLineRequest>
+        {
+            new(variantId, 3m, Discount: DiscountInput.OfRate(Percentage.FromPercent(10m))),
+        };
+
+        var quote = await fixture.Resolve<IQuoteSale>().QuoteAsync(
+            lines, billDiscount: DiscountInput.OfAmount(Money.FromDecimal(5.00m)));
+        quote.Total.Should().Be(Money.FromDecimal(292.00m), "the hand-worked example depends on this exact figure");
+
+        var completed = await fixture.Resolve<ICompleteSale>().CompleteAsync(new CompleteSaleCommand(
+            user.Id,
+            shiftId,
+            SoldAt,
+            lines,
+            [new TenderRequest(TenderTypes.Cash, quote.Total)],
+            BillDiscount: DiscountInput.OfAmount(Money.FromDecimal(5.00m))));
+
+        completed.Total.Should().Be(Money.FromDecimal(292.00m));
+
+        var lineDiscountStored = await fixture.ScalarAsync(
+            "SELECT line_discount FROM sale WHERE id = " + completed.SaleId + ";");
+        lineDiscountStored.Should().Be(Money.FromDecimal(30.00m).ToScaled().ToString(CultureInfo.InvariantCulture));
+
+        var billDiscountStored = await fixture.ScalarAsync(
+            "SELECT bill_discount FROM sale WHERE id = " + completed.SaleId + ";");
+        billDiscountStored.Should().Be(Money.FromDecimal(5.00m).ToScaled().ToString(CultureInfo.InvariantCulture));
+
+        var report = await fixture.Resolve<IXReportService>().GenerateAsync(shiftId);
+
+        report.SalesCount.Should().Be(1);
+        report.SalesValue.Should().Be(Money.FromDecimal(292.00m));
+        report.DiscountTotal.Should().Be(
+            Money.FromDecimal(35.00m), "30.00 line discount + 5.00 bill discount - both addends, not just one");
+        report.SalesTaxTotal.Should().Be(Money.FromDecimal(27.00m));
+
+        report.TaxBreakdown.Should().ContainSingle();
+        report.TaxBreakdown[0].TaxableAmount.Should().Be(Money.FromDecimal(243.00m), "270.00 - 27.00 tax");
+        report.TaxBreakdown[0].TaxAmount.Should().Be(Money.FromDecimal(27.00m));
+    }
+
     [Fact]
     public async Task P3_T02_TakingTenXReportsChangesNoDataWhatsoever()
     {
         await using var fixture = await SaleFixture.CreateSignedInAsync();
         var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+
+        // A shift with real activity on it, not an empty one - counting sale_line and payment
+        // rows before and after only means something once there are some to disturb, and this is
+        // the same activity (a cash-in, two sales, a return) the hand-computed test above already
+        // builds, so a regression here is a regression against a known-good shape.
+        await SeedShiftActivityAsync(fixture);
 
         var before = await SnapshotAsync(fixture, shiftId);
 
@@ -149,6 +218,16 @@ public sealed class XReportServiceTests
         after.CashMovementCount.Should().Be(before.CashMovementCount);
         after.SaleCount.Should().Be(before.SaleCount);
         after.SaleReturnCount.Should().Be(before.SaleReturnCount);
+
+        // The two tables IXReportFiguresReader actually reads beyond sale and sale_return itself
+        // - sale_line for the tax breakdown, payment for the tender breakdown - were not checked
+        // at all before; a reader with an accidental write in it could corrupt either without
+        // tripping any of the counts above.
+        after.SaleLineCount.Should().Be(before.SaleLineCount, "sale_line is read for the tax breakdown");
+        after.PaymentCount.Should().Be(before.PaymentCount, "payment is read for the tender breakdown");
+
+        before.SaleLineCount.Should().BeGreaterThan(0, "the seeded activity must leave something for this assertion to actually cover");
+        before.PaymentCount.Should().BeGreaterThan(0, "the seeded activity must leave something for this assertion to actually cover");
     }
 
     [Fact]
@@ -156,6 +235,8 @@ public sealed class XReportServiceTests
     {
         await using var fixture = await SaleFixture.CreateSignedInAsync();
         var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+
+        await SeedShiftActivityAsync(fixture);
 
         var before = await SnapshotAsync(fixture, shiftId);
         var clock = (FixedTimeProvider)fixture.Resolve<TimeProvider>();
@@ -180,6 +261,8 @@ public sealed class XReportServiceTests
         after.CashMovementCount.Should().Be(before.CashMovementCount);
         after.SaleCount.Should().Be(before.SaleCount);
         after.SaleReturnCount.Should().Be(before.SaleReturnCount);
+        after.SaleLineCount.Should().Be(before.SaleLineCount, "sale_line is read for the tax breakdown");
+        after.PaymentCount.Should().Be(before.PaymentCount, "payment is read for the tender breakdown");
 
         Directory.GetFiles(fixture.ReceiptDirectory, "*.bin").Should().HaveCount(10);
     }
@@ -281,7 +364,15 @@ public sealed class XReportServiceTests
         }
     }
 
-    private static async Task<(string ShiftRow, long AuditLogCount, long PrintJobCount, long CashMovementCount, long SaleCount, long SaleReturnCount)> SnapshotAsync(
+    private static async Task<(
+        string ShiftRow,
+        long AuditLogCount,
+        long PrintJobCount,
+        long CashMovementCount,
+        long SaleCount,
+        long SaleReturnCount,
+        long SaleLineCount,
+        long PaymentCount)> SnapshotAsync(
         SaleFixture fixture, long shiftId)
     {
         var shiftRow = await fixture.ScalarAsync(
@@ -297,7 +388,54 @@ public sealed class XReportServiceTests
         var saleCount = await fixture.CountAsync("SELECT COUNT(*) FROM sale;");
         var saleReturnCount = await fixture.CountAsync("SELECT COUNT(*) FROM sale_return;");
 
-        return (shiftRow ?? string.Empty, auditLogCount, printJobCount, cashMovementCount, saleCount, saleReturnCount);
+        // The two tables IXReportFiguresReader queries directly beyond sale/sale_return
+        // themselves (task P3-T02 audit: "does it actually cover every table an X report
+        // touches?") - sale_line for the tax breakdown, payment for the tender breakdown.
+        var saleLineCount = await fixture.CountAsync("SELECT COUNT(*) FROM sale_line;");
+        var paymentCount = await fixture.CountAsync("SELECT COUNT(*) FROM payment;");
+
+        return (
+            shiftRow ?? string.Empty,
+            auditLogCount,
+            printJobCount,
+            cashMovementCount,
+            saleCount,
+            saleReturnCount,
+            saleLineCount,
+            paymentCount);
+    }
+
+    /// <summary>
+    /// A float top-up, two completed sales and a return against one of them - real activity for
+    /// the "changes no data whatsoever" tests to disturb, rather than an empty shift where every
+    /// row count is trivially zero both before and after. The same shape
+    /// <c>FR_8_3_XReportFiguresMatchHandComputedValuesOnASeededShift</c> builds.
+    /// </summary>
+    private static async Task SeedShiftActivityAsync(SaleFixture fixture)
+    {
+        await SeedReturnNumberSequenceAsync(fixture);
+
+        var user = fixture.Resolve<ISession>().CurrentUser!;
+        var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+        var variantId = await SeedTaxedVariantAsync(fixture);
+
+        await fixture.Resolve<ICashMovementService>().RecordCashInAsync(new RecordCashInCommand(
+            shiftId, user.Id, Money.FromDecimal(1000m), "Float top-up", MovementAt));
+
+        var saleA = await CompleteAsync(fixture, variantId, quantity: 2m, TenderTypes.Cash);
+        await CompleteAsync(fixture, variantId, quantity: 1m, TenderTypes.Card);
+
+        var saleLineId = await fixture.CountAsync("SELECT id FROM sale_line WHERE sale_id = " + saleA.SaleId + ";");
+
+        await fixture.Resolve<ICreateReturn>().CreateAsync(new CreateReturnCommand(
+            saleA.SaleId,
+            user.Id,
+            shiftId,
+            ReturnedAt,
+            [new ReturnLineRequest(
+                saleLineId, Quantity.FromDecimal(1m, saleLineId), ReturnDisposition.Sellable,
+                "Customer changed mind")],
+            RefundMethod.Cash));
     }
 
     private static Task<bool> SeedReturnNumberSequenceAsync(SaleFixture fixture) =>
