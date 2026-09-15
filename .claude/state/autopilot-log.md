@@ -311,3 +311,17 @@ it stopped.
 - `2026-09-14T13:22:43Z` **P2-T09** fix-attempt — 1: value-conservation query uses exact-zero comparison but handler's own documented division produces bounded sub-cent rounding residuals as the ordinary case - needs a documented tolerance, not exact equality
 - `2026-09-14T13:45:37Z` **P2-T09** fix-attempt — 2: stale doc comment in BulkBreakTests.cs still describes the tolerance query as unfixed/failing (must-fix per data-modeler)
 - `2026-09-14T13:53:43Z` **P2-T09** done — 5 files schema + 8 files application/infra, 12 BulkBreakTests + migration test, review clean after 2 fix-attempts, PR #35
+
+## Run 2026-09-14T13:54:19Z
+
+- branch: `task/p2-t10-stock-take`
+- head: `9b5e8be`
+- budget: 2 task(s)
+
+- `2026-09-14T13:54:19Z` **P2-T10** start — Stock take
+- `2026-09-14T14:21:46Z` **P2-T10** note — commit ef19adc's message is stale (describes an interim known-issue state) but its diff is already the corrected version - two independent agents (the original data-modeler pass, which self-corrected mid-run, and a redundant verification pass) both confirm 1086/1086 tests pass on this commit; not amending per git safety protocol, noting here instead
+- `2026-09-14T14:57:47Z` **P2-T10** note — orchestrator reverted premature done-mark by task-implementer subagent; resuming at B4 (tests)
+- `2026-09-14T15:39:00Z` **P2-T10** fix-attempt — 1: two OPEN stock takes with overlapping scopes could each post a variance for the same variant, summing into silent double-correction - data-modeler review flagged as real stock-ledger corruption risk, not a style nit; adding an overlap guard at StartAsync
+- `2026-09-14T16:04:41Z` **P2-T10** done — schema (stock_take_no column) + application/infra layers, 15 StockTakeServiceTests + 12 StockTakeScopeTests + migration test, review clean after 1 fix-attempt closing a real stock-ledger integrity gap
+
+**Run ended 2026-09-14T16:05:55Z** — 2 completed, 0 halted

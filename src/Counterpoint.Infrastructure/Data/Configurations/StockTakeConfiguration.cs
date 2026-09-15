@@ -14,9 +14,12 @@ internal sealed class StockTakeConfiguration : IEntityTypeConfiguration<StockTak
 
         entity.HasKey(take => take.Id);
 
+        entity.Property(take => take.StockTakeNo).IsRequired();
         entity.Property(take => take.Scope).IsRequired();
         entity.Property(take => take.StartedAt).IsRequired();
         entity.Property(take => take.Status).IsRequired();
+
+        entity.HasIndex(take => take.StockTakeNo).IsUnique().HasDatabaseName("ux_stock_take_no");
 
         entity.HasOne<AppUser>()
             .WithMany()

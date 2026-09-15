@@ -182,6 +182,13 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IGoodsReceiptStore, SqliteGoodsReceiptStore>();
         services.AddSingleton<IProductSupplierStore, SqliteProductSupplierStore>();
 
+        // P2-T10: stock take (SRS FR-4 stock take, AC-10). IStockTakeStore is a read/write port
+        // with no role requirement of its own - the mixed-authorisation IStockTakeService built on
+        // top of it (owner-only PostAsync/AbandonAsync, plain everything else) is wired decorated
+        // in the composition root, the same split as IPurchaseOrderStore and IGoodsReceiptStore
+        // above.
+        services.AddSingleton<IStockTakeStore, SqliteStockTakeStore>();
+
         // P1-T08: pricing and discounts (SRS FR-2.13-FR-2.19). IPriceChangeLogStore and
         // IPriceQuery are read/maintenance ports with no role requirement of their own - the
         // owner-only surfaces built on top of them (IProductMaintenance's price change,

@@ -27,13 +27,19 @@ namespace Counterpoint.Application.Settings;
 /// Shifts - <c>'SHIFT'</c>. Not named in FR-10.4, but the till cannot open one without a series
 /// and leaving it out would mean a number the owner cannot see or change.
 /// </param>
+/// <param name="StockTake">
+/// Stock takes - <c>'STOCK_TAKE'</c> (task P2-T10, FR-7.10). Not named in FR-10.4 either, for the
+/// same reason <see cref="Shift"/> is not: a count sheet is printed and reprinted by its own
+/// number, so it needs a series the owner can see and change exactly as the other five do.
+/// </param>
 public sealed record NumberingSettings(
     DocumentNumbering Bill,
     DocumentNumbering Return,
     DocumentNumbering CreditNote,
     DocumentNumbering GoodsReceipt,
     DocumentNumbering PurchaseOrder,
-    DocumentNumbering Shift)
+    DocumentNumbering Shift,
+    DocumentNumbering StockTake)
 {
     /// <summary>The <c>number_sequence.doc_type</c> of each series, paired with its settings.</summary>
     public IReadOnlyList<KeyValuePair<string, DocumentNumbering>> BySequence =>
@@ -44,5 +50,6 @@ public sealed record NumberingSettings(
         new("GRN", GoodsReceipt),
         new("PO", PurchaseOrder),
         new("SHIFT", Shift),
+        new("STOCK_TAKE", StockTake),
     ];
 }

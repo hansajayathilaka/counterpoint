@@ -477,12 +477,15 @@ CREATE INDEX ix_grn_line_grn ON goods_receipt_line(goods_receipt_id);
 
 CREATE TABLE stock_take (
   id           INTEGER PRIMARY KEY,
-  scope        TEXT NOT NULL,        -- 'ALL' | 'CATEGORY:12' | 'LOCATION:A3'
+  scope        TEXT NOT NULL,        -- 'ALL' | 'CATEGORY:12' | 'BRAND:5' | 'LOCATION:A3'
   started_at   TEXT NOT NULL,
   completed_at TEXT,
   status       TEXT NOT NULL CHECK (status IN ('OPEN','POSTED','ABANDONED')),
-  user_id      INTEGER NOT NULL REFERENCES app_user(id)
+  user_id      INTEGER NOT NULL REFERENCES app_user(id),
+  stock_take_no TEXT NOT NULL         -- allocated from number_sequence, doc_type 'STOCK_TAKE'
 );
+CREATE UNIQUE INDEX ux_stock_take_no ON stock_take(stock_take_no);
+-- stock_take_no was added by StockTakeNumber0008 (P2-T10); see §13.
 
 CREATE TABLE stock_take_line (
   id                 INTEGER PRIMARY KEY,
@@ -1561,7 +1564,7 @@ Mirror these exactly as C# enums in `Domain/Enums/`. The `CHECK` constraints abo
 |---|---|
 | `uom` | Piece (pc, 0dp), Metre (m, 3dp), Kilogram (kg, 3dp), Litre (L, 3dp), Box, Coil, Packet, Roll, Bundle |
 | `tax_class` | Whatever the wizard is given. Default: one `Exempt` class at 0 — Q-02 defers the regime, and a rate this build invented would be a wrong number printed on a bill. |
-| `number_sequence` | `SALE` → `INV-{yyyy}-{n:000000}`, `RETURN` → `RTN-…`, `CREDIT_NOTE` → `CN-…`, `GRN` → `GRN-…`, `PO` → `PO-…`, `SHIFT` → `SH-…`, all `next_val = 1` (Q-16) |
+| `number_sequence` | `SALE` → `INV-{yyyy}-{n:000000}`, `RETURN` → `RTN-…`, `CREDIT_NOTE` → `CN-…`, `GRN` → `GRN-…`, `PO` → `PO-…`, `SHIFT` → `SH-…`, `STOCK_TAKE` → `ST-…` (P2-T10), all `next_val = 1` (Q-16) |
 | `app_user` | One `OWNER` account created in the wizard. No default password, ever. |
 | `app_setting` | Full defaults per FR-10.1–10.8 (see `Application/Settings/SettingDefaults.cs`) |
 | `category` | Plumbing, Electrical, Fasteners, Tools, Paint, Adhesives, Garden, Building — editable |
@@ -1636,7 +1639,7 @@ place; see that key's own remarks for why it is read and written directly throug
 | Tax (FR-10.3) | `tax.default_class_name` (`Exempt`), `tax.label` (`Tax`) | `STRING` |
 | | `tax.prices_include_tax` (true) | `BOOL` |
 | | `tax.default_rate` (0 — Q-02 defers the regime) | `INT` (scaled) |
-| Numbering (FR-10.4) | `numbering.{bill,return,credit_note,goods_receipt,purchase_order,shift}.{prefix,pattern}` | `STRING` |
+| Numbering (FR-10.4) | `numbering.{bill,return,credit_note,goods_receipt,purchase_order,shift,stock_take}.{prefix,pattern}` | `STRING` |
 | | `numbering.….starting_number` (all 1) | `INT` |
 | Policy (FR-10.5) | `policy.default_refund_method` (`CASH`), `policy.negative_stock` (`ALLOW` — Q-11) | `STRING` |
 | | `policy.return_window_days` (14) | `INT` |
@@ -1723,7 +1726,7 @@ Every change to one of these keys writes one `audit_log` row per changed key —
 | `ix_return_sale` | "has this bill already been returned against", asked on every return |
 | `ix_credit_note_customer` | P2-T05: "does this customer have store credit" — asked at the till, not only in a report, whenever a customer does not have the slip in hand |
 | `ix_redemption_credit_note` | P2-T05: redemption history for one credit note, and the outstanding-credit reconciliation report (issued minus redeemed) grouping by it |
-| `ux_category_name_parent`, `ux_brand_name`, `ux_po_no`, `ux_grn_no`, `ux_return_no`, `ux_credit_note_number` | document numbers and names that must be unique. The `ux_*_no` ones also serve recall by number |
+| `ux_category_name_parent`, `ux_brand_name`, `ux_po_no`, `ux_grn_no`, `ux_stock_take_no`, `ux_return_no`, `ux_credit_note_number` | document numbers and names that must be unique. The `ux_*_no` ones also serve recall by number |
 | `ux_product_uom`, `ux_product_supplier` | one row per pair; the unique index is the constraint |
 
 **`price_change_log` has no index, deliberately.** Nothing reads it on a hot path: it is written
@@ -1767,6 +1770,7 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 | `PaymentSaleReturnForeignKey0007` | P2-T02 | The `payment.sale_return_id` foreign key to `sale_return(id)` — the third of the four dangling references (§13) — rebuilding `payment` and re-creating its two append-only triggers in the same migration, written as literal SQL rather than `AddForeignKey` so the triggers land after the rebuild instead of before it |
 | `CreditNoteConstraints0008` | P2-T05 | `ix_credit_note_customer` (no rebuild) and `ix_redemption_credit_note` (no rebuild); `ck_credit_note_amount_remaining_bounds` on `credit_note` (`0 <= amount_remaining <= amount_issued`), which does rebuild `credit_note` — written as literal SQL, in docs/01_DATA_MODEL.md §6's declared column order, because `credit_note` carries no triggers to re-create but EF's SQLite generator would otherwise have reordered its columns alphabetically the same way it did to `product` in `ProductForeignKeys0003` |
 | `BulkBreak0009` | P2-T09 | The `bulk_break` table — a pure `CREATE TABLE`, so no existing table is touched and there is nothing to rebuild or re-create. It exists to hand the `BULK_BREAK_OUT`, `BULK_BREAK_IN` and wastage `DAMAGE` `stock_movement` rows a `ref_doc_id` all three can share, the same role `sale.id`, `goods_receipt.id` and `stock_take.id` already play for their own documents — not on CLAUDE.md invariant 5's append-only list, the same as those three |
+| `StockTakeNumber0008` | P2-T10 | `stock_take.stock_take_no TEXT NOT NULL` and the unique index `ux_stock_take_no` — the count sheet's own document number, the same `number_sequence`-allocated treatment as `goods_receipt.grn_no` and `purchase_order.po_no`, needed to print it (FR-7.10) alongside the GRN and the PO. A plain `ADD COLUMN`, since `stock_take` carries no triggers to lose |
 
 Forty tables, forty-four indexes, thirty-one triggers, laid down across `Skeleton0001` through
 `ProductSearch0004`. Three migrations rather than one for that part, and the split is not
@@ -1780,7 +1784,10 @@ rebuilds `credit_note` — forty-seven indexes from here on, no change in trigge
 `credit_note` and `credit_note_redemption` are not append-only and have none to lose or re-create.
 `BulkBreak0009` adds one table, `bulk_break` — forty-one tables from here on — and changes
 neither the index nor the trigger count: it is a plain `CREATE TABLE`, carries no index beyond
-its own primary key (§12), and is not append-only, so there is no trigger to add.
+its own primary key (§12), and is not append-only, so there is no trigger to add. `StockTakeNumber0008`
+adds one column and one unique index to `stock_take` — forty-eight indexes from here on, tables
+and triggers unchanged — again a plain `ADD COLUMN`, since `stock_take` is not append-only and
+carries no triggers to lose.
 
 ### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 

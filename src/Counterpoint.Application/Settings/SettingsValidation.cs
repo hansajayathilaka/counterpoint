@@ -45,6 +45,7 @@ public static class SettingsValidation
         Series(snapshot.Numbering.GoodsReceipt, "goods receipt");
         Series(snapshot.Numbering.PurchaseOrder, "purchase order");
         Series(snapshot.Numbering.Shift, "shift");
+        Series(snapshot.Numbering.StockTake, "stock take");
 
         Range(snapshot.Policy.ReturnWindowDays, 0, 3650, "The return window, in days");
         NotNegative(snapshot.Policy.CashRefundLimit, "The cash refund limit");

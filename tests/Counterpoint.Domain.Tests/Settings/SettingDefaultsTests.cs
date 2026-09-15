@@ -123,7 +123,7 @@ public sealed class SettingDefaultsTests
             "a shift is not numbered by year");
 
         numbering.BySequence.Select(pair => pair.Key).Should().BeEquivalentTo(
-            ["SALE", "RETURN", "CREDIT_NOTE", "GRN", "PO", "SHIFT"],
+            ["SALE", "RETURN", "CREDIT_NOTE", "GRN", "PO", "SHIFT", "STOCK_TAKE"],
             "every doc_type the series covers must be one number_sequence's CHECK allows");
 
         numbering.BySequence.Should().AllSatisfy(pair => pair.Value.StartingNumber.Should().Be(
@@ -347,7 +347,8 @@ public sealed class SettingDefaultsTests
             new DocumentNumbering("C-", "{prefix}{n:0000}", 8),
             new DocumentNumbering("G-", "{prefix}{n:0000}", 9),
             new DocumentNumbering("P-", "{prefix}{n:0000}", 10),
-            new DocumentNumbering("S-", "{prefix}{n:0000}", 11)),
+            new DocumentNumbering("S-", "{prefix}{n:0000}", 11),
+            new DocumentNumbering("T-", "{prefix}{n:0000}", 12)),
         new PolicySettings(
             ReturnWindowDays: 30,
             AllowUnlinkedReturns: true,

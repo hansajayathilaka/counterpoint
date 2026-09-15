@@ -2,6 +2,7 @@
 using Counterpoint.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -9,9 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Counterpoint.Infrastructure.Migrations
 {
     [DbContext(typeof(PosDbContext))]
-    partial class PosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914140143_StockTakeNumber0008")]
+    partial class StockTakeNumber0008
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
@@ -311,74 +314,6 @@ namespace Counterpoint.Infrastructure.Migrations
                     b.ToTable("brand");
                 });
 
-            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.BulkBreak", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("id");
-
-                    b.Property<long>("ActualQtyBase")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("actual_qty_base");
-
-                    b.Property<long>("DestinationVariantId")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("destination_variant_id");
-
-                    b.Property<long>("ExpectedQtyBase")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("expected_qty_base");
-
-                    b.Property<string>("OccurredAt")
-                        .IsRequired()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("occurred_at");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("reason");
-
-                    b.Property<long>("SourceQtyBase")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("source_qty_base");
-
-                    b.Property<long>("SourceVariantId")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("source_variant_id");
-
-                    b.Property<long>("TotalValue")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("total_value");
-
-                    b.Property<long>("UserId")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("user_id");
-
-                    b.Property<long>("WastageQtyBase")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(0L)
-                        .HasColumnName("wastage_qty_base");
-
-                    b.HasKey("Id")
-                        .HasName("pk_bulk_break");
-
-                    b.ToTable("bulk_break", t =>
-                        {
-                            t.HasCheckConstraint("ck_bulk_break_actual_qty_base", "actual_qty_base > 0");
-
-                            t.HasCheckConstraint("ck_bulk_break_distinct_variants", "source_variant_id <> destination_variant_id");
-
-                            t.HasCheckConstraint("ck_bulk_break_expected_qty_base", "expected_qty_base > 0");
-
-                            t.HasCheckConstraint("ck_bulk_break_source_qty_base", "source_qty_base > 0");
-
-                            t.HasCheckConstraint("ck_bulk_break_wastage_qty_base", "wastage_qty_base >= 0");
-                        });
-                });
-
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.CashMovement", b =>
                 {
                     b.Property<long>("Id")
@@ -500,17 +435,12 @@ namespace Counterpoint.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_credit_note");
 
-                    b.HasIndex("CustomerId")
-                        .HasDatabaseName("ix_credit_note_customer");
-
                     b.HasIndex("Number")
                         .IsUnique()
                         .HasDatabaseName("ux_credit_note_number");
 
                     b.ToTable("credit_note", t =>
                         {
-                            t.HasCheckConstraint("ck_credit_note_amount_remaining_bounds", "amount_remaining >= 0 AND amount_remaining <= amount_issued");
-
                             t.HasCheckConstraint("ck_credit_note_status", "status IN ('ACTIVE','SPENT','EXPIRED','VOID')");
                         });
                 });
@@ -541,9 +471,6 @@ namespace Counterpoint.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_credit_note_redemption");
-
-                    b.HasIndex("CreditNoteId")
-                        .HasDatabaseName("ix_redemption_credit_note");
 
                     b.ToTable("credit_note_redemption");
                 });
@@ -2240,30 +2167,6 @@ namespace Counterpoint.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("fk_barcode_product_variant_product_variant_id");
-                });
-
-            modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.BulkBreak", b =>
-                {
-                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
-                        .WithMany()
-                        .HasForeignKey("DestinationVariantId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired()
-                        .HasConstraintName("fk_bulk_break_product_variant_destination_variant_id");
-
-                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.ProductVariant", null)
-                        .WithMany()
-                        .HasForeignKey("SourceVariantId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired()
-                        .HasConstraintName("fk_bulk_break_product_variant_source_variant_id");
-
-                    b.HasOne("Counterpoint.Infrastructure.Data.Schema.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired()
-                        .HasConstraintName("fk_bulk_break_app_user_user_id");
                 });
 
             modelBuilder.Entity("Counterpoint.Infrastructure.Data.Schema.CashMovement", b =>

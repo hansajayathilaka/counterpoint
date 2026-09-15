@@ -85,7 +85,8 @@ public static class SettingDefaults
         CreditNote: new DocumentNumbering("CN-", YearlyNumberPattern, FirstNumber),
         GoodsReceipt: new DocumentNumbering("GRN-", YearlyNumberPattern, FirstNumber),
         PurchaseOrder: new DocumentNumbering("PO-", YearlyNumberPattern, FirstNumber),
-        Shift: new DocumentNumbering("SH-", PlainNumberPattern, FirstNumber));
+        Shift: new DocumentNumbering("SH-", PlainNumberPattern, FirstNumber),
+        StockTake: new DocumentNumbering("ST-", YearlyNumberPattern, FirstNumber));
 
     /// <summary>
     /// FR-10.5. Fourteen days to return with the bill, receipted, no restocking fee and no

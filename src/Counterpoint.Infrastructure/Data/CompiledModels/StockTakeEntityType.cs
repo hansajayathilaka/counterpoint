@@ -20,8 +20,9 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
                 "Counterpoint.Infrastructure.Data.Schema.StockTake",
                 typeof(StockTake),
                 baseEntityType,
-                propertyCount: 6,
+                propertyCount: 7,
                 foreignKeyCount: 1,
+                unnamedIndexCount: 1,
                 keyCount: 1);
 
             var id = runtimeEntityType.AddProperty(
@@ -68,6 +69,13 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
                 fieldInfo: typeof(StockTake).GetField("<Status>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly));
             status.AddAnnotation("Relational:ColumnName", "status");
 
+            var stockTakeNo = runtimeEntityType.AddProperty(
+                "StockTakeNo",
+                typeof(string),
+                propertyInfo: typeof(StockTake).GetProperty("StockTakeNo", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly),
+                fieldInfo: typeof(StockTake).GetField("<StockTakeNo>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly));
+            stockTakeNo.AddAnnotation("Relational:ColumnName", "stock_take_no");
+
             var userId = runtimeEntityType.AddProperty(
                 "UserId",
                 typeof(long),
@@ -80,6 +88,11 @@ namespace Counterpoint.Infrastructure.Data.CompiledModels
                 new[] { id });
             runtimeEntityType.SetPrimaryKey(key);
             key.AddAnnotation("Relational:Name", "pk_stock_take");
+
+            var index = runtimeEntityType.AddIndex(
+                new[] { stockTakeNo },
+                unique: true);
+            index.AddAnnotation("Relational:Name", "ux_stock_take_no");
 
             return runtimeEntityType;
         }

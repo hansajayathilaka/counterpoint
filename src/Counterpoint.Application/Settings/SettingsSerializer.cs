@@ -187,6 +187,12 @@ public static class SettingsSerializer
             SettingKeys.NumberingShiftPattern,
             SettingKeys.NumberingShiftStartingNumber,
             numbering.Shift);
+        AppendSeries(
+            rows,
+            SettingKeys.NumberingStockTakePrefix,
+            SettingKeys.NumberingStockTakePattern,
+            SettingKeys.NumberingStockTakeStartingNumber,
+            numbering.StockTake);
     }
 
     private static void AppendSeries(
@@ -239,7 +245,13 @@ public static class SettingsSerializer
                 SettingKeys.NumberingShiftPrefix,
                 SettingKeys.NumberingShiftPattern,
                 SettingKeys.NumberingShiftStartingNumber,
-                fallback.Shift));
+                fallback.Shift),
+            ReadSeries(
+                rows,
+                SettingKeys.NumberingStockTakePrefix,
+                SettingKeys.NumberingStockTakePattern,
+                SettingKeys.NumberingStockTakeStartingNumber,
+                fallback.StockTake));
 
     private static DocumentNumbering ReadSeries(
         IReadOnlyDictionary<string, StoredSetting> rows,

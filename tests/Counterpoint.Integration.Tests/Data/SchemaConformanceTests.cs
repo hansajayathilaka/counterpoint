@@ -140,8 +140,8 @@ public sealed class SchemaConformanceTests
         "ux_app_user_username", "ux_barcode", "ux_brand_name", "ux_category_name_parent",
         "ux_credit_note_number", "ux_grn_no", "ux_one_open_shift", "ux_po_no", "ux_product_code",
         "ux_product_supplier", "ux_product_uom", "ux_product_uom_one_base", "ux_return_no",
-        "ux_sale_bill_no", "ux_sale_line_no", "ux_shift_no", "ux_tax_class_name", "ux_uom_name",
-        "ux_variant_sku",
+        "ux_sale_bill_no", "ux_sale_line_no", "ux_shift_no", "ux_stock_take_no", "ux_tax_class_name",
+        "ux_uom_name", "ux_variant_sku",
     ];
 
     /// <summary>DM-04: no orphan lines, enforced by the database rather than by the caller.</summary>
@@ -404,9 +404,9 @@ public sealed class SchemaConformanceTests
     [InlineData("INSERT INTO purchase_order (id, po_no, supplier_id, ordered_at, status, user_id) VALUES (95, 'PO-95', 1, '2026-09-04T08:00:00.000+05:30', 'CANCELLED', 1);")]
 
     // stock_take.status, all three.
-    [InlineData("INSERT INTO stock_take (id, scope, started_at, status, user_id) VALUES (91, 'ALL', '2026-09-04T08:00:00.000+05:30', 'OPEN', 1);")]
-    [InlineData("INSERT INTO stock_take (id, scope, started_at, status, user_id) VALUES (92, 'ALL', '2026-09-04T08:00:00.000+05:30', 'POSTED', 1);")]
-    [InlineData("INSERT INTO stock_take (id, scope, started_at, status, user_id) VALUES (93, 'ALL', '2026-09-04T08:00:00.000+05:30', 'ABANDONED', 1);")]
+    [InlineData("INSERT INTO stock_take (id, stock_take_no, scope, started_at, status, user_id) VALUES (91, 'ST-91', 'ALL', '2026-09-04T08:00:00.000+05:30', 'OPEN', 1);")]
+    [InlineData("INSERT INTO stock_take (id, stock_take_no, scope, started_at, status, user_id) VALUES (92, 'ST-92', 'ALL', '2026-09-04T08:00:00.000+05:30', 'POSTED', 1);")]
+    [InlineData("INSERT INTO stock_take (id, stock_take_no, scope, started_at, status, user_id) VALUES (93, 'ST-93', 'ALL', '2026-09-04T08:00:00.000+05:30', 'ABANDONED', 1);")]
 
     // RefundMethod, all five.
     [InlineData("INSERT INTO sale_return (id, return_no, returned_at, business_date, user_id, shift_id, subtotal, total_refund, refund_method, prev_hash, row_hash) VALUES (91, 'RTN-91', '2026-09-04T10:00:00.000+05:30', '2026-09-04', 1, 1, 1, 1, 'CASH', 'x', 'y');")]
