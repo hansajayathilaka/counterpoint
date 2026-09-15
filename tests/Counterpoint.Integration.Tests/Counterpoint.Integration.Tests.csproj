@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\Counterpoint.Backup\Counterpoint.Backup.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Devices\Counterpoint.Devices.csproj" />
     <ProjectReference Include="..\..\src\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Counterpoint.Reporting\Counterpoint.Reporting.csproj" />
     <!-- P1-T16: PerformanceDatasetSeeder and HashChainVerifier, so the regression guard and the
          AC-15 process-kill test reuse exactly what `scripts/seed.sh` and `/perf-gate` run. -->
     <ProjectReference Include="..\..\tools\SeedGenerator\Counterpoint.SeedGenerator.csproj" />

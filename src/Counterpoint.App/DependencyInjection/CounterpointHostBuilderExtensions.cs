@@ -24,6 +24,7 @@ using Counterpoint.Devices.DependencyInjection;
 using Counterpoint.Domain.Services;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.DependencyInjection;
+using Counterpoint.Reporting.DependencyInjection;
 using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
@@ -55,6 +56,12 @@ internal static class CounterpointHostBuilderExtensions
         // folder is refused before the sales screen ever opens (engineering guide §4.9).
         builder.Services.AddCounterpointInfrastructure();
         builder.Services.AddCounterpointDevices();
+
+        // P2-T11: the reorder alert list, the stock valuation report and the slow-moving/
+        // non-moving stock report. IStockValuationQuery is decorated inside
+        // AddCounterpointReporting itself, next to its own concrete reader, the same reasoning
+        // AddCounterpointBackup already documents for its own owner-only services.
+        builder.Services.AddCounterpointReporting();
 
         builder.Services.AddCounterpointSettings();
 

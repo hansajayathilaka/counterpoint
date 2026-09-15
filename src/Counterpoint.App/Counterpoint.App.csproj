@@ -28,6 +28,7 @@
     <ProjectReference Include="..\Counterpoint.Devices\Counterpoint.Devices.csproj" />
     <ProjectReference Include="..\Counterpoint.Domain\Counterpoint.Domain.csproj" />
     <ProjectReference Include="..\Counterpoint.Infrastructure\Counterpoint.Infrastructure.csproj" />
+    <ProjectReference Include="..\Counterpoint.Reporting\Counterpoint.Reporting.csproj" />
     <ProjectReference Include="..\Counterpoint.Ui\Counterpoint.Ui.csproj" />
   </ItemGroup>
 

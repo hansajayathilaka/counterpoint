@@ -32,7 +32,9 @@ namespace Counterpoint.Infrastructure.Dashboard;
 /// compares it to <c>product.reorder_level</c> - both quantities scaled ×10 000 the same way
 /// (CLAUDE.md invariant 1, docs/01_DATA_MODEL.md §2). A product whose reorder level is still the
 /// default zero is never counted: zero means "not tracked", not "reorder immediately" (SRS
-/// FR-2.2, FR-4.17).
+/// FR-2.2, FR-4.17). This is the identical predicate task P2-T11's
+/// <c>Counterpoint.Reporting.Inventory.ReorderListQuery</c> lists in full (that class documents
+/// this one back), so this count and the reorder alert list's row count never drift apart.
 /// </para>
 /// </remarks>
 internal sealed class SqliteDashboardReader : IDashboardReader

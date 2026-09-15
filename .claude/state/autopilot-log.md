@@ -325,3 +325,13 @@ it stopped.
 - `2026-09-14T16:04:41Z` **P2-T10** done — schema (stock_take_no column) + application/infra layers, 15 StockTakeServiceTests + 12 StockTakeScopeTests + migration test, review clean after 1 fix-attempt closing a real stock-ledger integrity gap
 
 **Run ended 2026-09-14T16:05:55Z** — 2 completed, 0 halted
+
+## Run 2026-09-15T00:42:50Z
+
+- branch: `claude/autopilot-k49sfn`
+- head: `7f90916`
+- budget: 2 task(s)
+
+- `2026-09-15T00:42:52Z` **P2-T11** start — Reorder alerts and stock reports (interim)
+- `2026-09-15T01:20:32Z` **P2-T11** note — orchestrator reverted premature done-mark and commit by task-implementer subagent; resuming at B5 (verify) since implementer also wrote its own tests inline
+- `2026-09-15T01:33:55Z` **P2-T11** done — 22 files, 4 new test files (718 total integration tests), review clean (0 must-fix, 2 should-fix carried to PR)
