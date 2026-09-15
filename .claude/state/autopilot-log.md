@@ -336,3 +336,4 @@ it stopped.
 - `2026-09-15T01:20:32Z` **P2-T11** note — orchestrator reverted premature done-mark and commit by task-implementer subagent; resuming at B5 (verify) since implementer also wrote its own tests inline
 - `2026-09-15T01:33:55Z` **P2-T11** done — 22 files, 4 new test files (718 total integration tests), review clean (0 must-fix, 2 should-fix carried to PR)
 - `2026-09-15T01:34:59Z` **P3-T01** start — Shift lifecycle and cash management
+- `2026-09-15T02:18:04Z` **P3-T01** done — 46 files (2095 insertions), 4 new test files, review clean (0 must-fix, 3 should-fix carried to PR)
