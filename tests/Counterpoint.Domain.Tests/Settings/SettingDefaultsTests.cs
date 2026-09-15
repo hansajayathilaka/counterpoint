@@ -147,6 +147,10 @@ public sealed class SettingDefaultsTests
         policy.ReceiptRequired.Should().BeTrue("Q-03: 14 days, receipt required");
         policy.NonReturnableCategoryIds.Should().BeEmpty(
             "nothing is non-returnable by category until the owner names one; product.non_returnable is per item");
+        policy.CashInReasons.Should().NotBeEmpty("task P3-T01: a starting point for the cash-in reason picker");
+        policy.CashOutReasons.Should().NotBeEmpty("task P3-T01: a starting point for the cash-out reason picker");
+        policy.CashOutAuthorisationThreshold.Should().Be(
+            Money.FromDecimal(5000m), "task P3-T01: on by default at a modest figure");
     }
 
     [Fact]
@@ -363,7 +367,10 @@ public sealed class SettingDefaultsTests
             NonReturnableCategoryIds: [3, 7],
             AllowedUnlinkedRefundMethods: [RefundMethod.Card],
             AdjustmentReasons: ["Stock count correction, annual audit", "Water damage"],
-            AdjustmentGrnWarningThreshold: Money.FromDecimal(12500m)),
+            AdjustmentGrnWarningThreshold: Money.FromDecimal(12500m),
+            CashInReasons: ["Float top-up, extra for the weekend", "Loan from owner"],
+            CashOutReasons: ["Courier fee", "Tea and snacks"],
+            CashOutAuthorisationThreshold: Money.FromDecimal(7500m)),
         new PeripheralSettings(
             "EPSON TM-T82",
             PaperWidthMm: 58,

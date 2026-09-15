@@ -289,6 +289,15 @@ public static class SettingsSerializer
         rows.Add(MoneyRow(
             SettingKeys.PolicyAdjustmentGrnWarningThreshold,
             policy.AdjustmentGrnWarningThreshold));
+        rows.Add(Text(
+            SettingKeys.PolicyCashInReasons,
+            WriteStringList(policy.CashInReasons)));
+        rows.Add(Text(
+            SettingKeys.PolicyCashOutReasons,
+            WriteStringList(policy.CashOutReasons)));
+        rows.Add(MoneyRow(
+            SettingKeys.PolicyCashOutAuthorisationThreshold,
+            policy.CashOutAuthorisationThreshold));
     }
 
     private static PolicySettings ReadPolicy(
@@ -313,7 +322,11 @@ public static class SettingsSerializer
                 rows, SettingKeys.PolicyAllowedUnlinkedRefundMethods, fallback.AllowedUnlinkedRefundMethods),
             ReadStringList(rows, SettingKeys.PolicyAdjustmentReasons, fallback.AdjustmentReasons),
             ReadMoney(
-                rows, SettingKeys.PolicyAdjustmentGrnWarningThreshold, fallback.AdjustmentGrnWarningThreshold));
+                rows, SettingKeys.PolicyAdjustmentGrnWarningThreshold, fallback.AdjustmentGrnWarningThreshold),
+            ReadStringList(rows, SettingKeys.PolicyCashInReasons, fallback.CashInReasons),
+            ReadStringList(rows, SettingKeys.PolicyCashOutReasons, fallback.CashOutReasons),
+            ReadMoney(
+                rows, SettingKeys.PolicyCashOutAuthorisationThreshold, fallback.CashOutAuthorisationThreshold));
 
     // ---- FR-10.6 Peripherals -----------------------------------------------------------------
 

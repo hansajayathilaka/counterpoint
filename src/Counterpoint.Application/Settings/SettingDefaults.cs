@@ -129,7 +129,27 @@ public static class SettingDefaults
 
         // Task P2-T08's own "Risks": on by default at a modest figure, so the fraud-prevention
         // nudge this task exists to add is live out of the box rather than opt-in.
-        AdjustmentGrnWarningThreshold: Money.FromDecimal(5000m));
+        AdjustmentGrnWarningThreshold: Money.FromDecimal(5000m),
+
+        // Task P3-T01 "Do this" #1 - a starting point for each picker, not a closed list, the
+        // same "ICashMovementService only refuses a blank reason" rule AdjustmentReasons follows.
+        CashInReasons:
+        [
+            "Float top-up",
+            "Owner deposit",
+            "Other",
+        ],
+        CashOutReasons:
+        [
+            "Petty expense",
+            "Supplier payment",
+            "Banking",
+            "Other",
+        ],
+
+        // Task P3-T01 "Do this" #3: on by default at a modest figure, so an owner is asked before
+        // a meaningful sum leaves the drawer even on a till that has never opened this setting.
+        CashOutAuthorisationThreshold: Money.FromDecimal(5000m));
 
     /// <summary>
     /// FR-10.6. What the Linux fakes need, which is also what an uncommissioned Windows terminal

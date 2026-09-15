@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Security;
+using Counterpoint.Application.Cash;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Exchanges;
@@ -313,6 +314,12 @@ internal sealed class SaleFixture : IAsyncDisposable
         // Counterpoint.App's CounterpointHostBuilderExtensions - undecorated, the same shape as
         // ICreateReturn above.
         services.AddSingleton<ICreateExchange, CreateExchangeHandler>();
+
+        // P3-T01: cash in, cash out, the expected-drawer calculation and the no-sale drawer open
+        // (SRS FR-7.7, FR-8.2), wired exactly as Counterpoint.App's CounterpointHostBuilderExtensions.
+        services.AddSingleton<ICashMovementService, CashMovementService>();
+        services.AddSingleton<IExpectedCashService, ExpectedCashService>();
+        services.AddSingleton<INoSaleDrawerService, NoSaleDrawerService>();
 
         // P2-T08: adjustments and damage (SRS FR-4, NFR-S2) - owner-only, wired exactly as
         // Counterpoint.App's CounterpointHostBuilderExtensions, decorated-only, same shape as

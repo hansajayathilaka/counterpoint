@@ -94,6 +94,11 @@ public static class DevicesServiceCollectionExtensions
         // both halves of an exchange, the same fixed-layout shape as the return receipt above.
         services.AddSingleton<IExchangeReceiptRenderer, EscPosExchangeReceiptRenderer>();
 
+        // P3-T01: the cash-movement and no-sale slips (SRS FR-7.1, FR-7.7) - the same
+        // renderer/capabilities pair, over their own fixed layouts, the same shape as the
+        // cancellation slip above.
+        services.AddSingleton<ICashSlipRenderer, EscPosCashSlipRenderer>();
+
         // P1-T12: the shelf-label printer - a separate device abstraction from the receipt
         // printer above, because most shelf-label printers speak TSPL rather than ESC/POS. The
         // Windows raw spooler adapter is HW-T03's, and it swaps in here and nowhere else.

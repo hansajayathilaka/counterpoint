@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
+using Counterpoint.Application.Cash;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Application.Dashboard;
 using Counterpoint.Application.Exchanges;
@@ -151,6 +152,21 @@ internal static class CounterpointHostBuilderExtensions
         // without needing anyone's role; every exception to that is gated by the same override
         // tokens a standalone return already uses.
         builder.Services.AddSingleton<ICreateExchange, CreateExchangeHandler>();
+
+        // P3-T01: cash in and cash out (SRS FR-8.2). Not owner-only in its own right - a cashier
+        // tops up the float or pays out a small petty expense without needing anyone's role; a
+        // cash-out above policy.cash_out_authorisation_threshold is gated by an OverrideToken, the
+        // same shape as IDiscountAuthorisationService above.
+        builder.Services.AddSingleton<ICashMovementService, CashMovementService>();
+
+        // P3-T01: the expected-drawer calculation (SRS FR-8.1, FR-8.3, FR-8.4) - the single
+        // service the X report (P3-T02) and the Z report (P3-T03) will both call, rather than
+        // reimplementing Counterpoint.Domain.Cash.ExpectedCashCalculator themselves.
+        builder.Services.AddSingleton<IExpectedCashService, ExpectedCashService>();
+
+        // P3-T01: the no-sale drawer open (SRS FR-7.7) - always owner-authorised, the same
+        // mandatory-override shape as ICreateUnlinkedReturn above.
+        builder.Services.AddSingleton<INoSaleDrawerService, NoSaleDrawerService>();
 
         // P2-T08: adjustments and damage (SRS FR-4, NFR-S2) - owner-only, wired exactly as
         // ICancelSale above. IAdjustmentHistoryQuery is registered and decorated in
