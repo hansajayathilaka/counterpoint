@@ -333,3 +333,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-15T00:42:52Z` **P2-T11** start — Reorder alerts and stock reports (interim)
+- `2026-09-15T01:20:32Z` **P2-T11** note — orchestrator reverted premature done-mark and commit by task-implementer subagent; resuming at B5 (verify) since implementer also wrote its own tests inline
