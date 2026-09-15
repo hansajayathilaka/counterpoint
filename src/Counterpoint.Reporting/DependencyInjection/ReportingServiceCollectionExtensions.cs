@@ -1,7 +1,9 @@
 using System;
+using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Application.Security;
 using Counterpoint.Reporting.Inventory;
+using Counterpoint.Reporting.Shifts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Counterpoint.Reporting.DependencyInjection;
@@ -32,6 +34,14 @@ public static class ReportingServiceCollectionExtensions
         // same reasoning IStockEnquiry and IDashboardQueries already draw.
         services.AddSingleton<IReorderListQuery, ReorderListQuery>();
         services.AddSingleton<ISlowMovingStockQuery, SlowMovingStockQuery>();
+
+        // P3-T02: the X report's own sales/returns/tax/tender figures. Not owner-only either -
+        // none of the five figures is cost or margin, and the X report itself is a cashier
+        // capability for their own shift (SRS FR-8.3, RPT-04); the per-shift "own shift only"
+        // restriction is enforced in Counterpoint.Application.Shifts.XReportService, not here,
+        // because it depends on which shift is asked for, not on the caller's role alone - the
+        // same reasoning that keeps IShiftLookup and ICashMovementReader undecorated too.
+        services.AddSingleton<IXReportFiguresReader, XReportFiguresReader>();
 
         // Owner-only: every figure is cost-derived. The concrete service is built inside the
         // factory and decorated; nothing can resolve an undecorated StockValuationQuery from the
