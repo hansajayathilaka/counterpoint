@@ -157,8 +157,13 @@ public sealed class ThemeTokenContrastTests
         return (r, g, b);
     }
 
-    /// <summary>Every <c>x:Key</c> to <c>Color</c> mapping a token file declares.</summary>
-    private static Dictionary<string, string> LoadPalette(string fileName)
+    /// <summary>
+    /// Every <c>x:Key</c> to <c>Color</c> mapping a token file declares. Internal, not private:
+    /// task P3-T14's <see cref="SalesScreenContrastTests"/> reuses this exact loader (and
+    /// <see cref="ContrastRatio"/> above) rather than re-implementing the same XAML parsing, so
+    /// there is exactly one place that reads a token file's colours for a test to check.
+    /// </summary>
+    internal static Dictionary<string, string> LoadPalette(string fileName)
     {
         var path = Path.Combine(RepositoryRoot().FullName, "src", "Counterpoint.Ui", "Styles", fileName);
 

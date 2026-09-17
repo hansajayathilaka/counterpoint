@@ -15,11 +15,12 @@ namespace Counterpoint.Domain.Tests.Ui;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Scoped to exactly what task P3-T10 owns: <c>App.axaml</c> and the Settings tabs it adds a
-/// Display tab beside. Every other hand-built window (<c>SalesWindow.axaml</c>,
-/// <c>PurchaseOrderWindow.axaml</c>, ...) still has its own hardcoded hex today - that is task
-/// P3-T10's own stated risk, an explicit gap this test does not police, closed by
-/// P3-T14/P3-T15/P3-T16.
+/// Originally scoped to exactly what task P3-T10 owned: <c>App.axaml</c> and the Settings tabs it
+/// adds a Display tab beside. Task P3-T14 extends this same policing to <c>SalesWindow.axaml</c>
+/// and its extracted side panel, <c>SalesSidePanelView.axaml</c> - the two files that carried the
+/// "right side panel is not compatible with dark mode" defect this task exists to close. Every
+/// other hand-built window (<c>PurchaseOrderWindow.axaml</c>, ...) still has its own hardcoded hex
+/// today - an explicit gap left to P3-T15/P3-T16.
 /// </para>
 /// <para>
 /// The two token files themselves (<c>Styles/Tokens.Light.axaml</c>,
@@ -67,6 +68,28 @@ public sealed class NoRawHexColourLiteralsTests
             9, "the eight existing settings tabs plus the Display tab task P3-T10 adds");
     }
 
+    [Fact]
+    public void UI_13_SalesWindowAxamlHasNoRawHexColourLiteral()
+    {
+        var offenders = FindOffences(SalesUiFile("SalesWindow.axaml")).ToList();
+
+        offenders.Should().BeEmpty(
+            "SalesWindow.axaml must reference a semantic DynamicResource key, never a hex "
+            + "literal (task P3-T14, SRS UI-13, NFR-U4). Offenders: " + string.Join("; ", offenders));
+    }
+
+    [Fact]
+    public void UI_13_SalesSidePanelViewAxamlHasNoRawHexColourLiteral()
+    {
+        var offenders = FindOffences(SalesUiFile("SalesSidePanelView.axaml")).ToList();
+
+        offenders.Should().BeEmpty(
+            "SalesSidePanelView.axaml - the extracted sales screen side panel - must reference a "
+            + "semantic DynamicResource key, never a hex literal (task P3-T14, SRS UI-13, NFR-U4, "
+            + "the confirmed \"side panel is not compatible with dark mode\" defect). Offenders: "
+            + string.Join("; ", offenders));
+    }
+
     private static IEnumerable<string> FindOffences(FileInfo file)
     {
         var lines = File.ReadAllLines(file.FullName);
@@ -86,6 +109,16 @@ public sealed class NoRawHexColourLiteralsTests
         var file = new FileInfo(path);
 
         file.Exists.Should().BeTrue("App.axaml must exist at {0}", path);
+
+        return file;
+    }
+
+    private static FileInfo SalesUiFile(string fileName)
+    {
+        var path = Path.Combine(RepositoryRoot().FullName, "src", "Counterpoint.Ui", "Views", fileName);
+        var file = new FileInfo(path);
+
+        file.Exists.Should().BeTrue("{0} must exist at {1}", fileName, path);
 
         return file;
     }

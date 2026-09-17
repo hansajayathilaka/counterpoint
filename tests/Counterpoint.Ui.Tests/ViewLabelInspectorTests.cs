@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using Counterpoint.Ui.Tests.Support;
+using Counterpoint.Ui.Views;
 using Counterpoint.Ui.Views.Catalogue;
 using FluentAssertions;
 
@@ -41,5 +42,24 @@ public sealed class ViewLabelInspectorTests
             "CategoryEditView is built entirely from the P3-T12 LabeledField family, whose "
             + "persistent label is wired via AutomationProperties.LabeledBy - the helper must "
             + "find nothing to report. Violations: " + string.Join("; ", violations));
+    }
+
+    /// <summary>
+    /// Task P3-T14's own proof: every side-panel field the sales screen retrofit converts (search,
+    /// discount, hold label, customer, opening float, open item, and all four tender boxes) is
+    /// built from the same P3-T12 LabeledField family, so the helper finds nothing to report here
+    /// either - the same "not a tautology" argument <see cref="UI_14_TheHelperPassesAgainstTheConvertedCategoryEditView"/>
+    /// makes for the Category screen.
+    /// </summary>
+    [AvaloniaFact]
+    public void UI_14_TheHelperPassesAgainstTheConvertedSalesSidePanelView()
+    {
+        var view = new SalesSidePanelView();
+
+        var violations = ViewLabelInspector.FindInputsWithoutVisibleLabel(view);
+
+        violations.Should().BeEmpty(
+            "SalesSidePanelView is built entirely from the P3-T12 LabeledField family - the "
+            + "helper must find nothing to report. Violations: " + string.Join("; ", violations));
     }
 }
