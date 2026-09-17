@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
@@ -12,9 +14,10 @@ namespace Counterpoint.Infrastructure.Shifts;
 /// <summary>
 /// <see cref="IRollupConsistencyCheck"/>: recomputes one business date through the same
 /// <see cref="DailyRollupCalculator"/> <see cref="SqliteDailyRollupBuilder"/> writes from, and
-/// compares it against the stored <c>daily_sales_summary</c> row - without writing anything (task
-/// P3-T03's own "Risks": "add a rollup-verification command that recomputes and compares, run
-/// monthly").
+/// compares it against the stored <c>daily_sales_summary</c> row and every stored
+/// <c>daily_product_summary</c> row for that date - without writing anything (task P3-T03's own
+/// "Risks": "add a rollup-verification command that recomputes and compares, run monthly", which
+/// names both rollup tables this task builds, not the day header alone).
 /// </summary>
 internal sealed class SqliteRollupConsistencyCheck : IRollupConsistencyCheck
 {
@@ -35,6 +38,16 @@ internal sealed class SqliteRollupConsistencyCheck : IRollupConsistencyCheck
          WHERE business_date = @BusinessDate;
         """;
 
+    private const string StoredProductRowsSql =
+        """
+        SELECT product_variant_id AS ProductVariantId,
+               qty_base AS QtyBaseScaled,
+               net AS NetScaled,
+               cogs AS CogsScaled
+          FROM daily_product_summary
+         WHERE business_date = @BusinessDate;
+        """;
+
     private readonly IPosConnectionFactory _connectionFactory;
 
     public SqliteRollupConsistencyCheck(IPosConnectionFactory connectionFactory)
@@ -51,6 +64,7 @@ internal sealed class SqliteRollupConsistencyCheck : IRollupConsistencyCheck
 
         var connection = await _connectionFactory.OpenReadConnectionAsync(cancellationToken).ConfigureAwait(false);
         DailySalesSummaryFigures? stored;
+        IReadOnlyList<StoredProductRow> storedProductRows;
         DailyRollupComputation recomputed;
 
         await using (connection.ConfigureAwait(false))
@@ -61,15 +75,43 @@ internal sealed class SqliteRollupConsistencyCheck : IRollupConsistencyCheck
 
             stored = row is null ? null : ToFigures(row);
 
+            var products = await connection.QueryAsync<StoredProductRow>(
+                new CommandDefinition(StoredProductRowsSql, new { BusinessDate = dateText }, cancellationToken: cancellationToken))
+                .ConfigureAwait(false);
+            storedProductRows = products.AsList();
+
             recomputed = await DailyRollupCalculator
                 .ComputeAsync(connection, transaction: null, businessDate, cancellationToken)
                 .ConfigureAwait(false);
         }
 
         var recomputedFigures = ToFigures(recomputed);
-        var matches = stored is not null && stored == recomputedFigures;
+        var summaryMatches = stored is not null && stored == recomputedFigures;
 
-        return new RollupConsistencyReport(businessDate, stored is not null, matches, stored, recomputedFigures);
+        var storedProducts = storedProductRows.ToDictionary(
+            row => row.ProductVariantId,
+            ToFigures);
+        var recomputedProducts = recomputed.Products.ToDictionary(
+            product => product.ProductVariantId,
+            ToFigures);
+
+        var productMismatches = storedProducts.Keys
+            .Union(recomputedProducts.Keys)
+            .OrderBy(variantId => variantId)
+            .Select(variantId => new
+            {
+                VariantId = variantId,
+                Stored = storedProducts.GetValueOrDefault(variantId),
+                Recomputed = recomputedProducts.GetValueOrDefault(variantId),
+            })
+            .Where(candidate => candidate.Stored != candidate.Recomputed)
+            .Select(candidate => new DailyProductRollupMismatch(candidate.VariantId, candidate.Stored, candidate.Recomputed))
+            .ToList();
+
+        var matches = summaryMatches && productMismatches.Count == 0;
+
+        return new RollupConsistencyReport(
+            businessDate, stored is not null, matches, stored, recomputedFigures, productMismatches);
     }
 
     private static DailySalesSummaryFigures ToFigures(StoredRow row) => new(
@@ -98,6 +140,16 @@ internal sealed class SqliteRollupConsistencyCheck : IRollupConsistencyCheck
         computation.TenderCard,
         computation.TenderOther);
 
+    private static DailyProductRollupFigures ToFigures(StoredProductRow row) => new(
+        row.QtyBaseScaled,
+        Money.FromScaled(row.NetScaled),
+        Money.FromScaled(row.CogsScaled));
+
+    private static DailyProductRollupFigures ToFigures(DailyProductRollup product) => new(
+        product.QtyBaseScaled,
+        product.Net,
+        product.Cogs);
+
     /// <summary>The flat shape Dapper maps a row of <see cref="StoredRowSql"/> onto.</summary>
     private sealed class StoredRow
     {
@@ -122,5 +174,17 @@ internal sealed class SqliteRollupConsistencyCheck : IRollupConsistencyCheck
         public long TenderCardScaled { get; set; }
 
         public long TenderOtherScaled { get; set; }
+    }
+
+    /// <summary>The flat shape Dapper maps a row of <see cref="StoredProductRowsSql"/> onto.</summary>
+    private sealed class StoredProductRow
+    {
+        public long ProductVariantId { get; set; }
+
+        public long QtyBaseScaled { get; set; }
+
+        public long NetScaled { get; set; }
+
+        public long CogsScaled { get; set; }
     }
 }

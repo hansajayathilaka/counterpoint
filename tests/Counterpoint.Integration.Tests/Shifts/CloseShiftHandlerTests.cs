@@ -233,6 +233,8 @@ public sealed class CloseShiftHandlerTests
 
         check.RowExists.Should().BeTrue();
         check.Matches.Should().BeTrue("the stored rollup must equal a fresh recomputation from raw data");
+        check.ProductMismatches.Should().BeEmpty(
+            "every daily_product_summary row must also agree with a fresh recomputation");
 
         // Hand-worked cross-check against the stored row directly, independent of the checker
         // itself: gross (330.00 sale total, but the row's own Gross is the true pre-discount
@@ -269,13 +271,12 @@ public sealed class CloseShiftHandlerTests
 
     /// <summary>
     /// The rollup test above proves the day-header row and drives one product through
-    /// <see cref="IRollupConsistencyCheck"/>, but <c>IRollupConsistencyCheck</c> only ever compares
-    /// <c>daily_sales_summary</c> - it does not check <c>daily_product_summary</c> at all (see
-    /// <c>SqliteRollupConsistencyCheck</c>'s own <c>StoredRowSql</c>). A single-variant sale could
-    /// pass every check above even if <see cref="DailyRollupCalculator"/> silently merged every
-    /// variant's quantity, net and cost into one shared bucket instead of keying them by
-    /// <c>product_variant_id</c>. This test sells two different products, each with its own price
-    /// and cost, in the same bill, and hand-verifies that each keeps its own exact row.
+    /// <see cref="IRollupConsistencyCheck"/>. This test sells two different products, each with its
+    /// own price and cost, in the same bill, and hand-verifies directly against the stored rows
+    /// (independent of the checker) that each keeps its own exact row - proof that
+    /// <see cref="DailyRollupCalculator"/> does not silently merge every variant's quantity, net and
+    /// cost into one shared bucket instead of keying them by <c>product_variant_id</c>. The test
+    /// below this one drives the same class of bug through <c>IRollupConsistencyCheck</c> itself.
     /// </summary>
     [Fact]
     public async Task P3_T03_RollupAttributesEachVariantToItsOwnRowIndependently()
@@ -341,6 +342,62 @@ public sealed class CloseShiftHandlerTests
         (await fixture.CountAsync(
             "SELECT COUNT(*) FROM daily_product_summary WHERE business_date = '" + dateText + "';"))
             .Should().Be(2, "each variant sold must produce its own row, never a shared one");
+    }
+
+    /// <summary>
+    /// <see cref="IRollupConsistencyCheck"/> must catch a per-product attribution bug, not just a
+    /// day-header one (task P3-T03's own "Risks": protection against "rollups drifting from the raw
+    /// data"). A bug that merges two variants' figures into the wrong row, or silently drops one,
+    /// would sail through a check that only ever compares the single aggregate
+    /// <c>daily_sales_summary</c> row. This test closes a shift (building correct rows for both
+    /// tables), then directly corrupts one <c>daily_product_summary</c> row via raw SQL to simulate
+    /// that drift, and proves the checker's own recomputation now disagrees and identifies exactly
+    /// which variant and which stored/recomputed figures disagree.
+    /// </summary>
+    [Fact]
+    public async Task P3_T03_RollupConsistencyCheckCatchesADriftedProductSummaryRow()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync(includeBackup: true);
+
+        var user = fixture.Resolve<ISession>().CurrentUser!;
+        var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+        var variantId = await SeedTaxedVariantAsync(fixture);
+
+        // 2 pieces @ 100.00, 10% tax -> subtotal 200.00, tax 20.00, total 220.00.
+        var sale = await CompleteAsync(fixture, variantId, quantity: 2m);
+        sale.Total.Should().Be(Money.FromDecimal(220.00m));
+
+        await fixture.Resolve<ICloseShift>().CloseAsync(
+            new CloseShiftCommand(shiftId, user.Id, sale.Total, ClosedAt));
+
+        var businessDate = DateOnly.FromDateTime(SoldAt.Date);
+        var dateText = businessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var check = await fixture.Resolve<IRollupConsistencyCheck>().CheckAsync(businessDate);
+        check.Matches.Should().BeTrue("the freshly built rollup must agree with itself before any drift is introduced");
+        check.ProductMismatches.Should().BeEmpty();
+
+        // Simulate a later correction silently corrupting this variant's own row, independent of
+        // any raw sale/return data - the exact drift the day-header alone cannot reveal, since the
+        // day-header total is unaffected by moving net between rows of the same day.
+        await fixture.ExecuteAsync(
+            "UPDATE daily_product_summary SET net = net + " + Money.FromDecimal(1.00m).ToScaled().ToString(CultureInfo.InvariantCulture)
+            + " WHERE business_date = '" + dateText
+            + "' AND product_variant_id = " + variantId.ToString(CultureInfo.InvariantCulture) + ";");
+
+        var driftedCheck = await fixture.Resolve<IRollupConsistencyCheck>().CheckAsync(businessDate);
+
+        driftedCheck.Matches.Should().BeFalse("a drifted daily_product_summary row must fail the check");
+        driftedCheck.ProductMismatches.Should().ContainSingle()
+            .Which.ProductVariantId.Should().Be(variantId);
+
+        var mismatch = driftedCheck.ProductMismatches.Single();
+        mismatch.Stored.Should().NotBeNull();
+        mismatch.Recomputed.Should().NotBeNull();
+        mismatch.Stored!.Net.Should().Be(Money.FromDecimal(200.00m) + Money.FromDecimal(1.00m),
+            "the stored figure must reflect the raw UPDATE just made");
+        mismatch.Recomputed!.Net.Should().Be(Money.FromDecimal(200.00m),
+            "the recomputation is unaffected by the UPDATE and still reflects the raw sales data");
     }
 
     /// <summary>
