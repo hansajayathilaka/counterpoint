@@ -163,4 +163,8 @@ public static class SettingKeys
     /// set up, which is exactly how <c>IFirstRunSetup.IsRequiredAsync</c> knows.
     /// </summary>
     public const string SetupCompletedAt = "setup.completed_at";
+
+    // ---- UI-13, NFR-U4 Display (task P3-T10) ----------------------------------------------
+    /// <summary>Light, Dark or System (follow the operating system). Default System.</summary>
+    public const string UiThemeVariant = "ui.theme_variant";
 }

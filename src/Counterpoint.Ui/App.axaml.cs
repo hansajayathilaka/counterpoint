@@ -2,6 +2,8 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Counterpoint.Application.Settings;
+using Counterpoint.Ui.Styles;
 using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
@@ -45,6 +47,8 @@ public partial class App : Avalonia.Application
     private readonly SettingsViewModel? _settingsViewModel;
     private readonly RestoreWizardViewModel? _restoreWizardViewModel;
     private readonly FirstRunWizardViewModel? _firstRunViewModel;
+    private readonly ISettings? _settings;
+    private readonly AvaloniaThemeVariantSwitcher _themeVariantSwitcher = new();
     private readonly bool _firstRunRequired;
 
     private IClassicDesktopStyleApplicationLifetime? _desktop;
@@ -71,6 +75,7 @@ public partial class App : Avalonia.Application
         SettingsViewModel settingsViewModel,
         RestoreWizardViewModel restoreWizardViewModel,
         FirstRunWizardViewModel firstRunViewModel,
+        ISettings settings,
         bool firstRunRequired)
     {
         ArgumentNullException.ThrowIfNull(loginViewModel);
@@ -83,6 +88,7 @@ public partial class App : Avalonia.Application
         ArgumentNullException.ThrowIfNull(settingsViewModel);
         ArgumentNullException.ThrowIfNull(restoreWizardViewModel);
         ArgumentNullException.ThrowIfNull(firstRunViewModel);
+        ArgumentNullException.ThrowIfNull(settings);
 
         _loginViewModel = loginViewModel;
         _salesViewModel = salesViewModel;
@@ -94,6 +100,7 @@ public partial class App : Avalonia.Application
         _settingsViewModel = settingsViewModel;
         _restoreWizardViewModel = restoreWizardViewModel;
         _firstRunViewModel = firstRunViewModel;
+        _settings = settings;
         _firstRunRequired = firstRunRequired;
     }
 
@@ -104,6 +111,14 @@ public partial class App : Avalonia.Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // Before any window opens: SRS UI-13/NFR-U4, task P3-T10. ISettings.LoadAsync() has
+        // already run in Counterpoint.App/Program.cs's PrepareDatabaseAsync by this point, so
+        // ui.theme_variant is whatever the shop last chose, not SettingDefaults' own fallback.
+        if (_settings is not null)
+        {
+            _themeVariantSwitcher.Apply(_settings.Current.Display.ThemeVariant);
+        }
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && _loginViewModel is not null)
         {
             _desktop = desktop;

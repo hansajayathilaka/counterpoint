@@ -74,7 +74,10 @@ public interface ISettings
     /// <summary>FR-2.10, FR-2.12 - the shelf label's size and content (P1-T12).</summary>
     public LabelSettings Label { get; }
 
-    /// <summary>All nine groups as one value, for a screen that edits several at once.</summary>
+    /// <summary>UI-13, NFR-U4 - the theme variant the till trades in (task P3-T10).</summary>
+    public DisplaySettings Display { get; }
+
+    /// <summary>All ten groups as one value, for a screen that edits several at once.</summary>
     public SettingsSnapshot Current { get; }
 
     /// <summary>

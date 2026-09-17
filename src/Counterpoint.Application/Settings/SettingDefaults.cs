@@ -230,12 +230,19 @@ public static class SettingDefaults
         DefaultQuantityPerLabel: 1);
 
     /// <summary>
+    /// UI-13, NFR-U4. Follows the operating system until the owner picks Light or Dark explicitly
+    /// on the Display tab (task P3-T10) - a shop that has never opened that tab keeps whatever the
+    /// terminal itself is set to, rather than being switched to one theme by a default nobody chose.
+    /// </summary>
+    public static DisplaySettings Display { get; } = new(UiThemeVariant.System);
+
+    /// <summary>
     /// The whole default set. An immutable value, so handing it out costs nothing and nobody can
     /// mutate the defaults from under the next reader.
     /// </summary>
     /// <remarks>
     /// Declared last on purpose: static property initialisers run in declaration order, so this
-    /// one has to come after the nine groups it is built from.
+    /// one has to come after the ten groups it is built from.
     /// </remarks>
     public static SettingsSnapshot Snapshot { get; } = new(
         Shop,
@@ -246,5 +253,6 @@ public static class SettingDefaults
         Peripherals,
         Backup,
         Receipt,
-        Label);
+        Label,
+        Display);
 }

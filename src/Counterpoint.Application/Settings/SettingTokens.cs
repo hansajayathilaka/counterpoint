@@ -106,6 +106,21 @@ internal static class SettingTokens
         _ => fallback,
     };
 
+    internal static string From(UiThemeVariant value) => value switch
+    {
+        UiThemeVariant.Light => "LIGHT",
+        UiThemeVariant.Dark => "DARK",
+        _ => "SYSTEM",
+    };
+
+    internal static UiThemeVariant ToUiThemeVariant(string token, UiThemeVariant fallback) => token switch
+    {
+        "SYSTEM" => UiThemeVariant.System,
+        "LIGHT" => UiThemeVariant.Light,
+        "DARK" => UiThemeVariant.Dark,
+        _ => fallback,
+    };
+
     /// <summary>Time of day as <c>HH:mm</c>, invariant, 24-hour.</summary>
     internal static string From(TimeOnly value) =>
         value.ToString("HH\\:mm", System.Globalization.CultureInfo.InvariantCulture);

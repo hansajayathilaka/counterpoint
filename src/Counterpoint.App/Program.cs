@@ -101,6 +101,7 @@ internal static partial class Program
                 services.GetRequiredService<Ui.ViewModels.Settings.SettingsViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Settings.RestoreWizardViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.FirstRun.FirstRunWizardViewModel>(),
+                services.GetRequiredService<ISettings>(),
                 firstRunRequired))
             .UsePlatformDetect()
             .LogToTrace();

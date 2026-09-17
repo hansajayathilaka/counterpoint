@@ -3,7 +3,13 @@
              x:Class="Counterpoint.Ui.App"
              xmlns:local="using:Counterpoint.Ui"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             <!--
+               "Default" here only matters for the XAML previewer and for any process that never
+               runs Counterpoint.App.Program.PrepareDatabaseAsync. The real application overwrites
+               this at start-up from the ui.theme_variant setting (SRS UI-13, NFR-U4, task P3-T10),
+               and the Display settings tab overwrites it again, live, whenever the owner changes
+               their mind - see App.axaml.cs and Views/Settings/DisplaySettingsViewModel.cs.
+             -->
 
     <Application.DataTemplates>
         <local:ViewLocator />
@@ -12,4 +18,20 @@
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+
+    <!--
+      Task P3-T10's token system: every screen reads a semantic DynamicResource key
+      (PanelBackgroundBrush, PrimaryTextBrush, ...) rather than a raw hex value, and Avalonia
+      resolves the key against whichever of these two dictionaries matches the active theme
+      variant - see Styles/Tokens.Light.axaml's own remarks for the full key list and the
+      contrast test that proves each one legible.
+    -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceInclude Source="/Styles/Tokens.Light.axaml" x:Key="Light" />
+                <ResourceInclude Source="/Styles/Tokens.Dark.axaml" x:Key="Dark" />
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

@@ -58,6 +58,7 @@ public sealed class SettingDefaultsTests
             ["backup."] = "FR-10.7 backup",
             ["receipt."] = "FR-10.8 receipt template",
             ["label."] = "FR-2.10, FR-2.12 label layout",
+            ["ui."] = "UI-13, NFR-U4 display",
         };
 
         foreach (var (prefix, requirement) in groups)
@@ -262,6 +263,47 @@ public sealed class SettingDefaultsTests
     }
 
     [Fact]
+    public void UI_13_TheThemeDefaultsToFollowingTheOperatingSystem()
+    {
+        SettingDefaults.Display.ThemeVariant.Should().Be(
+            UiThemeVariant.System,
+            "a shop that has never opened the Display tab keeps whatever the terminal is set to, "
+            + "rather than being switched to one theme by a default nobody chose");
+    }
+
+    [Fact]
+    public void UI_13_TheThemeVariantIsStoredAsATokenNotAnEnumOrdinal()
+    {
+        var withDark = SettingDefaults.Snapshot with
+        {
+            Display = new DisplaySettings(UiThemeVariant.Dark),
+        };
+
+        var row = SettingsSerializer.ToRows(withDark)
+            .Single(candidate => candidate.Key == SettingKeys.UiThemeVariant);
+
+        row.ValueType.Should().Be("STRING", "SettingValueTypes deliberately never uses JSON");
+        row.Value.Should().Be(
+            "DARK",
+            "a data row must survive an enum member being renamed or reordered later");
+    }
+
+    [Fact]
+    public void UI_13_AnUnrecognisedThemeTokenDegradesToTheDefaultRatherThanThrowing()
+    {
+        var corrupt = new Dictionary<string, StoredSetting>(StringComparer.Ordinal)
+        {
+            [SettingKeys.UiThemeVariant] = new("NOT_A_THEME", "STRING"),
+        };
+
+        var restored = SettingsSerializer.FromRows(corrupt, SettingDefaults.Snapshot);
+
+        restored.Display.ThemeVariant.Should().Be(
+            SettingDefaults.Display.ThemeVariant,
+            "one corrupt value must not stop the till trading (CLAUDE.md invariant 7)");
+    }
+
+    [Fact]
     public void FR_10_1_to_10_8_ASettingSurvivesTheRoundTripToRowsAndBack()
     {
         var edited = Edited();
@@ -447,7 +489,8 @@ public sealed class SettingDefaultsTests
             ShowBarcode: false,
             ShowUnit: false,
             ShowPrice: false,
-            DefaultQuantityPerLabel: 5));
+            DefaultQuantityPerLabel: 5),
+        new DisplaySettings(UiThemeVariant.Dark));
 
     /// <summary>Every key constant declared on <see cref="SettingKeys"/>.</summary>
     private static HashSet<string> DeclaredKeys() =>

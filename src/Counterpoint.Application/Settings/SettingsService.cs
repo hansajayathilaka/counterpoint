@@ -118,6 +118,9 @@ internal sealed class SettingsService : ISettings, IDisposable
     /// <inheritdoc />
     public LabelSettings Label => Current.Label;
 
+    /// <inheritdoc />
+    public DisplaySettings Display => Current.Display;
+
     /// <summary>True once <see cref="LoadAsync"/> has run.</summary>
     public bool IsLoaded => Volatile.Read(ref _loaded) is not null;
 

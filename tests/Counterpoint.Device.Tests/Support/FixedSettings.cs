@@ -37,6 +37,8 @@ internal sealed class FixedSettings : ISettings
 
     public LabelSettings Label => _snapshot.Label;
 
+    public DisplaySettings Display => _snapshot.Display;
+
     /// <summary>Replaces the snapshot in force - a test's way of "changing a setting".</summary>
     internal void Set(SettingsSnapshot snapshot)
     {

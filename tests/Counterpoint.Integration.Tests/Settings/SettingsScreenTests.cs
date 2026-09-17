@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Devices;
@@ -7,6 +8,7 @@ using Counterpoint.Application.Settings;
 using Counterpoint.Domain.Security;
 using Counterpoint.Domain.Services;
 using Counterpoint.Integration.Tests.Sales;
+using Counterpoint.Ui.Styles;
 using Counterpoint.Ui.ViewModels.Settings;
 using FluentAssertions;
 
@@ -415,7 +417,7 @@ public sealed class SettingsScreenTests
     }
 
     [Fact]
-    public async Task FR_10_TheEightGroupsAreTheEightGroupsFR10Names()
+    public async Task FR_10_AndUI_13_TheGroupsAreTheEightFR10GroupsPlusDisplay()
     {
         await using var fixture = await SaleFixture.CreateSignedInAsync();
         using var screen = Open(fixture);
@@ -428,7 +430,8 @@ public sealed class SettingsScreenTests
             "Policy",
             "Peripherals",
             "Backup",
-            "Receipt");
+            "Receipt",
+            "Display");
 
         screen.Groups.Select(group => group.Requirement).Should().Equal(
             "FR-10.1",
@@ -438,7 +441,61 @@ public sealed class SettingsScreenTests
             "FR-10.5",
             "FR-10.6",
             "FR-10.7",
-            "FR-10.8");
+            "FR-10.8",
+            "UI-13");
+    }
+
+    [Fact]
+    public async Task UI_13_TheThemeVariantPersistsAcrossARestart()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var settings = fixture.Resolve<ISettings>();
+
+        using (var screen = Open(fixture))
+        {
+            screen.Display.ThemeVariantChoice = screen.Display.ThemeVariantChoices[2]; // "Dark"
+            await screen.SaveCommand.ExecuteAsync(null);
+        }
+
+        settings.Current.Display.ThemeVariant.Should().Be(UiThemeVariant.Dark);
+
+        (await fixture.ScalarAsync("SELECT value FROM app_setting WHERE key = 'ui.theme_variant';"))
+            .Should().Be("DARK");
+
+        // A restart re-reads app_setting from scratch - exactly what
+        // Counterpoint.App/Program.cs.PrepareDatabaseAsync's ISettings.LoadAsync() call does,
+        // before Counterpoint.Ui.App applies it to Application.Current.RequestedThemeVariant.
+        var reloaded = await settings.LoadAsync();
+        reloaded.Display.ThemeVariant.Should().Be(
+            UiThemeVariant.Dark,
+            "the choice must still be there after the cache that held it has been thrown away and rebuilt");
+    }
+
+    [Fact]
+    public void UI_13_ChangingTheThemePickerAppliesItImmediatelyBeforeSaveIsEverPressed()
+    {
+        var switcher = new RecordingThemeVariantSwitcher();
+        var display = new DisplaySettingsViewModel(switcher);
+
+        display.Load(SettingDefaults.Snapshot with { Display = new DisplaySettings(UiThemeVariant.Light) });
+        switcher.Applied.Should().Equal(
+            [UiThemeVariant.Light],
+            "opening (or reverting) the screen re-applies whatever is actually in force");
+
+        display.ThemeVariantChoice = display.ThemeVariantChoices[2]; // "Dark"
+
+        switcher.Applied.Should().Equal(
+            [UiThemeVariant.Light, UiThemeVariant.Dark],
+            "every screen already open repaints the instant the box changes, with no restart and "
+            + "before Ctrl+S is ever pressed (UI-13, NFR-U4)");
+    }
+
+    /// <summary>Records every theme <see cref="DisplaySettingsViewModel"/> asked to apply, in order.</summary>
+    private sealed class RecordingThemeVariantSwitcher : IThemeVariantSwitcher
+    {
+        public List<UiThemeVariant> Applied { get; } = [];
+
+        public void Apply(UiThemeVariant variant) => Applied.Add(variant);
     }
 
     [Fact]
