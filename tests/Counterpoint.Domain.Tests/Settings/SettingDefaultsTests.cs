@@ -151,6 +151,8 @@ public sealed class SettingDefaultsTests
         policy.CashOutReasons.Should().NotBeEmpty("task P3-T01: a starting point for the cash-out reason picker");
         policy.CashOutAuthorisationThreshold.Should().Be(
             Money.FromDecimal(5000m), "task P3-T01: on by default at a modest figure");
+        policy.ShiftCloseVarianceNoteThreshold.Should().Be(
+            Money.FromDecimal(500m), "task P3-T03: on by default at a modest figure");
     }
 
     [Fact]
@@ -370,7 +372,8 @@ public sealed class SettingDefaultsTests
             AdjustmentGrnWarningThreshold: Money.FromDecimal(12500m),
             CashInReasons: ["Float top-up, extra for the weekend", "Loan from owner"],
             CashOutReasons: ["Courier fee", "Tea and snacks"],
-            CashOutAuthorisationThreshold: Money.FromDecimal(7500m)),
+            CashOutAuthorisationThreshold: Money.FromDecimal(7500m),
+            ShiftCloseVarianceNoteThreshold: Money.FromDecimal(250m)),
         new PeripheralSettings(
             "EPSON TM-T82",
             PaperWidthMm: 58,

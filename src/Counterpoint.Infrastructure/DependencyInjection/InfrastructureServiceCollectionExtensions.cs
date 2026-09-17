@@ -21,6 +21,7 @@ using Counterpoint.Infrastructure.Returns;
 using Counterpoint.Infrastructure.Sales;
 using Counterpoint.Infrastructure.Security;
 using Counterpoint.Infrastructure.Settings;
+using Counterpoint.Infrastructure.Shifts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -102,6 +103,15 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ICashMovementWriter, SqliteCashMovementWriter>();
         services.AddSingleton<ICashMovementReader, SqliteCashMovementReader>();
         services.AddSingleton<ILastBackupStatusReader, SqliteLastBackupStatusReader>();
+
+        // P3-T03: the Z report close (SRS FR-8.4, FR-8.5, FR-8.8) - the one permitted shift
+        // update, the day rollup builder it writes in the same transaction, and the monthly
+        // rollup-verification command (task P3-T03's own "Risks"). No role requirement of their
+        // own - the plain ICloseShift built on top of IShiftCloseWriter is wired undecorated in
+        // the composition root, the same split IShiftWriter/IOpenShift already draw.
+        services.AddSingleton<IShiftCloseWriter, SqliteShiftCloseWriter>();
+        services.AddSingleton<IDailyRollupBuilder, SqliteDailyRollupBuilder>();
+        services.AddSingleton<IRollupConsistencyCheck, SqliteRollupConsistencyCheck>();
 
         // P1-T10: reads a completed sale back for cancellation (SRS FR-3.34).
         services.AddSingleton<ISaleLookup, SqliteSaleLookup>();

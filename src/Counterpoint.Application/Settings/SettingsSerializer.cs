@@ -298,6 +298,9 @@ public static class SettingsSerializer
         rows.Add(MoneyRow(
             SettingKeys.PolicyCashOutAuthorisationThreshold,
             policy.CashOutAuthorisationThreshold));
+        rows.Add(MoneyRow(
+            SettingKeys.PolicyShiftCloseVarianceNoteThreshold,
+            policy.ShiftCloseVarianceNoteThreshold));
     }
 
     private static PolicySettings ReadPolicy(
@@ -326,7 +329,11 @@ public static class SettingsSerializer
             ReadStringList(rows, SettingKeys.PolicyCashInReasons, fallback.CashInReasons),
             ReadStringList(rows, SettingKeys.PolicyCashOutReasons, fallback.CashOutReasons),
             ReadMoney(
-                rows, SettingKeys.PolicyCashOutAuthorisationThreshold, fallback.CashOutAuthorisationThreshold));
+                rows, SettingKeys.PolicyCashOutAuthorisationThreshold, fallback.CashOutAuthorisationThreshold),
+            ReadMoney(
+                rows,
+                SettingKeys.PolicyShiftCloseVarianceNoteThreshold,
+                fallback.ShiftCloseVarianceNoteThreshold));
 
     // ---- FR-10.6 Peripherals -----------------------------------------------------------------
 

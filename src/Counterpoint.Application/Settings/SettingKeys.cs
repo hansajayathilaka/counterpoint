@@ -97,6 +97,12 @@ public static class SettingKeys
     /// <summary>Task P3-T01 "Do this" #3 - the cash-out owner-authorisation threshold.</summary>
     public const string PolicyCashOutAuthorisationThreshold = "policy.cash_out_authorisation_threshold";
 
+    /// <summary>
+    /// Task P3-T03 "Do this" #1 - the absolute cash variance, at shift close, above which a note
+    /// is mandatory before the shift can close.
+    /// </summary>
+    public const string PolicyShiftCloseVarianceNoteThreshold = "policy.shift_close_variance_note_threshold";
+
     // ---- FR-10.6 Peripherals -------------------------------------------------------------
     public const string PeripheralReceiptPrinterName = "peripheral.receipt_printer_name";
     public const string PeripheralPaperWidthMm = "peripheral.paper_width_mm";

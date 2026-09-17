@@ -149,7 +149,12 @@ public static class SettingDefaults
 
         // Task P3-T01 "Do this" #3: on by default at a modest figure, so an owner is asked before
         // a meaningful sum leaves the drawer even on a till that has never opened this setting.
-        CashOutAuthorisationThreshold: Money.FromDecimal(5000m));
+        CashOutAuthorisationThreshold: Money.FromDecimal(5000m),
+
+        // Task P3-T03 "Do this" #1: on by default at a modest figure, so a shift cannot close
+        // silently over a meaningful cash variance even on a till that has never opened this
+        // setting.
+        ShiftCloseVarianceNoteThreshold: Money.FromDecimal(500m));
 
     /// <summary>
     /// FR-10.6. What the Linux fakes need, which is also what an uncommissioned Windows terminal

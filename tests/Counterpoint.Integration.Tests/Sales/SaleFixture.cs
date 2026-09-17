@@ -334,6 +334,13 @@ internal sealed class SaleFixture : IAsyncDisposable
         services.AddSingleton<IXReportService, XReportService>();
         services.AddSingleton<IXReportPrintService, XReportPrintService>();
 
+        // P3-T03: the Z report - shift close and rollups (SRS FR-8.4, FR-8.5, FR-8.8, AC-11),
+        // wired exactly as Counterpoint.App's CounterpointHostBuilderExtensions - undecorated
+        // (closing a shift is an ordinary cashier capability, the same as IOpenShift above),
+        // through ActivatorUtilities because CloseShiftHandler's constructor takes the concrete
+        // Session, not ISession, the same reason OpenShiftHandler above is built that way.
+        services.AddSingleton<ICloseShift>(p => ActivatorUtilities.CreateInstance<CloseShiftHandler>(p));
+
         // P2-T08: adjustments and damage (SRS FR-4, NFR-S2) - owner-only, wired exactly as
         // Counterpoint.App's CounterpointHostBuilderExtensions, decorated-only, same shape as
         // ICancelSale above (NFR-S2, AC-17). IAdjustmentHistoryQuery is decorated inside
