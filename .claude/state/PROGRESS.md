@@ -90,7 +90,7 @@ hands them back.
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
-| P4-T01 | Backup target abstraction | todo | | |
+| P4-T01 | Backup target abstraction | in-progress | | |
 | P4-T02 | Least-privilege and immutability setup | todo | | |
 | P4-T03 | Upload worker with retry and backoff | todo | | |
 | P4-T04 | Retention and pruning | todo | | |

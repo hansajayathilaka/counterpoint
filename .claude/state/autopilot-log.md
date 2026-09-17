@@ -352,3 +352,14 @@ it stopped.
 - `2026-09-15T09:53:09Z` **P3-T02** done — 19 files, 15 test methods (7 integration + 8 device), review clean (0 must-fix, code-reviewer + device-integrator)
 
 **Run ended 2026-09-15T09:54:33Z** — 2 completed, 0 halted
+
+## Run 2026-09-17T06:33:46Z
+
+- branch: `claude/wonderful-meitner-2d5og9`
+- head: `3f7e9f9`
+- budget: 2 task(s)
+
+- `2026-09-17T06:33:56Z` **P3-T03** start — Z report, shift close and rollups
+- `2026-09-17T07:38:34Z` **P3-T03** fix-attempt — 1: IRollupConsistencyCheck only verifies daily_sales_summary, never daily_product_summary - extending it to cover both rollup tables per the task's own recompute-and-compare requirement
+- `2026-09-17T08:15:57Z` **P3-T03** done — 37 files, 21 test methods across CloseShiftHandlerTests.cs (13) and EscPosZReportRendererTests.cs (8), review clean (0 must-fix, 3 reviewers), PR #42
+- `2026-09-17T08:17:07Z` **P4-T01** start — Backup target abstraction
