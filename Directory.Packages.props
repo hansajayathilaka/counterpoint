@@ -70,5 +70,10 @@
     <PackageVersion Include="Bogus" Version="35.6.1" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageVersion Include="FsCheck.Xunit" Version="3.0.0" />
+    <!-- P3-T12: the view-inspection test helper walks a real, laid-out Avalonia visual tree
+         without opening an OS window - Avalonia's own supported headless unit-testing platform.
+         Pinned to the same 11.2.3 as the "UI" group above, in tests/Counterpoint.Ui.Tests only. -->
+    <PackageVersion Include="Avalonia.Headless" Version="11.2.3" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="11.2.3" />
   </ItemGroup>
 </Project>

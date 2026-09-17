@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="380" d:DesignHeight="140"
@@ -8,20 +9,16 @@
              x:DataType="vm:CategoryEditViewModel">
 
   <!--
-    Task P3-T11's proof-of-concept content: the fields task P3-T12's LabeledField control will
-    later upgrade (out of this task's scope, per its own risk note) - persistent TextBlock labels
-    rather than a watermark-only field, so the label stays visible once the field holds a value
-    (a P3-T12 concern this view does not otherwise take on).
+    Task P3-T11's proof-of-concept content, now built from task P3-T12's LabeledField control
+    family: a persistent label identifies each field in every state - empty, focused, filled and
+    disabled (SRS UI-06, UI-14, AC-22) - never a watermark standing in as the only label.
   -->
   <StackPanel Spacing="12">
-    <StackPanel Spacing="4">
-      <TextBlock Text="Category name" Foreground="{DynamicResource SecondaryTextBrush}" />
-      <TextBox Name="NameBox" Text="{Binding Name}" />
-    </StackPanel>
-    <StackPanel Spacing="4">
-      <TextBlock Text="Parent category" Foreground="{DynamicResource SecondaryTextBrush}" />
-      <ComboBox ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding SelectedParent}" HorizontalAlignment="Stretch" />
-    </StackPanel>
+    <controls:LabeledTextField Name="NameField" Label="Category name" Text="{Binding Name}" />
+    <controls:LabeledComboField Name="ParentField"
+                                 Label="Parent category"
+                                 ItemsSource="{Binding ParentOptions}"
+                                 SelectedItem="{Binding SelectedParent}" />
   </StackPanel>
 
 </UserControl>

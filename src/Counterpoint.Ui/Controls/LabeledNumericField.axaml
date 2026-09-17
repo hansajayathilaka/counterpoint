@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="180" d:DesignHeight="70"
+             x:Class="Counterpoint.Ui.Controls.LabeledNumericField"
+             x:Name="Root">
+
+  <!--
+    Task P3-T12 (SRS UI-06, UI-14, AC-22). The box itself is still a plain TextBox: this codebase
+    sanitises numeric entry in the viewmodel (NumericInputViewModel.SetNumeric), never with an
+    Avalonia NumericUpDown, so a bound Text property is what "numeric" already means here (see
+    e.g. CustomerTabViewModel.CreditLimitText). This control's own contribution is the persistent
+    label and right-aligned digits, not a different input type.
+  -->
+  <StackPanel Spacing="4">
+    <TextBlock Name="LabelBlock"
+               Text="{Binding #Root.Label}"
+               Foreground="{DynamicResource SecondaryTextBrush}" />
+    <TextBox Name="InputBox"
+             Text="{Binding #Root.Text, Mode=TwoWay}"
+             Watermark="{Binding #Root.Watermark}"
+             TextAlignment="Right" />
+    <TextBlock Text="{Binding #Root.ValidationMessage}"
+               Foreground="{DynamicResource WarningBrush}"
+               IsVisible="{Binding #Root.ValidationMessage, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+  </StackPanel>
+
+</UserControl>

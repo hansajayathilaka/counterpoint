@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Task P3-T12: the only test project that opens a real (headless) Avalonia view and walks its
+    laid-out visual tree - kept separate from Counterpoint.Integration.Tests so that
+    Avalonia.Headless.XUnit's own ITestFrameworkAttribute governs discovery for this assembly
+    only, and every one of the other ~800 tests elsewhere in the solution is untouched by it.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <!-- Avalonia's own supported headless unit-testing platform (see CLAUDE.md's development
+         platform note): a real visual tree, real layout, no OS window, no GPU. -->
+    <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!--
+    Counterpoint.Ui references Application and Domain only (CLAUDE.md "Project boundaries") - this
+    test project pulls in nothing beyond what Counterpoint.Ui itself already carries.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Counterpoint.Ui\Counterpoint.Ui.csproj" />
+  </ItemGroup>
+
+</Project>
