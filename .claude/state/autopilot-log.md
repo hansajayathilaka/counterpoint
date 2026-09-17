@@ -361,3 +361,4 @@ it stopped.
 
 - `2026-09-17T06:33:56Z` **P3-T03** start — Z report, shift close and rollups
 - `2026-09-17T07:38:34Z` **P3-T03** fix-attempt — 1: IRollupConsistencyCheck only verifies daily_sales_summary, never daily_product_summary - extending it to cover both rollup tables per the task's own recompute-and-compare requirement
+- `2026-09-17T08:15:57Z` **P3-T03** done — 37 files, 21 test methods across CloseShiftHandlerTests.cs (13) and EscPosZReportRendererTests.cs (8), review clean (0 must-fix, 3 reviewers), PR #42
