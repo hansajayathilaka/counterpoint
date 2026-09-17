@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
@@ -48,18 +49,47 @@ public static class ViewLabelInspector
         {
             window.Show();
 
-            return view.GetVisualDescendants()
-                .OfType<Control>()
-                .Where(IsInspectableInput)
-                .Where(input => !HasVisibleLabel(input))
-                .Select(Describe)
-                .ToList();
+            return Inspect(view);
         }
         finally
         {
             window.Close();
         }
     }
+
+    /// <summary>
+    /// The same inspection as <see cref="FindInputsWithoutVisibleLabel(Control)"/>, but for one of
+    /// task P3-T16's remaining hand-built top-level <see cref="Window"/>s (Login, the first-run
+    /// wizard, user admin, purchase orders, label printing, the print queue, guided restore),
+    /// which were never split into a separate <see cref="UserControl"/> the way
+    /// <c>SalesSidePanelView</c> was in task P3-T14. Shown directly rather than wrapped as another
+    /// window's <see cref="ContentControl.Content"/> - a <see cref="Window"/> is its own top-level
+    /// platform surface and cannot be nested inside one - but walks the exact same visual tree and
+    /// applies the exact same rule.
+    /// </summary>
+    public static IReadOnlyList<string> FindInputsWithoutVisibleLabel(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        try
+        {
+            window.Show();
+
+            return Inspect(window);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static List<string> Inspect(Visual root) =>
+        root.GetVisualDescendants()
+            .OfType<Control>()
+            .Where(IsInspectableInput)
+            .Where(input => !HasVisibleLabel(input))
+            .Select(Describe)
+            .ToList();
 
     private static bool IsInspectableInput(Control control) => control is TextBox or ComboBox;
 

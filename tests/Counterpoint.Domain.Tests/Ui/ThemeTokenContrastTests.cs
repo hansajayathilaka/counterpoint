@@ -35,8 +35,14 @@ public sealed class ThemeTokenContrastTests
     private static readonly XNamespace AvaloniaNamespace = "https://github.com/avaloniaui";
     private static readonly XNamespace XamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
 
-    /// <summary>Every foreground-on-background pair a Light/Dark token set must keep legible.</summary>
-    private static readonly (string Foreground, string Background)[] TextPairs =
+    /// <summary>
+    /// Every foreground-on-background pair a Light/Dark token set must keep legible. Internal, not
+    /// private: task P3-T16's <see cref="AC21_EveryScreenIsLegibleInBothThemes"/> reuses this
+    /// exact list (and <see cref="LoadPalette"/>/<see cref="ContrastRatio"/> below) as its
+    /// consolidated, repository-wide acceptance gate, rather than a second, divergently-scoped
+    /// copy of the same pairs.
+    /// </summary>
+    internal static readonly (string Foreground, string Background)[] TextPairs =
     [
         ("PrimaryTextBrush", "WindowBackgroundBrush"),
         ("PrimaryTextBrush", "PanelBackgroundBrush"),

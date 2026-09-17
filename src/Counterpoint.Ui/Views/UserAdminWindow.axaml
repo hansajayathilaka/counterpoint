@@ -11,38 +11,25 @@
         WindowStartupLocation="CenterOwner"
         Title="Counterpoint - users">
 
-  <!-- No styling, on purpose. Owner-only, and the Application layer is what makes that true. -->
+  <!--
+    Owner-only, and the Application layer is what makes that true. Task P3-T16 (SRS UI-05, UI-06,
+    UI-15, AC-22, AC-23): the old always-visible "Add a user" inline form and the inline
+    reset-password box are gone, replaced by New and Reset password commands that open the shared
+    EditDialogWindow shell through IDialogService, hosting UserEditViewModel - the same pattern
+    task P3-T11/P3-T15 already converted every catalogue tab onto. Turning an account on or off
+    stays an inline action, the same choice task P3-T15 made for CategoryTabViewModel's own
+    toggle-active button: there is no ambiguous New/Edit/Delete shape to it.
+  -->
   <DockPanel Margin="12">
 
     <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding Status}" />
 
     <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="6">
 
-      <TextBlock Text="Selected user" FontSize="16" />
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Turn on / off"
-                Command="{Binding ToggleActiveCommand}"
-                IsEnabled="{Binding !Busy}" />
-        <TextBox Width="160"
-                 PasswordChar="•"
-                 Watermark="New password"
-                 Text="{Binding ReplacementPassword}">
-          <TextBox.KeyBindings>
-            <KeyBinding Gesture="Enter" Command="{Binding ResetPasswordCommand}" />
-          </TextBox.KeyBindings>
-        </TextBox>
-        <Button Content="Reset password"
-                Command="{Binding ResetPasswordCommand}"
-                IsEnabled="{Binding !Busy}" />
-      </StackPanel>
-
-      <TextBlock Margin="0,8,0,0" Text="Add a user" FontSize="16" />
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBox Width="140" Watermark="Username" Text="{Binding NewUsername}" />
-        <TextBox Width="180" Watermark="Name on screen" Text="{Binding NewDisplayName}" />
-        <TextBox Width="140" PasswordChar="•" Watermark="Password" Text="{Binding NewPassword}" />
-        <CheckBox Content="Owner" IsChecked="{Binding NewUserIsOwner}" />
-        <Button Content="Create" Command="{Binding CreateCommand}" IsEnabled="{Binding !Busy}" />
+        <Button Content="_New user" Command="{Binding NewUserDialogCommand}" IsEnabled="{Binding !Busy}" />
+        <Button Content="_Reset password" Command="{Binding ResetPasswordDialogCommand}" IsEnabled="{Binding !Busy}" />
+        <Button Content="Turn on / off" Command="{Binding ToggleActiveCommand}" IsEnabled="{Binding !Busy}" />
       </StackPanel>
 
     </StackPanel>

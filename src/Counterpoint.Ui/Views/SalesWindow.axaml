@@ -92,17 +92,25 @@
 
       <DockPanel Grid.Column="0">
 
-        <!-- SRS FR-3.1: the cursor starts here; the code-behind also gives it focus on load and
-             after every scan. -->
-        <TextBox DockPanel.Dock="Top"
-                 Name="ScanBox"
-                 FontSize="20"
-                 Watermark="Scan or type a barcode, then press Enter"
-                 Text="{Binding Barcode}">
-          <TextBox.KeyBindings>
-            <KeyBinding Gesture="Enter" Command="{Binding ScanCommand}" />
-          </TextBox.KeyBindings>
-        </TextBox>
+        <!--
+          SRS FR-3.1: the cursor starts here; the code-behind also gives it focus on load and
+          after every scan. Task P3-T16 (SRS UI-14, AC-22): a persistent label above the box,
+          wired to it via AutomationProperties.LabeledBy in the code-behind rather than a P3-T12
+          LabeledField, so ScanBox's own name and every existing focus/scanner-filter reference to
+          it (SalesWindow.axaml.cs) stays exactly as task P3-T14 proved it - this box's Watermark
+          alone was the one field task P3-T14's own retrofit missed.
+        -->
+        <StackPanel DockPanel.Dock="Top" Spacing="2">
+          <TextBlock Name="ScanBoxLabel" Text="Scan or type a barcode" Foreground="{DynamicResource SecondaryTextBrush}" />
+          <TextBox Name="ScanBox"
+                   FontSize="20"
+                   Watermark="Scan or type a barcode, then press Enter"
+                   Text="{Binding Barcode}">
+            <TextBox.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding ScanCommand}" />
+            </TextBox.KeyBindings>
+          </TextBox>
+        </StackPanel>
 
         <!-- SRS UI-03: the running total is the most prominent element on the screen. -->
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBackgroundBrush}" Margin="0,10,0,0" Padding="16">

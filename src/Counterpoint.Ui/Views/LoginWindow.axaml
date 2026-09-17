@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Counterpoint.Ui.ViewModels"
+        xmlns:controls="using:Counterpoint.Ui.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="320"
@@ -11,34 +12,45 @@
         WindowStartupLocation="CenterScreen"
         Title="Counterpoint - sign in">
 
-  <!-- No styling, on purpose, and keyboard first: Enter signs in from either box (C-04). -->
+  <!--
+    Keyboard first: Enter signs in from either box (C-04). Task P3-T16 (SRS UI-06, UI-14, AC-22):
+    the username field is a P3-T12 LabeledTextField; the two password boxes keep a plain
+    TextBox/TextBlock pair wired to AutomationProperties.LabeledBy in the code-behind - the same
+    accepted fallback BackupSettingsView's own passphrase boxes use - because they need
+    PasswordChar masking, which the family does not offer. No colour of any kind here (there never
+    was one - this window has always drawn from the default Fluent theme, which already follows
+    the active Light/Dark variant), so there is nothing for the P3-T10 tokens to replace.
+  -->
   <StackPanel Margin="16" Spacing="8">
 
     <TextBlock Text="Counterpoint" FontSize="24" />
 
-    <TextBlock Text="Username" />
-    <TextBox Name="UsernameBox" Text="{Binding Username}">
-      <TextBox.KeyBindings>
+    <controls:LabeledTextField Name="UsernameField" Label="Username" Text="{Binding Username}">
+      <controls:LabeledTextField.KeyBindings>
         <KeyBinding Gesture="Enter" Command="{Binding SignInCommand}" />
-      </TextBox.KeyBindings>
-    </TextBox>
+      </controls:LabeledTextField.KeyBindings>
+    </controls:LabeledTextField>
 
-    <TextBlock Text="Password or PIN" />
-    <TextBox Name="PasswordBox" PasswordChar="•" Text="{Binding Password}">
-      <TextBox.KeyBindings>
-        <KeyBinding Gesture="Enter" Command="{Binding SignInCommand}" />
-        <KeyBinding Gesture="Ctrl+Enter" Command="{Binding SetOwnerPasswordCommand}" />
-      </TextBox.KeyBindings>
-    </TextBox>
+    <StackPanel Spacing="4">
+      <TextBlock Name="PasswordLabel" Text="Password or PIN" />
+      <TextBox Name="PasswordBox" PasswordChar="•" Text="{Binding Password}">
+        <TextBox.KeyBindings>
+          <KeyBinding Gesture="Enter" Command="{Binding SignInCommand}" />
+          <KeyBinding Gesture="Ctrl+Enter" Command="{Binding SetOwnerPasswordCommand}" />
+        </TextBox.KeyBindings>
+      </TextBox>
+    </StackPanel>
 
     <!-- Only on a database that has no usable credential yet. See LoginViewModel. -->
     <StackPanel Spacing="8" IsVisible="{Binding SetupRequired}">
-      <TextBlock Text="Type the password again" />
-      <TextBox Name="ConfirmPasswordBox" PasswordChar="•" Text="{Binding ConfirmPassword}">
-        <TextBox.KeyBindings>
-          <KeyBinding Gesture="Enter" Command="{Binding SetOwnerPasswordCommand}" />
-        </TextBox.KeyBindings>
-      </TextBox>
+      <StackPanel Spacing="4">
+        <TextBlock Name="ConfirmPasswordLabel" Text="Type the password again" />
+        <TextBox Name="ConfirmPasswordBox" PasswordChar="•" Text="{Binding ConfirmPassword}">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding SetOwnerPasswordCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+      </StackPanel>
       <Button Content="Set owner password"
               Command="{Binding SetOwnerPasswordCommand}"
               IsEnabled="{Binding !Busy}" />

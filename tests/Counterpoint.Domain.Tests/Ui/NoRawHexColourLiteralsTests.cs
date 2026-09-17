@@ -16,11 +16,18 @@ namespace Counterpoint.Domain.Tests.Ui;
 /// <remarks>
 /// <para>
 /// Originally scoped to exactly what task P3-T10 owned: <c>App.axaml</c> and the Settings tabs it
-/// adds a Display tab beside. Task P3-T14 extends this same policing to <c>SalesWindow.axaml</c>
+/// adds a Display tab beside. Task P3-T14 extended this same policing to <c>SalesWindow.axaml</c>
 /// and its extracted side panel, <c>SalesSidePanelView.axaml</c> - the two files that carried the
-/// "right side panel is not compatible with dark mode" defect this task exists to close. Every
-/// other hand-built window (<c>PurchaseOrderWindow.axaml</c>, ...) still has its own hardcoded hex
-/// today - an explicit gap left to P3-T15/P3-T16.
+/// "right side panel is not compatible with dark mode" defect this task exists to close.
+/// </para>
+/// <para>
+/// Task P3-T16 closes the gap left to it by name above: <see cref="UI_13_EveryViewAxamlUnderCounterpointUiHasNoRawHexColourLiteral"/>
+/// generalises every per-file test in this class into one repository-wide sweep of every
+/// <c>*.axaml</c> file under <c>src/Counterpoint.Ui/Views/</c> (recursively - catalogue and
+/// settings subfolders included), which is now the authoritative, superset check; the narrower
+/// tests above it are kept rather than deleted, as a named record of exactly which screens each
+/// earlier task closed out, and because a passing narrower test can never make the broader one
+/// fail.
 /// </para>
 /// <para>
 /// The two token files themselves (<c>Styles/Tokens.Light.axaml</c>,
@@ -89,6 +96,58 @@ public sealed class NoRawHexColourLiteralsTests
             + "the confirmed \"side panel is not compatible with dark mode\" defect). Offenders: "
             + string.Join("; ", offenders));
     }
+
+    /// <summary>
+    /// Task P3-T16's repository-wide gate (SRS UI-13, NFR-U4): every <c>*.axaml</c> file anywhere
+    /// under <c>src/Counterpoint.Ui/Views/</c>, walked recursively rather than named one directory
+    /// at a time, so a window added after this task still has to pass it. The one exclusion is
+    /// <c>Styles/Tokens.*.axaml</c> - outside <c>Views/</c> entirely, so the recursive walk never
+    /// reaches it, and it is where every hex value in the whole application is required to live.
+    /// </summary>
+    [Fact]
+    public void UI_13_EveryViewAxamlUnderCounterpointUiHasNoRawHexColourLiteral()
+    {
+        var files = AllViewAxamlFiles();
+        var offenders = new List<string>();
+
+        foreach (var file in files)
+        {
+            offenders.AddRange(FindOffences(file));
+        }
+
+        offenders.Should().BeEmpty(
+            "every screen under src/Counterpoint.Ui/Views/ must reference a semantic "
+            + "DynamicResource key from Styles/Tokens.Light.axaml/Tokens.Dark.axaml, never a hex "
+            + "literal (SRS UI-13, NFR-U4). Offenders: " + string.Join("; ", offenders));
+
+        files.Should().HaveCountGreaterOrEqualTo(
+            30, "every catalogue tab/dialog, every settings tab, the sales screen, the back-office "
+                + "shell and every other hand-built window live under this one directory tree");
+    }
+
+    /// <summary>
+    /// Internal, not private: <see cref="AC21_EveryScreenIsLegibleInBothThemes"/> reuses this
+    /// exact file walk rather than a second, divergently-scoped copy of it.
+    /// </summary>
+    internal static FileInfo[] AllViewAxamlFiles()
+    {
+        var directory = new DirectoryInfo(
+            Path.Combine(RepositoryRoot().FullName, "src", "Counterpoint.Ui", "Views"));
+
+        directory.Exists.Should().BeTrue("the Views directory must exist at {0}", directory.FullName);
+
+        var files = directory.GetFiles("*.axaml", SearchOption.AllDirectories);
+
+        files.Should().NotBeEmpty("there must be views to police");
+
+        return files;
+    }
+
+    /// <summary>
+    /// Internal, not private: <see cref="AC21_EveryScreenIsLegibleInBothThemes"/> reuses this
+    /// exact offence scan rather than a second, divergently-scoped copy of it.
+    /// </summary>
+    internal static IEnumerable<string> FindHexOffences(FileInfo file) => FindOffences(file);
 
     private static IEnumerable<string> FindOffences(FileInfo file)
     {

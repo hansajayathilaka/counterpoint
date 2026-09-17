@@ -1,4 +1,5 @@
 using System;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -73,6 +74,10 @@ public partial class SalesWindow : Window
 
         AddHandler(TextInputEvent, OnPreviewTextInput, RoutingStrategies.Tunnel);
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+
+        // Task P3-T16 (SRS UI-14, AC-22): ScanBox's persistent label, wired the same accepted
+        // fallback way BackupSettingsView's own passphrase boxes are.
+        AutomationProperties.SetLabeledBy(ScanBox, ScanBoxLabel);
 
         // SRS FR-3.1: "the cursor placed in the scan/search field by default."
         Opened += (_, _) => ScanBox.Focus();

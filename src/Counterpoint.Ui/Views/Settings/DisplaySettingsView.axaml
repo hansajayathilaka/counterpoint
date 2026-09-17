@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
@@ -25,10 +26,10 @@
                  Foreground="{DynamicResource PrimaryTextBrush}"
                  Text="Which visual theme the till trades in." />
 
-      <TextBlock Text="Theme" Foreground="{DynamicResource PrimaryTextBrush}" />
-      <ComboBox Width="280" HorizontalAlignment="Left"
-                ItemsSource="{Binding ThemeVariantChoices}"
-                SelectedItem="{Binding ThemeVariantChoice}" />
+      <controls:LabeledComboField Width="280" HorizontalAlignment="Left"
+                                   Label="Theme"
+                                   ItemsSource="{Binding ThemeVariantChoices}"
+                                   SelectedItem="{Binding ThemeVariantChoice}" />
 
       <TextBlock TextWrapping="Wrap" FontSize="12"
                  Foreground="{DynamicResource SecondaryTextBrush}"
