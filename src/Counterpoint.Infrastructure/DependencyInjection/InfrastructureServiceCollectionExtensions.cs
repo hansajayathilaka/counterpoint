@@ -63,6 +63,15 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton(provider =>
             BackupPassphraseStoreFactory.Create(provider.GetRequiredService<PosDataDirectory>()));
 
+        // P4-T01: each off-site backup target's own credential (S3 keys, a Drive refresh token,
+        // a NAS folder path), kept out of app_setting for the same reason as the passphrase
+        // above, and keyed so switching targets does not lose the one left behind (SRS FR-11.5,
+        // NFR-S6). Registered as the concrete type for the same reason
+        // BackupPassphraseStoreFactory's result is: only the role-decorated
+        // IBackupTargetCredentialStore is handed out elsewhere (SRS NFR-S2, AC-17).
+        services.AddSingleton(provider =>
+            BackupTargetCredentialStoreFactory.Create(provider.GetRequiredService<PosDataDirectory>()));
+
         services.AddSingleton<PosConnectionFactory>();
         services.AddSingleton<IPosConnectionFactory>(provider =>
             provider.GetRequiredService<PosConnectionFactory>());

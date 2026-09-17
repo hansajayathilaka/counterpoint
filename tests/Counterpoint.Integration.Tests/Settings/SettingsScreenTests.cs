@@ -330,6 +330,91 @@ public sealed class SettingsScreenTests
     }
 
     [Fact]
+    public async Task P4_T01_ANewOffSiteCredentialGoesToTheProtectedCredentialStoreAndNotIntoTheDatabase()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var credentials = fixture.Resolve<IBackupTargetCredentialStore>();
+
+        using var screen = Open(fixture);
+        screen.Backup.CloudTargetChoice.Should().Be("Google Drive", "Q-D's default");
+        credentials.HasCredential(BackupTargetCredentialKey.GoogleDrive).Should().BeFalse();
+
+        screen.Backup.NewCredential = "{\"refreshToken\":\"1//fake\",\"clientId\":\"x\",\"clientSecret\":\"y\"}";
+
+        await screen.SaveCommand.ExecuteAsync(null);
+
+        screen.Status.Should().Contain("off-site credential has been replaced");
+        credentials.HasCredential(BackupTargetCredentialKey.GoogleDrive).Should().BeTrue();
+        screen.Backup.NewCredential.Should().BeEmpty("a credential is not left sitting in a box");
+
+        (await fixture.CountAsync(
+            "SELECT COUNT(*) FROM app_setting WHERE value LIKE '%fake%';"))
+            .Should().Be(0, "NFR-S6: the credential never goes into app_setting");
+    }
+
+    [Fact]
+    public async Task P4_T01_SwitchingTheOffSiteTargetAndSavingItsCredentialKeepsThePreviousTargetsCredentialUntouched()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var credentials = fixture.Resolve<IBackupTargetCredentialStore>();
+
+        using var firstScreen = Open(fixture);
+        firstScreen.Backup.NewCredential = "{\"refreshToken\":\"1//fake\",\"clientId\":\"x\",\"clientSecret\":\"y\"}";
+        await firstScreen.SaveCommand.ExecuteAsync(null);
+
+        // A second, later session switches the target - the settings screen re-reads on open
+        // (Load), and the picker shows whatever CloudTargetChoice was saved.
+        using var secondScreen = Open(fixture);
+        secondScreen.Backup.CloudTargetChoice = "Local folder / NAS";
+        secondScreen.Backup.NewCredential = System.IO.Path.GetTempPath();
+        await secondScreen.SaveCommand.ExecuteAsync(null);
+
+        credentials.HasCredential(BackupTargetCredentialKey.LocalFolder).Should().BeTrue();
+        credentials.HasCredential(BackupTargetCredentialKey.GoogleDrive).Should().BeTrue(
+            "switching away from a target must not discard its credential - switching back must find it there");
+    }
+
+    [Fact]
+    public async Task P4_T01_TestConnectionWorksFromTheSettingsScreenWithNoSaveAndNoRestart()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync(includeBackup: true);
+        using var screen = Open(fixture);
+
+        screen.Backup.CanTestConnection.Should().BeTrue();
+
+        // A writable local folder, typed but never saved - proving the connection test works
+        // against what is in the box right now, and that switching the target picker (Drive to
+        // Local folder) took effect on the very next call with nothing resembling a restart.
+        var folder = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(), "counterpoint-test-connection-" + System.Guid.NewGuid().ToString("N"));
+
+        screen.Backup.CloudTargetChoice = "Local folder / NAS";
+        screen.Backup.NewCredential = folder;
+
+        await screen.Backup.TestConnectionCommand.ExecuteAsync(null);
+
+        screen.Backup.TestConnectionStatus.Should().NotBeNullOrWhiteSpace();
+        screen.Backup.TestConnectionStatus.Should().NotContain("failed");
+
+        (await fixture.CountAsync("SELECT COUNT(*) FROM app_setting WHERE value LIKE '%counterpoint-test-connection%';"))
+            .Should().Be(0, "testing a connection must never save anything");
+    }
+
+    [Fact]
+    public async Task P4_T01_AWrongCredentialProducesAClearMessageFromTheSettingsScreen()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync(includeBackup: true);
+        using var screen = Open(fixture);
+
+        screen.Backup.CloudTargetChoice = "S3-compatible storage (GCS / R2 / B2 / bucket)";
+        screen.Backup.NewCredential = "this is not valid json";
+
+        await screen.Backup.TestConnectionCommand.ExecuteAsync(null);
+
+        screen.Backup.TestConnectionStatus.Should().Contain("Connection failed");
+    }
+
+    [Fact]
     public async Task FR_10_TheEightGroupsAreTheEightGroupsFR10Names()
     {
         await using var fixture = await SaleFixture.CreateSignedInAsync();
@@ -536,7 +621,14 @@ public sealed class SettingsScreenTests
             fixture.Resolve<ISettings>(),
             fixture.Resolve<IBackupPassphraseStore>(),
             run => run(),
-            fixture.Resolve<IReceiptTemplatePreviewService>());
+            fixture.Resolve<IReceiptTemplatePreviewService>(),
+            manualBackup: null,
+            fixture.Resolve<IBackupTargetCredentialStore>(),
+
+            // Only present when the fixture was built with includeBackup: true - most of this
+            // file's tests do not need Counterpoint.Backup wired at all, exactly like
+            // manualBackup above.
+            fixture.TryResolve<Counterpoint.Application.Abstractions.Backup.IBackupTargetConnectionTester>());
 
         screen.LoadCommand.Execute(null);
         return screen;

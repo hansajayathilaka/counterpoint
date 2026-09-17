@@ -92,6 +92,8 @@ internal static class SettingTokens
     internal static string From(CloudBackupTarget value) => value switch
     {
         CloudBackupTarget.GoogleDrive => "GOOGLE_DRIVE",
+        CloudBackupTarget.S3Compatible => "S3_COMPATIBLE",
+        CloudBackupTarget.LocalFolder => "LOCAL_FOLDER",
         _ => "NONE",
     };
 
@@ -99,6 +101,8 @@ internal static class SettingTokens
     {
         "NONE" => CloudBackupTarget.None,
         "GOOGLE_DRIVE" => CloudBackupTarget.GoogleDrive,
+        "S3_COMPATIBLE" => CloudBackupTarget.S3Compatible,
+        "LOCAL_FOLDER" => CloudBackupTarget.LocalFolder,
         _ => fallback,
     };
 

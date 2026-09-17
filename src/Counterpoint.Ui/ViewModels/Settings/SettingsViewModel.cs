@@ -44,6 +44,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
 {
     private readonly ISettings _settings;
     private readonly IBackupPassphraseStore _passphrases;
+    private readonly IBackupTargetCredentialStore? _targetCredentials;
     private readonly Action<Action> _onUiThread;
 
     /// <summary>The settings the boxes were last filled from. What "changed" is measured against.</summary>
@@ -77,12 +78,22 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     /// <param name="manualBackup">
     /// The owner's "Backup now" button (SRS FR-11.2, P1-T15). Null runs the Backup tab without it.
     /// </param>
+    /// <param name="targetCredentials">
+    /// Where a newly typed off-site target credential is stored (SRS FR-11.5, P4-T01). Null runs
+    /// the Backup tab without saving one - the box still edits, but nothing is persisted.
+    /// </param>
+    /// <param name="connectionTester">
+    /// The off-site target's "Test connection" button (SRS FR-11.5, P4-T01). Null runs the Backup
+    /// tab without one.
+    /// </param>
     public SettingsViewModel(
         ISettings settings,
         IBackupPassphraseStore passphrases,
         Action<Action> onUiThread,
         IReceiptTemplatePreviewService? preview = null,
-        IManualBackupTrigger? manualBackup = null)
+        IManualBackupTrigger? manualBackup = null,
+        IBackupTargetCredentialStore? targetCredentials = null,
+        IBackupTargetConnectionTester? connectionTester = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(passphrases);
@@ -90,10 +101,11 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
 
         _settings = settings;
         _passphrases = passphrases;
+        _targetCredentials = targetCredentials;
         _onUiThread = onUiThread;
 
         Receipt = preview is null ? new ReceiptSettingsViewModel() : new ReceiptSettingsViewModel(preview);
-        Backup = new BackupSettingsViewModel(manualBackup);
+        Backup = new BackupSettingsViewModel(manualBackup, connectionTester);
         Backup.RestoreRequested += (_, e) => RestoreWizardRequested?.Invoke(this, e);
 
         Groups = [Shop, Financial, Tax, Numbering, Policy, Peripherals, Backup, Receipt];
@@ -203,10 +215,29 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
                 await _settings.LoadAsync(cancellationToken).ConfigureAwait(true);
             }
 
+            // Same ordering reasoning as the passphrase above: the settings save (which chose
+            // which target is now in force) has already succeeded, so storing the credential
+            // afterwards cannot leave app_setting naming a target with no credential behind it
+            // for longer than this one call.
+            var credentialStored = false;
+            if (_targetCredentials is not null
+                && Backup.HasCredentialToStore
+                && Backup.SelectedCloudTarget != CloudBackupTarget.None)
+            {
+                _targetCredentials.SetCredential(
+                    BackupTargetCredentialKey.For(Backup.SelectedCloudTarget), Backup.NewCredential);
+                Backup.ClearCredentialEntry();
+                credentialStored = true;
+            }
+
             Load();
-            Status = passphraseStored
-                ? "Saved. The backup passphrase has been replaced."
-                : "Saved.";
+            Status = (passphraseStored, credentialStored) switch
+            {
+                (true, true) => "Saved. The backup passphrase and the off-site credential have both been replaced.",
+                (true, false) => "Saved. The backup passphrase has been replaced.",
+                (false, true) => "Saved. The off-site credential has been replaced.",
+                (false, false) => "Saved.",
+            };
         }
         catch (NotAuthorisedException exception)
         {
@@ -308,9 +339,12 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     {
         _discardConfirmed = false;
 
-        // Record equality, group by group. A passphrase waiting to be stored counts as an unsaved
-        // change even though it is not part of the snapshot, because it is one.
-        HasUnsavedChanges = Build() != _loaded || Backup.NewPassphrase.Length > 0;
+        // Record equality, group by group. A passphrase or off-site credential waiting to be
+        // stored counts as an unsaved change even though neither is part of the snapshot, because
+        // each one is a change.
+        HasUnsavedChanges = Build() != _loaded
+            || Backup.NewPassphrase.Length > 0
+            || Backup.NewCredential.Length > 0;
     }
 
     /// <summary>

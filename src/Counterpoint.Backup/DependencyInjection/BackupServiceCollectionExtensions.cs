@@ -1,9 +1,11 @@
 using System;
+using System.Net.Http;
 using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Security;
 using Counterpoint.Backup.Orchestration;
 using Counterpoint.Backup.Restore;
 using Counterpoint.Backup.Snapshots;
+using Counterpoint.Backup.Targets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -82,6 +84,17 @@ public static class BackupServiceCollectionExtensions
         services.AddSingleton<IGuidedRestoreService>(p => RoleAuthorisation.Decorate<IGuidedRestoreService>(
             p.GetRequiredService<GuidedRestoreService>(),
             p.GetRequiredService<ISession>()));
+
+        // P4-T01: the off-site backup target abstraction (SRS FR-11.5, Q-09, SAD ADR-003). One
+        // HttpClient shared by every target implementation this project builds - a POS backup
+        // upload is occasional and small at this shop's scale, so a single client is simplicity
+        // over throughput, and it carries the framework's default TLS certificate validation
+        // untouched (CLAUDE.md, this task's own item 5: never disable it). No role requirement -
+        // IBackupTargetConnectionTester only ever reads a credential far enough to try one round
+        // trip and never returns it (see that interface's own remarks).
+        services.TryAddSingleton<HttpClient>();
+        services.AddSingleton<BackupTargetFactory>();
+        services.AddSingleton<IBackupTargetConnectionTester, BackupTargetConnectionTester>();
 
         return services;
     }

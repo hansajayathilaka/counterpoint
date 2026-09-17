@@ -29,9 +29,19 @@
       <TextBox Text="{Binding UsbPath}" />
 
       <TextBlock Text="Off-site copy" />
-      <ComboBox Width="240" HorizontalAlignment="Left"
+      <ComboBox Width="320" HorizontalAlignment="Left"
                 ItemsSource="{Binding CloudTargetChoices}"
                 SelectedItem="{Binding CloudTargetChoice}" />
+
+      <TextBlock TextWrapping="Wrap" Text="{Binding CredentialHint}" />
+      <TextBox Width="420" HorizontalAlignment="Left"
+               PasswordChar="•" Text="{Binding NewCredential}" />
+
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="_Test connection" Command="{Binding TestConnectionCommand}"
+                IsVisible="{Binding CanTestConnection}" IsEnabled="{Binding !TestConnectionBusy}" />
+      </StackPanel>
+      <TextBlock TextWrapping="Wrap" Text="{Binding TestConnectionStatus}" />
 
       <TextBlock Text="Account the off-site copy is uploaded as" />
       <TextBox Text="{Binding CloudAccount}" />

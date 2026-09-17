@@ -233,6 +233,32 @@ public sealed class SettingDefaultsTests
                 "app_setting lives inside the database the backup is a copy of (NFR-S6)");
     }
 
+    /// <summary>
+    /// P4-T01 added <see cref="CloudBackupTarget.S3Compatible"/> and
+    /// <see cref="CloudBackupTarget.LocalFolder"/> - every member, old and new, must round-trip
+    /// through the same row a shop's chosen off-site target is persisted as.
+    /// </summary>
+    [Fact]
+    public void P4_T01_EveryCloudBackupTargetMemberRoundTripsThroughASettingsRow()
+    {
+        foreach (var target in Enum.GetValues<CloudBackupTarget>())
+        {
+            var edited = SettingDefaults.Snapshot with
+            {
+                Backup = SettingDefaults.Backup with { CloudTarget = target },
+            };
+
+            var stored = SettingsSerializer.ToRows(edited).ToDictionary(
+                row => row.Key,
+                row => new StoredSetting(row.Value, row.ValueType),
+                StringComparer.Ordinal);
+
+            var restored = SettingsSerializer.FromRows(stored, SettingDefaults.Snapshot);
+
+            restored.Backup.CloudTarget.Should().Be(target, "every CloudBackupTarget member must survive being stored and read back");
+        }
+    }
+
     [Fact]
     public void FR_10_1_to_10_8_ASettingSurvivesTheRoundTripToRowsAndBack()
     {
