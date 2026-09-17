@@ -93,4 +93,18 @@ public sealed class Session : ISession
             _shiftId = shiftId;
         }
     }
+
+    /// <summary>
+    /// Clears the shift a session was trading in, without signing the user out. Called only by
+    /// <see cref="Counterpoint.Application.Shifts.CloseShiftHandler"/>, after the close has
+    /// committed, so the till reads "no open shift" immediately rather than only after a fresh
+    /// sign-in re-reads it from the database (task P3-T03, mirrors <see cref="SetShiftId"/>).
+    /// </summary>
+    internal void ClearShiftId()
+    {
+        lock (_gate)
+        {
+            _shiftId = null;
+        }
+    }
 }

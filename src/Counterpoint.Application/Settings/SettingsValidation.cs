@@ -58,6 +58,7 @@ public static class SettingsValidation
         ReasonList(snapshot.Policy.CashInReasons, "cash-in");
         ReasonList(snapshot.Policy.CashOutReasons, "cash-out");
         NotNegative(snapshot.Policy.CashOutAuthorisationThreshold, "The cash-out authorisation threshold");
+        NotNegative(snapshot.Policy.ShiftCloseVarianceNoteThreshold, "The shift-close variance note threshold");
 
         Range(snapshot.Peripherals.PaperWidthMm, 1, 210, "The paper width, in millimetres");
         Range(snapshot.Peripherals.ReceiptCopies, 1, 9, "The number of receipt copies");

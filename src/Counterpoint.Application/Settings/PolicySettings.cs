@@ -90,6 +90,12 @@ namespace Counterpoint.Application.Settings;
 /// not mean "no limit" here - it means every cash-out, however small, needs authorising, which is a
 /// shop's own valid (if strict) choice, not a state this setting refuses to represent.
 /// </param>
+/// <param name="ShiftCloseVarianceNoteThreshold">
+/// The absolute cash variance, in scaled money, above which <c>ICloseShift</c> refuses to close a
+/// shift without a note explaining it (SRS FR-8.4, task P3-T03 "Do this" #1). The same
+/// "zero does not mean no limit" convention <see cref="CashOutAuthorisationThreshold"/> already
+/// uses - zero means every non-zero variance, however small, needs a note.
+/// </param>
 public sealed record PolicySettings(
     int ReturnWindowDays,
     bool AllowUnlinkedReturns,
@@ -107,7 +113,8 @@ public sealed record PolicySettings(
     Money AdjustmentGrnWarningThreshold,
     IReadOnlyList<string> CashInReasons,
     IReadOnlyList<string> CashOutReasons,
-    Money CashOutAuthorisationThreshold)
+    Money CashOutAuthorisationThreshold,
+    Money ShiftCloseVarianceNoteThreshold)
 {
     /// <summary>
     /// Value equality for every field, <see cref="NonReturnableCategoryIds"/> included.
@@ -139,7 +146,8 @@ public sealed record PolicySettings(
         && AdjustmentGrnWarningThreshold == other.AdjustmentGrnWarningThreshold
         && CashInReasons.SequenceEqual(other.CashInReasons, StringComparer.Ordinal)
         && CashOutReasons.SequenceEqual(other.CashOutReasons, StringComparer.Ordinal)
-        && CashOutAuthorisationThreshold == other.CashOutAuthorisationThreshold;
+        && CashOutAuthorisationThreshold == other.CashOutAuthorisationThreshold
+        && ShiftCloseVarianceNoteThreshold == other.ShiftCloseVarianceNoteThreshold;
 
     /// <inheritdoc cref="Equals(PolicySettings?)" />
     public override int GetHashCode()
@@ -184,6 +192,7 @@ public sealed record PolicySettings(
         }
 
         hash.Add(CashOutAuthorisationThreshold);
+        hash.Add(ShiftCloseVarianceNoteThreshold);
 
         return hash.ToHashCode();
     }
