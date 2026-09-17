@@ -88,20 +88,14 @@ public sealed class GoogleDriveTargetTests
     }
 
     [Fact]
-    public async Task P4_T01_AFolderIdContainingABackslashIsNotEscapedForDrivesQueryLanguageDocumentedGap()
+    public async Task P4_T01_AFolderIdContainingABackslashIsDoubledForDrivesQueryLanguage()
     {
-        // GoogleDriveTarget.EscapeForQuery only escapes a literal single quote ('  ->  \') for
-        // Drive's query language - it never escapes a literal backslash. Drive's own query grammar
-        // uses backslash as ITS escape character, so a folder id containing one (unusual, but not
-        // impossible - an operator could type or paste one when connecting the account) produces a
-        // query fragment where that backslash is sent through unescaped, rather than doubled to
-        // '\\' the way a correct escaper would. This test documents today's actual behaviour - the
-        // raw backslash reaching the request exactly as typed - without asserting that behaviour
-        // is desirable; it is a narrow, operator-configuration-only gap (the folder id is typed
-        // once at setup, not end-user input reachable during trading) reported to the task owner
-        // rather than silently fixed here, since correcting Drive query-language escaping is a
-        // production-code decision outside a test-coverage review's scope.
+        // Drive's query grammar uses backslash as its own escape character, so
+        // GoogleDriveTarget.EscapeForQuery must double a literal backslash (\ -> \\) before it
+        // escapes a literal single quote (' -> \'), or the folder id's backslash would consume
+        // the character that follows it - including the closing quote - and corrupt the query.
         const string folderIdWithBackslash = """shop\backups""";
+        const string expectedEscapedFolderId = """shop\\backups""";
         var credentialWithBackslashFolder = Credential with { FolderId = folderIdWithBackslash };
 
         var handler = new FakeHttpMessageHandler()
@@ -115,9 +109,9 @@ public sealed class GoogleDriveTargetTests
             handler.Requests[1].RequestUri!.Query.Split("q=", 2)[1].Split('&')[0]);
 
         sentQuery.Should().Be(
-            $"trashed = false and '{folderIdWithBackslash}' in parents",
-            "today's EscapeForQuery leaves a literal backslash in the folder id untouched, instead "
-            + "of doubling it to '\\\\' the way Drive's own query-language escaping rules require");
+            $"trashed = false and '{expectedEscapedFolderId}' in parents",
+            "EscapeForQuery must double a literal backslash in the folder id before escaping the "
+            + "surrounding quote, matching Drive's own query-language escaping rules");
     }
 
     [Fact]
