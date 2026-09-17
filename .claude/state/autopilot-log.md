@@ -360,3 +360,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-17T06:33:56Z` **P3-T03** start — Z report, shift close and rollups
+- `2026-09-17T07:38:34Z` **P3-T03** fix-attempt — 1: IRollupConsistencyCheck only verifies daily_sales_summary, never daily_product_summary - extending it to cover both rollup tables per the task's own recompute-and-compare requirement
