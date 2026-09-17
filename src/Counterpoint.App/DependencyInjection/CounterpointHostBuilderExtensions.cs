@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia.Threading;
+using Counterpoint.App.Services;
 using Counterpoint.Application.Abstractions.Backup;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Security;
@@ -26,6 +27,7 @@ using Counterpoint.Domain.Services;
 using Counterpoint.Infrastructure.Data;
 using Counterpoint.Infrastructure.DependencyInjection;
 using Counterpoint.Reporting.DependencyInjection;
+using Counterpoint.Ui.Services;
 using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
@@ -221,6 +223,11 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<SalesViewModel>();
         builder.Services.AddSingleton<UserAdminViewModel>();
         builder.Services.AddSingleton<FirstRunWizardViewModel>();
+
+        // P3-T11: the one shared add/edit/delete dialog shell (SRS UI-05, UI-06, UI-15, AC-23).
+        // Counterpoint.Ui only sees the interface; the concrete Avalonia implementation is
+        // composed here, alongside every other adapter (CLAUDE.md "Project boundaries").
+        builder.Services.AddSingleton<IDialogService, AvaloniaDialogService>();
 
         // P1-T04: the catalogue reference-data screen, one tab viewmodel per entity, composed
         // into one CatalogueViewModel (SRS FR-2.20, FR-2.21, FR-6).

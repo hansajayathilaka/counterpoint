@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="380" d:DesignHeight="140"
+             x:Class="Counterpoint.Ui.Views.Catalogue.CategoryEditView"
+             x:DataType="vm:CategoryEditViewModel">
+
+  <!--
+    Task P3-T11's proof-of-concept content: the fields task P3-T12's LabeledField control will
+    later upgrade (out of this task's scope, per its own risk note) - persistent TextBlock labels
+    rather than a watermark-only field, so the label stays visible once the field holds a value
+    (a P3-T12 concern this view does not otherwise take on).
+  -->
+  <StackPanel Spacing="12">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Category name" Foreground="{DynamicResource SecondaryTextBrush}" />
+      <TextBox Name="NameBox" Text="{Binding Name}" />
+    </StackPanel>
+    <StackPanel Spacing="4">
+      <TextBlock Text="Parent category" Foreground="{DynamicResource SecondaryTextBrush}" />
+      <ComboBox ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding SelectedParent}" HorizontalAlignment="Stretch" />
+    </StackPanel>
+  </StackPanel>
+
+</UserControl>
