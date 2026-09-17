@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
@@ -10,34 +11,35 @@
   <!--
     FR-10.2. Changing the decimal places changes every displayed and printed amount as soon as
     this saves - no restart. The number boxes drop anything that is not a digit, silently (UI-10).
+    Task P3-T15 (SRS UI-06, UI-14, AC-22): every field is a persistent-label P3-T12 LabeledField.
   -->
   <ScrollViewer>
-    <StackPanel Margin="12" Spacing="6">
+    <StackPanel Margin="12" Spacing="12">
 
       <TextBlock Text="The currency the shop trades in, and how amounts are rounded."
                  TextWrapping="Wrap" />
 
-      <TextBlock Text="Currency code" />
-      <TextBox Width="140" HorizontalAlignment="Left" Text="{Binding CurrencyCode}" />
+      <controls:LabeledTextField Name="CurrencyCodeField" Width="140" HorizontalAlignment="Left"
+                                  Label="Currency code" Text="{Binding CurrencyCode}" />
 
-      <TextBlock Text="Currency symbol" />
-      <TextBox Width="140" HorizontalAlignment="Left" Text="{Binding CurrencySymbol}" />
+      <controls:LabeledTextField Name="CurrencySymbolField" Width="140" HorizontalAlignment="Left"
+                                  Label="Currency symbol" Text="{Binding CurrencySymbol}" />
 
-      <TextBlock Text="Where the symbol goes" />
-      <ComboBox Width="280" HorizontalAlignment="Left"
-                ItemsSource="{Binding SymbolPositionChoices}"
-                SelectedItem="{Binding SymbolPositionChoice}" />
+      <controls:LabeledComboField Name="SymbolPositionField" Width="280" HorizontalAlignment="Left"
+                                   Label="Where the symbol goes"
+                                   ItemsSource="{Binding SymbolPositionChoices}"
+                                   SelectedItem="{Binding SymbolPositionChoice}" />
 
-      <TextBlock Text="Decimal places on an amount" />
-      <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding DecimalPlaces}" />
+      <controls:LabeledNumericField Name="DecimalPlacesField" Width="80" HorizontalAlignment="Left"
+                                     Label="Decimal places on an amount" Text="{Binding DecimalPlaces}" />
 
-      <TextBlock Text="Rounding rule" />
-      <ComboBox Width="440" HorizontalAlignment="Left"
-                ItemsSource="{Binding RoundingRuleChoices}"
-                SelectedItem="{Binding RoundingRuleChoice}" />
+      <controls:LabeledComboField Name="RoundingRuleField" Width="440" HorizontalAlignment="Left"
+                                   Label="Rounding rule"
+                                   ItemsSource="{Binding RoundingRuleChoices}"
+                                   SelectedItem="{Binding RoundingRuleChoice}" />
 
-      <TextBlock Text="Decimal places on a quantity" />
-      <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding QuantityDecimalPlaces}" />
+      <controls:LabeledNumericField Name="QuantityDecimalPlacesField" Width="80" HorizontalAlignment="Left"
+                                     Label="Decimal places on a quantity" Text="{Binding QuantityDecimalPlaces}" />
 
     </StackPanel>
   </ScrollViewer>

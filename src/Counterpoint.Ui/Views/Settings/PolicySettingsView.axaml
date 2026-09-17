@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
@@ -9,44 +10,51 @@
 
   <!--
     FR-10.5. Every later feature reads its limits from here. The amount and the three rates are a
-    Money and three Percentages behind the boxes; nothing on this screen rounds anything.
+    Money and three Percentages behind the boxes; nothing on this screen rounds anything. Task
+    P3-T15 (SRS UI-06, UI-14, AC-22): every field is a persistent-label P3-T12 LabeledField.
   -->
   <ScrollViewer>
-    <StackPanel Margin="12" Spacing="6">
+    <StackPanel Margin="12" Spacing="12">
 
       <TextBlock TextWrapping="Wrap"
                  Text="Returns, refunds, discount ceilings and what a sale does when stock runs out." />
 
-      <TextBlock Text="Return window, in days" />
-      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding ReturnWindowDays}" />
+      <controls:LabeledNumericField Name="ReturnWindowDaysField" Width="100" HorizontalAlignment="Left"
+                                     Label="Return window, in days" Text="{Binding ReturnWindowDays}" />
 
-      <CheckBox Content="Accept a return without the bill it came from"
-                IsChecked="{Binding AllowUnlinkedReturns}" />
+      <controls:LabeledCheckBoxField Name="AllowUnlinkedReturnsField"
+                                      CheckBoxLabel="Accept a return without the bill it came from"
+                                      IsChecked="{Binding AllowUnlinkedReturns}" />
 
-      <TextBlock Text="Refund paid as, unless the cashier changes it" />
-      <ComboBox Width="280" HorizontalAlignment="Left"
-                ItemsSource="{Binding DefaultRefundMethodChoices}"
-                SelectedItem="{Binding DefaultRefundMethodChoice}" />
+      <controls:LabeledComboField Name="DefaultRefundMethodField" Width="280" HorizontalAlignment="Left"
+                                   Label="Refund paid as, unless the cashier changes it"
+                                   ItemsSource="{Binding DefaultRefundMethodChoices}"
+                                   SelectedItem="{Binding DefaultRefundMethodChoice}" />
 
-      <TextBlock Text="Most that may be refunded in cash on one return (0 = no limit)" />
-      <TextBox Width="160" HorizontalAlignment="Left" Text="{Binding CashRefundLimit}" />
+      <controls:LabeledNumericField Name="CashRefundLimitField" Width="160" HorizontalAlignment="Left"
+                                     Label="Most that may be refunded in cash on one return (0 = no limit)"
+                                     Text="{Binding CashRefundLimit}" />
 
-      <TextBlock Text="Cashier's discount limit on one line, in percent" />
-      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding MaxLineDiscountRate}" />
+      <controls:LabeledNumericField Name="MaxLineDiscountRateField" Width="120" HorizontalAlignment="Left"
+                                     Label="Cashier's discount limit on one line, in percent"
+                                     Text="{Binding MaxLineDiscountRate}" />
 
-      <TextBlock Text="Cashier's discount limit on the whole bill, in percent" />
-      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding MaxBillDiscountRate}" />
+      <controls:LabeledNumericField Name="MaxBillDiscountRateField" Width="120" HorizontalAlignment="Left"
+                                     Label="Cashier's discount limit on the whole bill, in percent"
+                                     Text="{Binding MaxBillDiscountRate}" />
 
-      <TextBlock Text="When a sale would take the balance below zero" />
-      <ComboBox Width="320" HorizontalAlignment="Left"
-                ItemsSource="{Binding NegativeStockChoices}"
-                SelectedItem="{Binding NegativeStockChoice}" />
+      <controls:LabeledComboField Name="NegativeStockField" Width="320" HorizontalAlignment="Left"
+                                   Label="When a sale would take the balance below zero"
+                                   ItemsSource="{Binding NegativeStockChoices}"
+                                   SelectedItem="{Binding NegativeStockChoice}" />
 
-      <TextBlock Text="Restocking fee kept on a return, in percent" />
-      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding RestockingFeeRate}" />
+      <controls:LabeledNumericField Name="RestockingFeeRateField" Width="120" HorizontalAlignment="Left"
+                                     Label="Restocking fee kept on a return, in percent"
+                                     Text="{Binding RestockingFeeRate}" />
 
-      <CheckBox Content="Scanning the same code again increases that line's quantity, instead of adding a second line"
-                IsChecked="{Binding CombineRepeatScans}" />
+      <controls:LabeledCheckBoxField Name="CombineRepeatScansField"
+                                      CheckBoxLabel="Scanning the same code again increases that line's quantity, instead of adding a second line"
+                                      IsChecked="{Binding CombineRepeatScans}" />
 
     </StackPanel>
   </ScrollViewer>

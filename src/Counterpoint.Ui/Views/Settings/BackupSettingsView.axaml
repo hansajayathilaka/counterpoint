@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
@@ -8,34 +9,46 @@
              x:DataType="vm:BackupSettingsViewModel">
 
   <!--
-    FR-10.7. The passphrase is never shown and never stored in the database it protects a copy
-    of - only whether one exists, and the chance to replace it.
+    FR-10.7. The passphrase and off-site credential are never shown and never stored in the
+    database they protect a copy of/authenticate to - only whether one exists, and the chance to
+    replace it. Task P3-T15 (SRS UI-06, UI-14, AC-22): every field is a persistent-label P3-T12
+    LabeledField, except the credential box and the two passphrase boxes below, which need
+    PasswordChar masking that the LabeledField family does not offer - those keep a plain
+    TextBox/TextBlock pair wired to AutomationProperties.LabeledBy in the code-behind, the same
+    pattern ImportTabView/ProductTabView use for a field the family cannot express (SRS UI-14).
   -->
   <ScrollViewer>
-    <StackPanel Margin="12" Spacing="6">
+    <StackPanel Margin="12" Spacing="12">
 
       <TextBlock TextWrapping="Wrap"
                  Text="When a backup is taken, where it goes, and how long it is kept." />
 
-      <TextBlock Text="Daily backup time (24 hour, as 20:00)" />
-      <TextBox Width="120" HorizontalAlignment="Left" Text="{Binding DailyBackupTime}" />
+      <controls:LabeledTextField Name="DailyBackupTimeField" Width="120" HorizontalAlignment="Left"
+                                  Label="Daily backup time (24 hour, as 20:00)" Text="{Binding DailyBackupTime}" />
 
-      <CheckBox Content="Also take one when a shift closes" IsChecked="{Binding BackupOnShiftClose}" />
+      <controls:LabeledCheckBoxField Name="BackupOnShiftCloseField"
+                                      CheckBoxLabel="Also take one when a shift closes"
+                                      IsChecked="{Binding BackupOnShiftClose}" />
 
-      <TextBlock Text="Local folder (empty = the backups folder beside the database)" />
-      <TextBox Text="{Binding LocalPath}" />
+      <controls:LabeledTextField Name="LocalPathField"
+                                  Label="Local folder (empty = the backups folder beside the database)"
+                                  Text="{Binding LocalPath}" />
 
-      <TextBlock Text="USB folder (empty = no USB copy)" />
-      <TextBox Text="{Binding UsbPath}" />
+      <controls:LabeledTextField Name="UsbPathField"
+                                  Label="USB folder (empty = no USB copy)" Text="{Binding UsbPath}" />
 
-      <TextBlock Text="Off-site copy" />
-      <ComboBox Width="320" HorizontalAlignment="Left"
-                ItemsSource="{Binding CloudTargetChoices}"
-                SelectedItem="{Binding CloudTargetChoice}" />
+      <controls:LabeledComboField Name="CloudTargetField" Width="240" HorizontalAlignment="Left"
+                                   Label="Off-site copy"
+                                   ItemsSource="{Binding CloudTargetChoices}"
+                                   SelectedItem="{Binding CloudTargetChoice}" />
 
       <TextBlock TextWrapping="Wrap" Text="{Binding CredentialHint}" />
-      <TextBox Width="420" HorizontalAlignment="Left"
-               PasswordChar="•" Text="{Binding NewCredential}" />
+      <StackPanel Spacing="4">
+        <TextBlock Name="NewCredentialLabel" Text="New credential"
+                   Foreground="{DynamicResource SecondaryTextBrush}" />
+        <TextBox Name="NewCredentialBox" Width="420" HorizontalAlignment="Left"
+                 PasswordChar="•" Text="{Binding NewCredential}" />
+      </StackPanel>
 
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="_Test connection" Command="{Binding TestConnectionCommand}"
@@ -43,17 +56,18 @@
       </StackPanel>
       <TextBlock TextWrapping="Wrap" Text="{Binding TestConnectionStatus}" />
 
-      <TextBlock Text="Account the off-site copy is uploaded as" />
-      <TextBox Text="{Binding CloudAccount}" />
+      <controls:LabeledTextField Name="CloudAccountField"
+                                  Label="Account the off-site copy is uploaded as" Text="{Binding CloudAccount}" />
 
-      <TextBlock Text="Days of backups kept" />
-      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding RetentionDays}" />
+      <controls:LabeledNumericField Name="RetentionDaysField" Width="100" HorizontalAlignment="Left"
+                                     Label="Days of backups kept" Text="{Binding RetentionDays}" />
 
-      <TextBlock Text="Copies kept regardless of age" />
-      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding RetentionCopies}" />
+      <controls:LabeledNumericField Name="RetentionCopiesField" Width="100" HorizontalAlignment="Left"
+                                     Label="Copies kept regardless of age" Text="{Binding RetentionCopies}" />
 
-      <TextBlock Text="Warn on the dashboard after this many days without a backup" />
-      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding WarnAfterDays}" />
+      <controls:LabeledNumericField Name="WarnAfterDaysField" Width="100" HorizontalAlignment="Left"
+                                     Label="Warn on the dashboard after this many days without a backup"
+                                     Text="{Binding WarnAfterDays}" />
 
       <TextBlock Margin="0,12,0,0" FontSize="16" Text="Take a backup now" />
       <StackPanel Orientation="Horizontal" Spacing="8">
@@ -66,13 +80,19 @@
       <TextBlock Margin="0,12,0,0" FontSize="16" Text="Backup passphrase" />
       <TextBlock TextWrapping="Wrap" Text="{Binding PassphraseStatus}" />
 
-      <TextBlock Text="New passphrase" />
-      <TextBox Width="320" HorizontalAlignment="Left"
-               PasswordChar="•" Text="{Binding NewPassphrase}" />
+      <StackPanel Spacing="4">
+        <TextBlock Name="NewPassphraseLabel" Text="New passphrase"
+                   Foreground="{DynamicResource SecondaryTextBrush}" />
+        <TextBox Name="NewPassphraseBox" Width="320" HorizontalAlignment="Left"
+                 PasswordChar="•" Text="{Binding NewPassphrase}" />
+      </StackPanel>
 
-      <TextBlock Text="Type it again" />
-      <TextBox Width="320" HorizontalAlignment="Left"
-               PasswordChar="•" Text="{Binding ConfirmPassphrase}" />
+      <StackPanel Spacing="4">
+        <TextBlock Name="ConfirmPassphraseLabel" Text="Type it again"
+                   Foreground="{DynamicResource SecondaryTextBrush}" />
+        <TextBox Name="ConfirmPassphraseBox" Width="320" HorizontalAlignment="Left"
+                 PasswordChar="•" Text="{Binding ConfirmPassphrase}" />
+      </StackPanel>
 
       <TextBlock TextWrapping="Wrap" FontSize="12"
                  Text="Nobody can recover this passphrase for you. Without it a backup cannot be restored." />
