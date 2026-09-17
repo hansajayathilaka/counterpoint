@@ -363,3 +363,4 @@ it stopped.
 - `2026-09-17T07:38:34Z` **P3-T03** fix-attempt — 1: IRollupConsistencyCheck only verifies daily_sales_summary, never daily_product_summary - extending it to cover both rollup tables per the task's own recompute-and-compare requirement
 - `2026-09-17T08:15:57Z` **P3-T03** done — 37 files, 21 test methods across CloseShiftHandlerTests.cs (13) and EscPosZReportRendererTests.cs (8), review clean (0 must-fix, 3 reviewers), PR #42
 - `2026-09-17T08:17:07Z` **P4-T01** start — Backup target abstraction
+- `2026-09-17T10:42:34Z` **P4-T01** fix-attempt — 1: GoogleDriveTarget.EscapeForQuery doesn't escape backslashes (Drive query-language correctness bug, code-reviewer confirmed), docs/01_DATA_MODEL.md missing S3_COMPATIBLE/LOCAL_FOLDER tokens and the new target-credential store in its not-app_setting-rows list (data-modeler)

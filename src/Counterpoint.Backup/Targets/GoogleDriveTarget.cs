@@ -306,7 +306,9 @@ internal sealed class GoogleDriveTarget : IBackupTarget
         ? "trashed = false"
         : "trashed = false and '" + EscapeForQuery(_credential.FolderId) + "' in parents";
 
-    private static string EscapeForQuery(string value) => value.Replace("'", "\\'", StringComparison.Ordinal);
+    private static string EscapeForQuery(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal)
+             .Replace("'", "\\'", StringComparison.Ordinal);
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
