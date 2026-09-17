@@ -18,7 +18,11 @@ internal sealed class BackupTargetFactory
     private readonly IBackupTargetCredentialStore _credentials;
     private readonly TimeProvider _timeProvider;
 
-    internal BackupTargetFactory(
+    // Public constructor on an internal class, deliberately: AddSingleton&lt;BackupTargetFactory&gt;
+    // lets the container construct this by reflection, which requires a public constructor even
+    // though the type itself stays internal to this assembly (see BackupTargetConnectionTester's
+    // own constructor for the same reasoning).
+    public BackupTargetFactory(
         HttpClient httpClient, IBackupTargetCredentialStore credentials, TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(httpClient);

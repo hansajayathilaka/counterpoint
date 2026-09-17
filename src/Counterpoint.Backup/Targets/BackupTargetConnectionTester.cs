@@ -20,7 +20,11 @@ internal sealed class BackupTargetConnectionTester : IBackupTargetConnectionTest
 {
     private readonly BackupTargetFactory _factory;
 
-    internal BackupTargetConnectionTester(BackupTargetFactory factory)
+    // Public constructor on an internal class, deliberately: AddSingleton&lt;IBackupTargetConnectionTester,
+    // BackupTargetConnectionTester&gt; lets the container construct this by reflection, which
+    // requires a public constructor even though the type itself stays internal to this assembly -
+    // the same shape BackupOrchestrator's own public constructor already uses.
+    public BackupTargetConnectionTester(BackupTargetFactory factory)
     {
         ArgumentNullException.ThrowIfNull(factory);
         _factory = factory;
