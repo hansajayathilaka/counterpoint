@@ -71,6 +71,32 @@ internal static class WindowsCredentialManager
         }
     }
 
+    /// <summary>
+    /// Removes the credential named <paramref name="targetName"/>. A no-op when no such
+    /// credential exists - deleting something that already is not there is not a failure.
+    /// </summary>
+    /// <exception cref="Win32Exception">
+    /// The credential store could not be written to, for a reason other than "no such
+    /// credential".
+    /// </exception>
+    internal static void Delete(string targetName)
+    {
+        if (NativeMethods.CredDeleteW(targetName, CredTypeGeneric, 0))
+        {
+            return;
+        }
+
+        var error = Marshal.GetLastWin32Error();
+        if (error == ErrorNotFound)
+        {
+            return;
+        }
+
+        throw new Win32Exception(
+            error,
+            "Windows Credential Manager could not remove the Counterpoint credential.");
+    }
+
     /// <summary>Stores <paramref name="blob"/> as a generic credential, replacing any existing one.</summary>
     internal static void Write(string targetName, string userName, byte[] blob)
     {
@@ -143,6 +169,11 @@ internal static class WindowsCredentialManager
         [DllImport("advapi32.dll")]
         [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         internal static extern void CredFree(IntPtr buffer);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CredDeleteW(string targetName, uint type, uint flags);
 
         /// <summary>Mirrors <c>CREDENTIALW</c> from wincred.h. Field order and types are load-bearing.</summary>
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

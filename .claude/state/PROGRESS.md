@@ -90,7 +90,7 @@ hands them back.
 
 | Task | Title | Status | Done | Commit / note |
 |---|---|---|---|---|
-| P4-T01 | Backup target abstraction | todo | | |
+| P4-T01 | Backup target abstraction | done | 2026-09-17 | bcc5d4a Backup target abstraction - 5/5 Done-when proven (verify.sh green: 806 tests, 6 architecture tests, 54 trigger-survival tests); IBackupTarget (upload/list/download/delete/test-connection) with LocalFolderTarget/S3CompatibleTarget (hand-rolled AWS SigV4, independently verified against hand-derived worked examples)/GoogleDriveTarget (refresh-token OAuth exchange); IBackupTargetCredentialStore mirrors IBackupPassphraseStore's Windows Credential Manager / Linux-dev-file pattern, keyed per target; code-reviewer + data-modeler reviewed independently, 3 must-fix closed in fix-attempt 1 (Drive query-language backslash-escaping bug, two docs/01_DATA_MODEL.md gaps), scoped re-review confirmed clean; should-fix carried to PR #43: no explicit HttpClient timeout, no path-traversal guard on target keys (deferred to P4-T02/T03's key-naming work), no credential-shape validation at settings-save time, credential-store write not wrapped for Win32Exception/CryptographicException/IOException (pre-existing gap shared with the passphrase path), no save-time warning for a target configured with no credential |
 | P4-T02 | Least-privilege and immutability setup | todo | | |
 | P4-T03 | Upload worker with retry and backoff | todo | | |
 | P4-T04 | Retention and pruning | todo | | |

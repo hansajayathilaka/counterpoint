@@ -1657,7 +1657,7 @@ place; see that key's own remarks for why it is read and written directly throug
 | Peripherals (FR-10.6) | `peripheral.receipt_printer_name`, `peripheral.label_printer_name`, `peripheral.scale_port`, `peripheral.scanner_suffix` (`ENTER`/`TAB`/`NONE`) | `STRING` |
 | | `peripheral.paper_width_mm` (80), `peripheral.receipt_copies` (1), `peripheral.drawer_kick_pin` (2), `peripheral.scanner_minimum_length` (4), `peripheral.scale_baud_rate` (9600) | `INT` |
 | | `peripheral.open_drawer_on_cash_sale` (true), `peripheral.scale_enabled` (false) | `BOOL` |
-| Backup (FR-10.7) | `backup.daily_time` (`20:00`), `backup.local_path`, `backup.usb_path`, `backup.cloud_target` (`GOOGLE_DRIVE` — Q-D), `backup.cloud_account` | `STRING` |
+| Backup (FR-10.7) | `backup.daily_time` (`20:00`), `backup.local_path`, `backup.usb_path`, `backup.cloud_target` (`NONE`/`GOOGLE_DRIVE`/`S3_COMPATIBLE`/`LOCAL_FOLDER` — Q-D, P4-T01), `backup.cloud_account` | `STRING` |
 | | `backup.retention_days` (30), `backup.retention_copies` (14), `backup.warn_after_days` (2 — P1-T15, the local half of FR-11.7; the cloud figure FR-11.7 also names is Phase 4's) | `INT` |
 | | `backup.on_shift_close` (true) | `BOOL` |
 | Receipt template (FR-10.8) | `receipt.header_text`, `receipt.footer_text`, `receipt.policy_text` | `STRING` |
@@ -1667,13 +1667,22 @@ place; see that key's own remarks for why it is read and written directly throug
 | | `label.show_product_name`, `label.show_code`, `label.show_barcode`, `label.show_unit`, `label.show_price` (all true) | `BOOL` |
 | First run | `setup.completed_at` — ISO-8601. Its absence is how `IFirstRunSetup.IsRequiredAsync` knows the wizard has never run. | `STRING` |
 
-**Two things are deliberately not rows.**
+**Three things are deliberately not rows.**
 
 - **The backup encryption passphrase.** `app_setting` lives inside the database the backup is a
   copy of, so a passphrase there protects nothing. It goes to the OS protected store through
   `IBackupPassphraseStore` — Windows Credential Manager under DPAPI on the terminal, a
   development file store on Linux, the same split as `IDatabaseKeyStore` (NFR-S6). The settings
   screen only ever sees `BackupSettings.PassphraseIsSet`.
+- **The off-site backup target's credential** (an S3 access/secret key pair, a Google Drive OAuth
+  refresh token, or similar, depending on `backup.cloud_target`). Same reasoning as the passphrase
+  above (NFR-S6) applies just as much to a credential that could reach the shop's off-site copy —
+  it goes through `IBackupTargetCredentialStore`
+  (`src/Counterpoint.Application/Abstractions/Security/`), keyed by target so switching targets
+  and back does not discard the previous one's credential: `WindowsBackupTargetCredentialStore`
+  under DPAPI on the terminal, `FileBackupTargetCredentialStore` (development only) on Linux, the
+  same platform split as `IBackupPassphraseStore` and `IDatabaseKeyStore` (P4-T01). The settings
+  screen only ever sees whether a credential is stored (`HasCredential`), never its value.
 - **`number_sequence.next_val`.** The numbering settings say what a series' prefix, pattern and
   starting number are; `next_val` is set once, when the row is created, and after that belongs to
   the allocator alone. Editing the prefix updates `number_sequence.prefix` in the same

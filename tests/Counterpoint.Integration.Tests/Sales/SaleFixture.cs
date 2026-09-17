@@ -198,6 +198,14 @@ internal sealed class SaleFixture : IAsyncDisposable
             p.GetRequiredService<BackupPassphraseStore>(),
             p.GetRequiredService<ISession>()));
 
+        // P4-T01: same shape as IBackupPassphraseStore above - the concrete
+        // BackupTargetCredentialStore is registered by AddCounterpointInfrastructure above; only
+        // the role-decorated interface is handed out (SRS NFR-S2, AC-17).
+        services.AddSingleton<IBackupTargetCredentialStore>(p =>
+            RoleAuthorisation.Decorate<IBackupTargetCredentialStore>(
+                p.GetRequiredService<BackupTargetCredentialStore>(),
+                p.GetRequiredService<ISession>()));
+
         // The same lines as Counterpoint.App's CounterpointHostBuilderExtensions.
         services.AddSingleton<IScanItem, ScanItemHandler>();
         services.AddSingleton<CompleteSaleHandler>();

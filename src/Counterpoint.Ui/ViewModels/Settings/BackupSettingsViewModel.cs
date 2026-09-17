@@ -32,9 +32,12 @@ public sealed partial class BackupSettingsViewModel : SettingsGroupViewModel
 {
     private readonly EnumChoices<CloudBackupTarget> _targets = new(
         (CloudBackupTarget.None, "No off-site copy"),
-        (CloudBackupTarget.GoogleDrive, "Google Drive"));
+        (CloudBackupTarget.GoogleDrive, "Google Drive"),
+        (CloudBackupTarget.S3Compatible, "S3-compatible storage (GCS / R2 / B2 / bucket)"),
+        (CloudBackupTarget.LocalFolder, "Local folder / NAS"));
 
     private readonly IManualBackupTrigger? _manualBackup;
+    private readonly IBackupTargetConnectionTester? _connectionTester;
 
     private string _dailyBackupTime = string.Empty;
     private string _retentionDays = string.Empty;
@@ -72,6 +75,15 @@ public sealed partial class BackupSettingsViewModel : SettingsGroupViewModel
     [ObservableProperty]
     private string _confirmPassphrase = string.Empty;
 
+    [ObservableProperty]
+    private string _newCredential = string.Empty;
+
+    [ObservableProperty]
+    private bool _testConnectionBusy;
+
+    [ObservableProperty]
+    private string _testConnectionStatus = string.Empty;
+
     /// <summary>Runs the screen with no "Backup now" button - the settings screen's own tests build it this way.</summary>
     public BackupSettingsViewModel()
         : this(manualBackup: null)
@@ -82,9 +94,15 @@ public sealed partial class BackupSettingsViewModel : SettingsGroupViewModel
     /// The owner's "Backup now" button (SRS FR-11.2, P1-T15). Null runs the screen without one -
     /// the tab still edits and saves every other field.
     /// </param>
-    public BackupSettingsViewModel(IManualBackupTrigger? manualBackup)
+    /// <param name="connectionTester">
+    /// The off-site target's "Test connection" button (SRS FR-11.5, P4-T01). Null runs the screen
+    /// without one - the target picker and credential box still edit and save.
+    /// </param>
+    public BackupSettingsViewModel(
+        IManualBackupTrigger? manualBackup, IBackupTargetConnectionTester? connectionTester = null)
     {
         _manualBackup = manualBackup;
+        _connectionTester = connectionTester;
     }
 
     /// <inheritdoc />
@@ -101,6 +119,27 @@ public sealed partial class BackupSettingsViewModel : SettingsGroupViewModel
 
     /// <summary>Where the off-site copy goes.</summary>
     public IReadOnlyList<string> CloudTargetChoices => _targets.Labels;
+
+    /// <summary>Whether this screen can test the chosen off-site target's connection at all.</summary>
+    public bool CanTestConnection => _connectionTester is not null;
+
+    /// <summary>What the credential box is asking for, depending on the chosen target.</summary>
+    public string CredentialHint => _targets.Value(CloudTargetChoice) switch
+    {
+        CloudBackupTarget.GoogleDrive =>
+            "Paste the Google Drive connection details obtained when the account was connected (refresh token).",
+        CloudBackupTarget.S3Compatible =>
+            "Paste the S3-compatible connection details - endpoint, region, bucket, access key and secret key.",
+        CloudBackupTarget.LocalFolder =>
+            "Type the full path of the local or NAS folder to copy backups into.",
+        _ => "Choose an off-site copy above to enter its connection details.",
+    };
+
+    /// <summary>True when the owner has typed something to store for the chosen target's credential.</summary>
+    public bool HasCredentialToStore => NewCredential.Length > 0;
+
+    /// <summary>The off-site target currently chosen in the picker, as the enum <c>BackupSettings.CloudTarget</c> stores.</summary>
+    public CloudBackupTarget SelectedCloudTarget => _targets.Value(CloudTargetChoice);
 
     /// <summary>All the screen may ever know about the passphrase.</summary>
     public string PassphraseStatus => PassphraseIsSet
@@ -179,6 +218,42 @@ public sealed partial class BackupSettingsViewModel : SettingsGroupViewModel
     [RelayCommand]
     private void OpenRestoreWizard() => RestoreRequested?.Invoke(this, EventArgs.Empty);
 
+    /// <summary>
+    /// Tries the chosen off-site target with whatever is typed in the credential box, or the
+    /// already-stored credential when the box is empty (SRS FR-11.5, P4-T01). Never saves
+    /// anything - the owner presses Save separately once satisfied.
+    /// </summary>
+    [RelayCommand]
+    private async Task TestConnectionAsync(CancellationToken cancellationToken)
+    {
+        if (_connectionTester is null || TestConnectionBusy)
+        {
+            return;
+        }
+
+        var target = _targets.Value(CloudTargetChoice);
+        if (target == CloudBackupTarget.None)
+        {
+            TestConnectionStatus = "Choose an off-site copy target first.";
+            return;
+        }
+
+        TestConnectionBusy = true;
+        try
+        {
+            var result = await _connectionTester.TestConnectionAsync(
+                target,
+                HasCredentialToStore ? NewCredential : null,
+                cancellationToken).ConfigureAwait(true);
+
+            TestConnectionStatus = result.Success ? result.Message : "Connection failed: " + result.Message;
+        }
+        finally
+        {
+            TestConnectionBusy = false;
+        }
+    }
+
     /// <summary>True when the owner has typed a matching pair of passphrases to store.</summary>
     public bool HasPassphraseToStore => NewPassphrase.Length > 0
         && string.Equals(NewPassphrase, ConfirmPassphrase, StringComparison.Ordinal);
@@ -189,6 +264,9 @@ public sealed partial class BackupSettingsViewModel : SettingsGroupViewModel
         NewPassphrase = string.Empty;
         ConfirmPassphrase = string.Empty;
     }
+
+    /// <summary>Forgets the credential box, the same way <see cref="ClearPassphraseEntry"/> does.</summary>
+    public void ClearCredentialEntry() => NewCredential = string.Empty;
 
     /// <inheritdoc />
     public override void Load(SettingsSnapshot snapshot)
@@ -207,6 +285,8 @@ public sealed partial class BackupSettingsViewModel : SettingsGroupViewModel
         PassphraseIsSet = snapshot.Backup.PassphraseIsSet;
 
         ClearPassphraseEntry();
+        ClearCredentialEntry();
+        TestConnectionStatus = string.Empty;
     }
 
     /// <inheritdoc />
@@ -254,4 +334,12 @@ public sealed partial class BackupSettingsViewModel : SettingsGroupViewModel
     partial void OnNewPassphraseChanged(string value) => OnPropertyChanged(nameof(HasPassphraseToStore));
 
     partial void OnConfirmPassphraseChanged(string value) => OnPropertyChanged(nameof(HasPassphraseToStore));
+
+    partial void OnNewCredentialChanged(string value) => OnPropertyChanged(nameof(HasCredentialToStore));
+
+    partial void OnCloudTargetChoiceChanged(string value)
+    {
+        OnPropertyChanged(nameof(CredentialHint));
+        TestConnectionStatus = string.Empty;
+    }
 }

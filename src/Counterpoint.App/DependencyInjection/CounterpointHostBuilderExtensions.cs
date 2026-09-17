@@ -268,7 +268,9 @@ internal static class CounterpointHostBuilderExtensions
             provider.GetRequiredService<IBackupPassphraseStore>(),
             action => Dispatcher.UIThread.Post(action),
             provider.GetRequiredService<IReceiptTemplatePreviewService>(),
-            provider.GetRequiredService<IManualBackupTrigger>()));
+            provider.GetRequiredService<IManualBackupTrigger>(),
+            provider.GetRequiredService<IBackupTargetCredentialStore>(),
+            provider.GetRequiredService<IBackupTargetConnectionTester>()));
 
         // P1-T15: the guided restore wizard (SRS FR-11.12).
         builder.Services.AddSingleton<RestoreWizardViewModel>();
@@ -328,6 +330,13 @@ internal static class CounterpointHostBuilderExtensions
         services.AddSingleton<IBackupPassphraseStore>(p => RoleAuthorisation.Decorate<IBackupPassphraseStore>(
             p.GetRequiredService<BackupPassphraseStore>(),
             p.GetRequiredService<ISession>()));
+
+        // P4-T01: the off-site backup target's credential - same shape as IBackupPassphraseStore
+        // just above, keyed per target (SRS FR-11.5, NFR-S6, AC-17).
+        services.AddSingleton<IBackupTargetCredentialStore>(p =>
+            RoleAuthorisation.Decorate<IBackupTargetCredentialStore>(
+                p.GetRequiredService<BackupTargetCredentialStore>(),
+                p.GetRequiredService<ISession>()));
 
         return services;
     }
