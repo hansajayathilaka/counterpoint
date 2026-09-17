@@ -39,6 +39,7 @@ public partial class App : Avalonia.Application
 {
     private readonly LoginViewModel? _loginViewModel;
     private readonly SalesViewModel? _salesViewModel;
+    private readonly BackOfficeShellViewModel? _backOfficeShellViewModel;
     private readonly UserAdminViewModel? _userAdminViewModel;
     private readonly CatalogueViewModel? _catalogueViewModel;
     private readonly PurchaseOrderViewModel? _purchaseOrderViewModel;
@@ -67,6 +68,7 @@ public partial class App : Avalonia.Application
     public App(
         LoginViewModel loginViewModel,
         SalesViewModel salesViewModel,
+        BackOfficeShellViewModel backOfficeShellViewModel,
         UserAdminViewModel userAdminViewModel,
         CatalogueViewModel catalogueViewModel,
         PurchaseOrderViewModel purchaseOrderViewModel,
@@ -80,6 +82,7 @@ public partial class App : Avalonia.Application
     {
         ArgumentNullException.ThrowIfNull(loginViewModel);
         ArgumentNullException.ThrowIfNull(salesViewModel);
+        ArgumentNullException.ThrowIfNull(backOfficeShellViewModel);
         ArgumentNullException.ThrowIfNull(userAdminViewModel);
         ArgumentNullException.ThrowIfNull(catalogueViewModel);
         ArgumentNullException.ThrowIfNull(purchaseOrderViewModel);
@@ -92,6 +95,7 @@ public partial class App : Avalonia.Application
 
         _loginViewModel = loginViewModel;
         _salesViewModel = salesViewModel;
+        _backOfficeShellViewModel = backOfficeShellViewModel;
         _userAdminViewModel = userAdminViewModel;
         _catalogueViewModel = catalogueViewModel;
         _purchaseOrderViewModel = purchaseOrderViewModel;
@@ -195,18 +199,53 @@ public partial class App : Avalonia.Application
         _loginViewModel!.SignedIn -= OnSignedIn;
 
         var sales = new SalesWindow { DataContext = _salesViewModel };
-        _salesViewModel.ManageUsersRequested += (_, _) => ShowUsers(sales);
-        _salesViewModel.CatalogueRequested += (_, _) => ShowCatalogue(sales);
-        _salesViewModel.PurchaseOrdersRequested += (_, _) => ShowPurchaseOrders(sales);
-        _salesViewModel.LabelPrintRequested += (_, _) => ShowLabelPrint(sales);
+        _salesViewModel.BackOfficeRequested += (_, _) => ShowBackOffice(sales);
         _salesViewModel.PrintQueueRequested += (_, _) => ShowPrintQueue(sales);
-        _salesViewModel.SettingsRequested += (_, _) => ShowSettings(sales);
 
         var login = desktop.MainWindow;
 
         desktop.MainWindow = sales;
         sales.Show();
         login?.Close();
+    }
+
+    /// <summary>
+    /// Opens the back office (task P3-T13, SRS UI-11): its own window, its own status bar, its
+    /// own accent, navigating to Catalogue, Settings, Users, Purchasing and Labels - the same
+    /// single process, single <c>IHost</c>, single database this whole application is (see
+    /// <c>BackOfficeShellViewModel</c>'s remarks). Non-modal, like every other screen this class
+    /// opens: a back-office window never blocks <c>SalesWindow</c>.
+    /// </summary>
+    private void ShowBackOffice(Window owner)
+    {
+        if (_backOfficeShellViewModel is null)
+        {
+            return;
+        }
+
+        var window = new BackOfficeShellWindow { DataContext = _backOfficeShellViewModel };
+
+        // -= before += : BackOfficeShellViewModel is a singleton, so re-opening this window
+        // without unsubscribing first would fire ShowUsers (and the rest) once per window ever
+        // opened, each pointed at whichever window happened to be current at the time.
+        _backOfficeShellViewModel.ManageUsersRequested -= OnManageUsersRequested;
+        _backOfficeShellViewModel.ManageUsersRequested += OnManageUsersRequested;
+        _backOfficeShellViewModel.CatalogueRequested -= OnCatalogueRequested;
+        _backOfficeShellViewModel.CatalogueRequested += OnCatalogueRequested;
+        _backOfficeShellViewModel.PurchaseOrdersRequested -= OnPurchaseOrdersRequested;
+        _backOfficeShellViewModel.PurchaseOrdersRequested += OnPurchaseOrdersRequested;
+        _backOfficeShellViewModel.LabelPrintRequested -= OnLabelPrintRequested;
+        _backOfficeShellViewModel.LabelPrintRequested += OnLabelPrintRequested;
+        _backOfficeShellViewModel.SettingsRequested -= OnSettingsRequested;
+        _backOfficeShellViewModel.SettingsRequested += OnSettingsRequested;
+
+        window.Show(owner);
+
+        void OnManageUsersRequested(object? sender, EventArgs e) => ShowUsers(window);
+        void OnCatalogueRequested(object? sender, EventArgs e) => ShowCatalogue(window);
+        void OnPurchaseOrdersRequested(object? sender, EventArgs e) => ShowPurchaseOrders(window);
+        void OnLabelPrintRequested(object? sender, EventArgs e) => ShowLabelPrint(window);
+        void OnSettingsRequested(object? sender, EventArgs e) => ShowSettings(window);
     }
 
     private void ShowUsers(Window owner)

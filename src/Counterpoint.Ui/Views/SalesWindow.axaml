@@ -51,12 +51,13 @@
     <StackPanel DockPanel.Dock="Bottom" Margin="10,4" Spacing="4">
       <TextBlock TextWrapping="Wrap" Text="{Binding Status}" FontSize="15" />
       <StackPanel Orientation="Horizontal" Spacing="10">
-        <Button Content="_Users" Command="{Binding ManageUsersCommand}" IsVisible="{Binding CanManageUsers}" />
-        <Button Content="_Catalogue" Command="{Binding ManageCatalogueCommand}" IsVisible="{Binding CanManageCatalogue}" />
-        <Button Content="_Labels" Command="{Binding PrintLabelsCommand}" IsVisible="{Binding CanPrintLabels}" />
-        <Button Content="P_urchasing" Command="{Binding ManagePurchaseOrdersCommand}" IsVisible="{Binding CanManagePurchasing}" />
+        <!-- Task P3-T13, SRS UI-11: Catalogue/Settings/Users/Purchasing/Labels moved behind this
+             one entry point, into their own back-office shell, visually distinct from this
+             screen. Hiding this button is a courtesy, not the control (SRS NFR-S2, AC-17,
+             AC-24) - every screen behind it re-checks the session's role at the Application
+             layer regardless of whether this button was ever shown. -->
+        <Button Content="_Back office" Command="{Binding OpenBackOfficeCommand}" IsVisible="{Binding CanOpenBackOffice}" FontWeight="Bold" />
         <Button Content="_Print queue" Command="{Binding OpenPrintQueueCommand}" />
-        <Button Content="_Settings" Command="{Binding OpenSettingsCommand}" IsVisible="{Binding CanChangeSettings}" />
         <Button Content="Open item" Command="{Binding OpenItemCommand}" />
         <!-- SRS FR-8.1: shown only while the till has no open shift to trade in. -->
         <Button Content="Open shift" Command="{Binding OpenShiftCommand}" IsVisible="{Binding CanOpenShift}" FontWeight="Bold" />

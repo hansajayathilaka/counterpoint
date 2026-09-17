@@ -113,6 +113,75 @@ public sealed class ArchitectureTests
                 + "services are handed their adapters", CompositionRoot);
     }
 
+    /// <summary>
+    /// Task P3-T13's own done-when: the composition root creates exactly one <c>IHost</c>,
+    /// regardless of whether the sales screen or the back-office shell is the window open at the
+    /// time (SRS UI-11, CLAUDE.md "one process, one till, one active session"). Both shells are
+    /// plain <c>Window</c>s opened from the same <c>App.axaml.cs</c>, handed the same viewmodels,
+    /// reading the same singleton <c>ISession</c> - there is no second <c>Host.CreateApplicationBuilder</c>
+    /// call anywhere for either of them to have started a second host, a second connection pool,
+    /// or a second database from.
+    /// </summary>
+    [Fact]
+    public void ExactlyOneHostIsCreatedRegardlessOfWhichShellIsOpen()
+    {
+        var hostCreationSites = new List<string>();
+        var executableProjects = new List<string>();
+
+        foreach (var project in SrcProjects())
+        {
+            var projectDirectory = project.Directory
+                ?? throw new InvalidOperationException($"{project.FullName} has no containing directory.");
+
+            var document = XDocument.Load(project.FullName);
+            var outputType = document.Descendants("OutputType")
+                .Select(e => e.Value)
+                .FirstOrDefault();
+
+            if (outputType is "Exe" or "WinExe")
+            {
+                executableProjects.Add(Path.GetFileNameWithoutExtension(project.Name));
+            }
+
+            foreach (var file in projectDirectory.GetFiles("*.cs", SearchOption.AllDirectories))
+            {
+                var relative = Normalise(Path.GetRelativePath(projectDirectory.FullName, file.FullName));
+                if (relative.StartsWith("bin/", StringComparison.Ordinal) ||
+                    relative.StartsWith("obj/", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var text = File.ReadAllText(file.FullName);
+                if (text.Contains("Host.CreateApplicationBuilder(", StringComparison.Ordinal))
+                {
+                    hostCreationSites.Add(Path.GetFileNameWithoutExtension(project.Name) + "/" + relative);
+                }
+            }
+        }
+
+        hostCreationSites.Should().ContainSingle(
+            "there must be exactly one place in the whole solution that builds an IHost - "
+            + "Counterpoint.App/Program.cs, the composition root - regardless of which shell "
+            + "(SalesWindow or BackOfficeShellWindow) the desktop lifetime happens to be showing. "
+            + "Found: " + string.Join("; ", hostCreationSites));
+
+        hostCreationSites.Single().Should().StartWith(
+            CompositionRoot + "/",
+            "the one IHost this solution creates belongs to the composition root, not to a "
+            + "screen or a shell");
+
+        executableProjects.Should().ContainSingle(
+            "there must be exactly one runnable executable in this solution - a second "
+            + "OutputType=Exe/WinExe project would be the second installed program task "
+            + "P3-T13's own risk note rules out (CLAUDE.md: 'not client/server... not "
+            + "multi-terminal'). Found: " + string.Join("; ", executableProjects));
+
+        executableProjects.Single().Should().Be(
+            CompositionRoot,
+            "the one executable this solution produces is the composition root itself");
+    }
+
     [Fact]
     public void Domain_ReferencesNoNuGetPackage()
     {

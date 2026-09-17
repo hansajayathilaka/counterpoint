@@ -111,7 +111,7 @@ public sealed class LoginScreenTests
     }
 
     [Fact]
-    public async Task FR_1_4_TheOwnerSeesTheUsersButtonAndTheCashierDoesNot()
+    public async Task AC_24_TheOwnerSeesTheBackOfficeEntryPointAndTheCashierDoesNot()
     {
         await using var fixture = await SaleFixture.CreateAsync();
         await fixture.Resolve<IInitialOwnerSetup>().CompleteAsync("owner", "till2026");
@@ -119,7 +119,7 @@ public sealed class LoginScreenTests
         var authentication = fixture.Resolve<IAuthenticationService>();
         await authentication.LogInAsync("owner", "till2026");
 
-        Sales(fixture).CanManageUsers.Should().BeTrue();
+        Sales(fixture).CanOpenBackOffice.Should().BeTrue();
 
         await fixture.Resolve<IUserAdministration>().CreateAsync(
             new CreateUserCommand("priya", "Priya", "counter1", Role.Cashier));
@@ -127,8 +127,38 @@ public sealed class LoginScreenTests
         await authentication.LogOutAsync();
         await authentication.LogInAsync("priya", "counter1");
 
-        // A courtesy, not the control - the next test is the control.
-        Sales(fixture).CanManageUsers.Should().BeFalse();
+        // A courtesy, not the control - BackOfficeShellAuthorisationTests is the control.
+        Sales(fixture).CanOpenBackOffice.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task FR_1_4_TheBackOfficeShellGatesEachOfItsFiveTilesToTheOwnerOnly()
+    {
+        await using var fixture = await SaleFixture.CreateAsync();
+        await fixture.Resolve<IInitialOwnerSetup>().CompleteAsync("owner", "till2026");
+
+        var authentication = fixture.Resolve<IAuthenticationService>();
+        await authentication.LogInAsync("owner", "till2026");
+
+        var shell = BackOffice(fixture);
+        shell.CanManageUsers.Should().BeTrue();
+        shell.CanChangeSettings.Should().BeTrue();
+        shell.CanManageCatalogue.Should().BeTrue();
+        shell.CanPrintLabels.Should().BeTrue();
+        shell.CanManagePurchasing.Should().BeTrue();
+
+        await fixture.Resolve<IUserAdministration>().CreateAsync(
+            new CreateUserCommand("priya", "Priya", "counter1", Role.Cashier));
+
+        await authentication.LogOutAsync();
+        await authentication.LogInAsync("priya", "counter1");
+
+        // Read through the same ISession singleton - no second session, no re-construction.
+        shell.CanManageUsers.Should().BeFalse();
+        shell.CanChangeSettings.Should().BeFalse();
+        shell.CanManageCatalogue.Should().BeFalse();
+        shell.CanPrintLabels.Should().BeFalse();
+        shell.CanManagePurchasing.Should().BeFalse();
     }
 
     [Fact]
@@ -210,6 +240,9 @@ public sealed class LoginScreenTests
     private static LoginViewModel Login(SaleFixture fixture) => new(
         fixture.Resolve<IAuthenticationService>(),
         fixture.Resolve<IInitialOwnerSetup>());
+
+    private static BackOfficeShellViewModel BackOffice(SaleFixture fixture) => new(
+        fixture.Resolve<ISession>());
 
     private static SalesViewModel Sales(SaleFixture fixture) => new(
         fixture.Resolve<IScanItem>(),

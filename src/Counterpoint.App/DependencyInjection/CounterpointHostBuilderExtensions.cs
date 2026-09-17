@@ -221,6 +221,12 @@ internal static class CounterpointHostBuilderExtensions
         // The screens.
         builder.Services.AddSingleton<LoginViewModel>();
         builder.Services.AddSingleton<SalesViewModel>();
+
+        // P3-T13: the back office's own navigation shell (SRS UI-11, NFR-S2, AC-17, AC-24) -
+        // the same single ISession singleton the sales screen reads, not a second session or a
+        // second connection of any kind (see BackOfficeShellViewModel's own remarks).
+        builder.Services.AddSingleton<BackOfficeShellViewModel>();
+
         builder.Services.AddSingleton<UserAdminViewModel>();
         builder.Services.AddSingleton<FirstRunWizardViewModel>();
 

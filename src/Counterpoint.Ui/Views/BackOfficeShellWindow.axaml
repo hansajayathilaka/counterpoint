@@ -1,0 +1,61 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Counterpoint.Ui.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="420"
+        x:Class="Counterpoint.Ui.Views.BackOfficeShellWindow"
+        x:DataType="vm:BackOfficeShellViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="640" Height="420" MinWidth="480" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Title="Counterpoint - Back office">
+
+  <!--
+    Task P3-T13 (SRS UI-11, NFR-S2, AC-17, AC-24). Deliberately not SalesWindow's chrome: its own
+    accent stripe and status bar, its own tile navigation, no scan box, no bill, no F1-F12 row.
+    Same process, same IHost, same database, same ISession as the sales screen - only the window
+    and what it shows differ (see BackOfficeShellViewModel's remarks). Every tile below is a
+    courtesy: the screen it opens re-checks the session's role at the Application layer regardless
+    of whether this window ever rendered the tile.
+  -->
+  <DockPanel>
+
+    <!-- The distinct colour accent UI-11 asks for - drawn from the same P3-T10 tokens the sales
+         screen will move onto in P3-T14, not a second theme system. -->
+    <Border DockPanel.Dock="Top" Height="6" Background="{DynamicResource AccentBrush}" />
+
+    <!-- Its own status bar (SRS UI-09, UI-11) - a different background and different content
+         from SalesWindow's, so the two screens cannot be mistaken for one another. -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource PanelBackgroundBrush}" Padding="10,8">
+      <StackPanel Orientation="Horizontal" Spacing="18">
+        <TextBlock Text="BACK OFFICE" FontWeight="Bold" FontSize="17" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock Text="{Binding StatusUserText}" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock Text="{Binding StatusShiftText}" Foreground="{DynamicResource PrimaryTextBrush}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Tile navigation - the flat button row SalesWindow used to carry directly, now reached
+         through the one "Back office" entry point on the sales screen (P3-T13 "Do this" #2). -->
+    <UniformGrid Columns="3" Margin="20">
+      <Button Margin="8" Padding="16" HorizontalContentAlignment="Center"
+              Content="Catalogue" Command="{Binding ManageCatalogueCommand}"
+              IsVisible="{Binding CanManageCatalogue}" />
+      <Button Margin="8" Padding="16" HorizontalContentAlignment="Center"
+              Content="Settings" Command="{Binding OpenSettingsCommand}"
+              IsVisible="{Binding CanChangeSettings}" />
+      <Button Margin="8" Padding="16" HorizontalContentAlignment="Center"
+              Content="Users" Command="{Binding ManageUsersCommand}"
+              IsVisible="{Binding CanManageUsers}" />
+      <Button Margin="8" Padding="16" HorizontalContentAlignment="Center"
+              Content="Purchasing" Command="{Binding ManagePurchaseOrdersCommand}"
+              IsVisible="{Binding CanManagePurchasing}" />
+      <Button Margin="8" Padding="16" HorizontalContentAlignment="Center"
+              Content="Labels" Command="{Binding PrintLabelsCommand}"
+              IsVisible="{Binding CanPrintLabels}" />
+    </UniformGrid>
+
+  </DockPanel>
+
+</Window>

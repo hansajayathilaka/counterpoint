@@ -485,34 +485,30 @@ public sealed partial class SalesViewModel : NumericInputViewModel
         _timeProvider = timeProvider;
     }
 
-    /// <summary>Raised when the cashier asks for the user-management screen.</summary>
-    public event EventHandler? ManageUsersRequested;
-
-    /// <summary>Raised when the cashier asks for the settings screen (SRS FR-10).</summary>
-    public event EventHandler? SettingsRequested;
-
-    /// <summary>Raised when the cashier asks for the catalogue reference-data screen.</summary>
-    public event EventHandler? CatalogueRequested;
-
-    /// <summary>Raised when the owner asks for the label-printing screen.</summary>
-    public event EventHandler? LabelPrintRequested;
-
-    /// <summary>Raised when the owner asks for the purchase-order screen (SRS FR-4.5, FR-4.6, FR-4.10).</summary>
-    public event EventHandler? PurchaseOrdersRequested;
+    /// <summary>
+    /// Raised when the cashier asks to open the back office (task P3-T13, SRS UI-11, AC-24).
+    /// </summary>
+    /// <remarks>
+    /// Catalogue, Settings, Users, Purchasing and Labels are no longer reached directly from this
+    /// screen - they live behind <c>BackOfficeShellViewModel</c>'s own navigation, in its own
+    /// window, with its own status bar and accent (SRS UI-11: "the back office must be visually
+    /// distinct from the sales screen"). This is the one entry point into it, shown only when
+    /// <see cref="CanOpenBackOffice"/> says there is somewhere for it to lead - hiding it is a
+    /// courtesy, not the control: every screen behind it re-checks the session's role at the
+    /// Application layer regardless (SRS NFR-S2, AC-17).
+    /// </remarks>
+    public event EventHandler? BackOfficeRequested;
 
     /// <summary>The lines on the bill, in the order they were scanned.</summary>
     public ObservableCollection<SaleLineViewModel> Lines { get; } = [];
 
-    public bool CanManageUsers => _session.CurrentUser?.Role == Role.Owner;
-
-    public bool CanChangeSettings => _session.CurrentUser?.Role == Role.Owner;
-
-    public bool CanManageCatalogue => _session.CurrentUser?.Role == Role.Owner;
-
-    public bool CanPrintLabels => _session.CurrentUser?.Role == Role.Owner;
-
-    /// <summary>Purchasing is an owner capability (SRS §3.3 ROLE-2, task P2-T06).</summary>
-    public bool CanManagePurchasing => _session.CurrentUser?.Role == Role.Owner;
+    /// <summary>
+    /// Whether there is anywhere for the "Back office" entry point to lead - true when this
+    /// session may reach at least one of Catalogue, Settings, Users, Purchasing or Labels
+    /// (SRS UI-11, AC-24). A cashier session with none of these never sees the entry point at
+    /// all; an owner session always does, because an owner holds every one of them.
+    /// </summary>
+    public bool CanOpenBackOffice => _session.CurrentUser?.Role == Role.Owner;
 
     public bool IsHelpPanelOpen => _activePanel == SalesPanel.Help;
 
@@ -538,20 +534,9 @@ public sealed partial class SalesViewModel : NumericInputViewModel
 
     public bool IsAnyPanelOpen => _activePanel != SalesPanel.None;
 
+    /// <summary>Opens the back office (task P3-T13). Not one of the reserved UI-02 function keys.</summary>
     [RelayCommand]
-    public void ManageUsers() => ManageUsersRequested?.Invoke(this, EventArgs.Empty);
-
-    [RelayCommand]
-    public void ManageCatalogue() => CatalogueRequested?.Invoke(this, EventArgs.Empty);
-
-    [RelayCommand]
-    public void PrintLabels() => LabelPrintRequested?.Invoke(this, EventArgs.Empty);
-
-    [RelayCommand]
-    public void ManagePurchaseOrders() => PurchaseOrdersRequested?.Invoke(this, EventArgs.Empty);
-
-    [RelayCommand]
-    public void OpenSettings() => SettingsRequested?.Invoke(this, EventArgs.Empty);
+    public void OpenBackOffice() => BackOfficeRequested?.Invoke(this, EventArgs.Empty);
 
     // ---- F1 Help ------------------------------------------------------------------------------
 
