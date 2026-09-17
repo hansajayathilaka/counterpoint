@@ -78,6 +78,11 @@ public static class BackupServiceCollectionExtensions
         services.AddSingleton<BackupScheduler>();
         services.AddSingleton<IHostedService>(p => p.GetRequiredService<BackupScheduler>());
 
+        // P3-T03: the Z report close (Counterpoint.Application.Shifts.ICloseShift) reaches this
+        // through the Application-layer seam it is actually allowed to reference (CLAUDE.md
+        // "Project boundaries") rather than this assembly directly.
+        services.AddSingleton<IShiftCloseBackupTrigger>(p => p.GetRequiredService<BackupScheduler>());
+
         // P1-T15: the guided restore wizard's backend (SRS FR-11.12, FR-11.13) - owner-only, the
         // same shape as IManualBackupTrigger above.
         services.AddSingleton<GuidedRestoreService>();

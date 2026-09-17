@@ -1653,6 +1653,7 @@ place; see that key's own remarks for why it is read and written directly throug
 | | `policy.adjustment_grn_warning_threshold` (5000.00 — the value above which an inbound adjustment warns towards a GRN instead; 0 disables the warning, P2-T08) | `MONEY` |
 | | `policy.cash_in_reasons`, `policy.cash_out_reasons` — free-text reason picker entries, pipe-separated, in the order given, the same shape as `policy.adjustment_reasons` (FR-8.2, P3-T01) | `STRING` |
 | | `policy.cash_out_authorisation_threshold` (5000.00 — the amount above which a cash-out needs an owner override; unlike `policy.cash_refund_limit`, 0 here means "authorise every cash-out", not "no limit", P3-T01) | `MONEY` |
+| | `policy.shift_close_variance_note_threshold` (500.00 — the absolute cash variance above which a shift close needs a note; the same "0 means every non-zero variance needs a note" convention as `policy.cash_out_authorisation_threshold`, P3-T03) | `MONEY` |
 | Peripherals (FR-10.6) | `peripheral.receipt_printer_name`, `peripheral.label_printer_name`, `peripheral.scale_port`, `peripheral.scanner_suffix` (`ENTER`/`TAB`/`NONE`) | `STRING` |
 | | `peripheral.paper_width_mm` (80), `peripheral.receipt_copies` (1), `peripheral.drawer_kick_pin` (2), `peripheral.scanner_minimum_length` (4), `peripheral.scale_baud_rate` (9600) | `INT` |
 | | `peripheral.open_drawer_on_cash_sale` (true), `peripheral.scale_enabled` (false) | `BOOL` |

@@ -32,7 +32,7 @@ namespace Counterpoint.Backup.Orchestration;
 /// remarks already establish do not take the single write connection's lock.
 /// </para>
 /// </remarks>
-public sealed partial class BackupScheduler : BackgroundService
+public sealed partial class BackupScheduler : BackgroundService, IShiftCloseBackupTrigger
 {
     private readonly IBackupOrchestrator _orchestrator;
     private readonly ISettings _settings;
@@ -65,22 +65,19 @@ public sealed partial class BackupScheduler : BackgroundService
     }
 
     /// <summary>
-    /// Runs a shift-close backup when <c>backup.on_shift_close</c> is enabled (SRS FR-11.1).
+    /// Runs a shift-close backup when <c>backup.on_shift_close</c> is enabled (SRS FR-11.1). This
+    /// is <see cref="IShiftCloseBackupTrigger.RunIfEnabledAsync"/>'s implementation -
+    /// <c>Counterpoint.Application.Shifts.ICloseShift</c> (task P3-T03) calls it, through that
+    /// interface, after its own close transaction has already committed.
     /// </summary>
-    /// <remarks>
-    /// Nothing calls this yet: shift close is <c>P3-T01</c>/<c>P3-T03</c>, not built in this task's
-    /// dependency set. It is ready for that command to call the moment it exists - honest about
-    /// what is and is not wired, the same way <c>SalesViewModel.StatusBackupText</c> was before
-    /// this task gave it a real answer.
-    /// </remarks>
-    public async Task RunAfterShiftCloseAsync(CancellationToken cancellationToken = default)
+    public async Task<BackupOutcome?> RunIfEnabledAsync(CancellationToken cancellationToken = default)
     {
         if (!_settings.Current.Backup.BackupOnShiftClose)
         {
-            return;
+            return null;
         }
 
-        await _orchestrator.RunAsync(BackupTrigger.ShiftClose, cancellationToken).ConfigureAwait(false);
+        return await _orchestrator.RunAsync(BackupTrigger.ShiftClose, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

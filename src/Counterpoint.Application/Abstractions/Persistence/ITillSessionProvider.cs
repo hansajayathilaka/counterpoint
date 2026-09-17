@@ -12,7 +12,8 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// Authentication and the session's role are P1-T02's; this remains exactly what makes shift
 /// recovery on restart work (SRS FR-8.7) - a fresh <c>Session</c>, at sign-in, asks this for the
 /// one open shift, which is a database read and not anything remembered in memory. Opening a
-/// shift is P1-T14 (<c>Counterpoint.Application.Shifts.IOpenShift</c>); closing one is P3-T01.
+/// shift is P1-T14 (<c>Counterpoint.Application.Shifts.IOpenShift</c>); closing one is P3-T03
+/// (<c>Counterpoint.Application.Shifts.ICloseShift</c>).
 /// </remarks>
 public interface ITillSessionProvider
 {

@@ -152,7 +152,11 @@ public sealed partial class PolicySettingsViewModel : SettingsGroupViewModel
                 // not this one.
                 snapshot.Policy.CashInReasons,
                 snapshot.Policy.CashOutReasons,
-                snapshot.Policy.CashOutAuthorisationThreshold),
+                snapshot.Policy.CashOutAuthorisationThreshold,
+
+                // Same reasoning again: task P3-T03's shift-close variance note threshold is
+                // edited from the shift-close screen that owns it, not this one.
+                snapshot.Policy.ShiftCloseVarianceNoteThreshold),
         };
     }
 }

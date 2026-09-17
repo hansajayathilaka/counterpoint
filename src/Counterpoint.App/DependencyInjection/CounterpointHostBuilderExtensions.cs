@@ -184,6 +184,14 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<IXReportService, XReportService>();
         builder.Services.AddSingleton<IXReportPrintService, XReportPrintService>();
 
+        // P3-T03: the Z report - shift close and rollups (SRS FR-8.4, FR-8.5, FR-8.8, AC-11) - an
+        // ordinary cashier capability, the same as IOpenShift above, not owner-only in its own
+        // right; CloseShiftHandler itself refuses a caller closing any shift but the one
+        // currently open on this till. Built through ActivatorUtilities because its constructor
+        // takes the concrete Session, not ISession, the same reason IOpenShift is wired that way.
+        // Depends on IShiftCloseBackupTrigger, registered below by AddCounterpointBackup.
+        builder.Services.AddSingleton<ICloseShift>(p => ActivatorUtilities.CreateInstance<CloseShiftHandler>(p));
+
         // P2-T08: adjustments and damage (SRS FR-4, NFR-S2) - owner-only, wired exactly as
         // ICancelSale above. IAdjustmentHistoryQuery is registered and decorated in
         // AddCounterpointInfrastructure instead, next to its own concrete reader.
