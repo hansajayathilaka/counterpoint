@@ -365,3 +365,5 @@ it stopped.
 - `2026-09-17T08:17:07Z` **P4-T01** start — Backup target abstraction
 - `2026-09-17T10:42:34Z` **P4-T01** fix-attempt — 1: GoogleDriveTarget.EscapeForQuery doesn't escape backslashes (Drive query-language correctness bug, code-reviewer confirmed), docs/01_DATA_MODEL.md missing S3_COMPATIBLE/LOCAL_FOLDER tokens and the new target-credential store in its not-app_setting-rows list (data-modeler)
 - `2026-09-17T11:13:29Z` **P4-T01** done — 39 files, 28+ test methods across AwsSigV4SignerTests.cs, BackupTargetErrorMessagesNeverLeakSecretsTests.cs and the target/factory/credential-store test files, review clean after 1 fix round (3 must-fix closed), PR #43
+
+**Run ended 2026-09-17T11:13:48Z** — 2 completed, 0 halted
