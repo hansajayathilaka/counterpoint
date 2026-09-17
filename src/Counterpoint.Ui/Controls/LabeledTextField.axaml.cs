@@ -35,6 +35,9 @@ public partial class LabeledTextField : UserControl
     public static readonly StyledProperty<string?> ValidationMessageProperty =
         AvaloniaProperty.Register<LabeledTextField, string?>(nameof(ValidationMessage));
 
+    public static readonly StyledProperty<bool> IsReadOnlyProperty =
+        AvaloniaProperty.Register<LabeledTextField, bool>(nameof(IsReadOnly));
+
     public LabeledTextField()
     {
         InitializeComponent();
@@ -76,5 +79,16 @@ public partial class LabeledTextField : UserControl
     {
         get => GetValue(ValidationMessageProperty);
         set => SetValue(ValidationMessageProperty, value);
+    }
+
+    /// <summary>
+    /// True for a field the operator cannot type into directly - e.g. a file path set only through
+    /// a picker (<see cref="Views.Catalogue.ImportTabView"/>'s Browse button). The persistent label
+    /// is unaffected either way; this only changes whether the box accepts keystrokes.
+    /// </summary>
+    public bool IsReadOnly
+    {
+        get => GetValue(IsReadOnlyProperty);
+        set => SetValue(IsReadOnlyProperty, value);
     }
 }

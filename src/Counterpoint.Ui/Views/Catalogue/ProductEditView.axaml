@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="560"
+             x:Class="Counterpoint.Ui.Views.Catalogue.ProductEditView"
+             x:DataType="vm:ProductEditViewModel">
+
+  <!-- Task P3-T15 (SRS FR-2.1-FR-2.8, UI-05, UI-06, UI-14, UI-15, AC-22, AC-23), built from the P3-T12 LabeledField family. -->
+  <ScrollViewer MaxHeight="560">
+    <StackPanel Spacing="12" Width="460">
+      <controls:LabeledTextField Name="CodeField" Label="Code" Text="{Binding Code}" />
+      <controls:LabeledTextField Name="NameField" Label="Name" Text="{Binding Name}" />
+      <controls:LabeledTextField Name="NameAltField" Label="Alternate name" Text="{Binding NameAlt}" />
+      <controls:LabeledComboField Name="CategoryField" Label="Category" ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" />
+      <controls:LabeledComboField Name="BrandField" Label="Brand" ItemsSource="{Binding BrandOptions}" SelectedItem="{Binding SelectedBrand}" />
+      <controls:LabeledComboField Name="BaseUomField" Label="Base unit" ItemsSource="{Binding BaseUomOptions}" SelectedItem="{Binding SelectedBaseUom}" IsEnabled="{Binding BaseUomEditable}" />
+      <controls:LabeledComboField Name="TypeField" Label="Type" ItemsSource="{Binding TypeLabels}" SelectedItem="{Binding SelectedTypeLabel}" />
+      <controls:LabeledComboField Name="TaxClassField" Label="Tax class" ItemsSource="{Binding TaxClassOptions}" SelectedItem="{Binding SelectedTaxClass}" />
+      <controls:LabeledTextField Name="LocationField" Label="Location" Text="{Binding Location}" />
+      <controls:LabeledNumericField Name="WarrantyDaysField" Label="Warranty days" Text="{Binding WarrantyDaysText}" />
+      <controls:LabeledCheckBoxField Name="NonReturnableField" CheckBoxLabel="Non-returnable" IsChecked="{Binding NonReturnable}" />
+      <controls:LabeledTextField Name="NotesField" Label="Notes" Text="{Binding Notes}" />
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

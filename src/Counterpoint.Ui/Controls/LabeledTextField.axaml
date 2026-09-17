@@ -21,7 +21,8 @@
                Foreground="{DynamicResource SecondaryTextBrush}" />
     <TextBox Name="InputBox"
              Text="{Binding #Root.Text, Mode=TwoWay}"
-             Watermark="{Binding #Root.Watermark}" />
+             Watermark="{Binding #Root.Watermark}"
+             IsReadOnly="{Binding #Root.IsReadOnly}" />
     <TextBlock Text="{Binding #Root.ValidationMessage}"
                Foreground="{DynamicResource WarningBrush}"
                IsVisible="{Binding #Root.ValidationMessage, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />

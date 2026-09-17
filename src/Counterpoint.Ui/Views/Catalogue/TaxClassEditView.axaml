@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="360" d:DesignHeight="160"
+             x:Class="Counterpoint.Ui.Views.Catalogue.TaxClassEditView"
+             x:DataType="vm:TaxClassEditViewModel">
+
+  <!-- Task P3-T15 (SRS UI-05, UI-06, UI-14, UI-15, AC-22, AC-23), built from the P3-T12 LabeledField family. -->
+  <StackPanel Spacing="12">
+    <controls:LabeledTextField Name="NameField" Label="Tax class name" Text="{Binding Name}" />
+    <controls:LabeledNumericField Name="RateField" Label="Rate %" Text="{Binding RatePercentText}" />
+  </StackPanel>
+
+</UserControl>

@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using Counterpoint.Application.Catalogue;
 using Counterpoint.Domain.Catalogue;
 using Counterpoint.Domain.ValueObjects;
+using Counterpoint.Ui.Services;
 
 namespace Counterpoint.Ui.ViewModels.Catalogue;
 
@@ -19,13 +20,42 @@ namespace Counterpoint.Ui.ViewModels.Catalogue;
 /// FR-2.1-FR-2.8, FR-3.6, AC-08).
 /// </summary>
 /// <remarks>
+/// <para>
 /// One flat viewmodel rather than several composed ones: the three grids only ever act on
 /// whichever product is currently selected, and threading that selection through separate
 /// viewmodel boundaries would cost more wiring than the one screen it serves.
+/// </para>
+/// <para>
+/// Task P3-T15: the product master, variant and unit-of-measure inline forms are retrofitted onto
+/// the P3-T11 dialog shell via <see cref="NewProductDialogAsync"/>/<see cref="EditProductDialogAsync"/>,
+/// <see cref="NewVariantDialogAsync"/>/<see cref="EditVariantDialogAsync"/> and
+/// <see cref="AddUomOptionDialogAsync"/>/<see cref="EditUomOptionDialogAsync"/>, each opening its
+/// own small, independent content viewmodel (<see cref="ProductEditViewModel"/>,
+/// <see cref="ProductVariantEditViewModel"/>, <see cref="ProductUomOptionEditViewModel"/>) rather
+/// than this type itself - <c>Counterpoint.Ui.ViewLocator</c>'s naming convention maps a dialog
+/// content viewmodel's type name straight to its view, so reusing this type as dialog content
+/// would render the whole tab inside the dialog, not a small edit form.
+/// </para>
+/// <para>
+/// <b>The legacy Code/Name/.../SaveCommand family below, and their Variant/UomOption
+/// counterparts, are kept byte-for-byte unchanged</b> - not because the retrofitted view still
+/// uses them (it does not), but because the protected P1-T05 regression test
+/// (<c>ProductTabViewModelUomTests</c>, SRS UI-06) constructs this type directly and drives
+/// <see cref="Code"/>/<see cref="New"/>/<see cref="SaveAsync"/>/<see cref="UomFactorText"/>/
+/// <see cref="AddUomOptionAsync"/>/<see cref="UpdateUomOptionAsync"/> without ever touching a
+/// view, and this task's own done-when requires that test to keep passing unmodified. They are
+/// dead weight from the retrofitted view's point of view, left in place deliberately rather than
+/// deleted, and documented as such rather than silently unused.
+/// </para>
 /// </remarks>
 public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
 {
-    private static readonly EnumChoices<ProductType> TypeChoices = new(
+    /// <summary>
+    /// Internal (rather than private) so <see cref="ProductEditViewModel"/> - a genuinely separate
+    /// dialog-content viewmodel, not this type - can translate the same combo-box labels back to
+    /// a <see cref="ProductType"/> without a second, divergent copy of this mapping.
+    /// </summary>
+    internal static readonly EnumChoices<ProductType> TypeChoices = new(
         (ProductType.Standard, "Standard (whole units)"),
         (ProductType.Fractional, "Decimal (fractional units)"),
         (ProductType.Service, "Service"),
@@ -36,6 +66,7 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
     private readonly IBrandMaintenance _brands;
     private readonly IUomMaintenance _uoms;
     private readonly ITaxClassMaintenance _taxClasses;
+    private readonly IDialogService _dialogService;
 
     private long? _editingId;
     private long? _editingVariantId;
@@ -121,12 +152,21 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
     [ObservableProperty]
     private string _matrixStatus = string.Empty;
 
+    /// <param name="dialogService">
+    /// Optional only so the protected P1-T05 test (<c>ProductTabViewModelUomTests</c>) - which
+    /// predates task P3-T15 and constructs this type directly with five positional arguments -
+    /// keeps compiling and passing unmodified. Every real caller resolves this type through DI,
+    /// which always supplies a real <see cref="IDialogService"/>; a screen that actually reaches
+    /// one of the dialog-opening commands below without one fails fast with a clear message
+    /// rather than a null-reference exception (see <see cref="NoDialogService"/>).
+    /// </param>
     public ProductTabViewModel(
         IProductMaintenance products,
         ICategoryMaintenance categories,
         IBrandMaintenance brands,
         IUomMaintenance uoms,
-        ITaxClassMaintenance taxClasses)
+        ITaxClassMaintenance taxClasses,
+        IDialogService? dialogService = null)
     {
         ArgumentNullException.ThrowIfNull(products);
         ArgumentNullException.ThrowIfNull(categories);
@@ -139,6 +179,7 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
         _brands = brands;
         _uoms = uoms;
         _taxClasses = taxClasses;
+        _dialogService = dialogService ?? NoDialogService.Instance;
     }
 
     public ObservableCollection<ProductRowViewModel> Items { get; } = [];
@@ -206,6 +247,111 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
                 }
 
                 Status = Items.Count == 1 ? "1 product." : Items.Count + " products.";
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>Opens the shared dialog to create a new product (SRS UI-15, AC-23).</summary>
+    [RelayCommand]
+    public async Task NewProductDialogAsync(CancellationToken cancellationToken)
+    {
+        await RunAsync(
+            async () =>
+            {
+                var content = new ProductEditViewModel(
+                    _products,
+                    CategoryOptions,
+                    BrandOptions,
+                    BaseUomOptions,
+                    TypeLabels,
+                    TaxClassOptions,
+                    editingId: null,
+                    initialCode: string.Empty,
+                    initialName: string.Empty,
+                    initialNameAlt: string.Empty,
+                    initialCategory: CategoryOptions.FirstOrDefault(),
+                    initialBrand: BrandOptions.FirstOrDefault(),
+                    initialBaseUom: BaseUomOptions.FirstOrDefault(),
+                    initialTypeLabel: TypeChoices.Labels[0],
+                    initialTaxClass: TaxClassOptions.FirstOrDefault(),
+                    initialLocation: string.Empty,
+                    initialNonReturnable: false,
+                    initialWarrantyDaysText: string.Empty,
+                    initialNotes: string.Empty);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Create,
+                    "product",
+                    subjectDescription: null,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var name = content.Name;
+                    await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                    SelectedItem = Items.FirstOrDefault(item => item.Id == content.SavedProductId);
+                    Status = name + " created.";
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>Opens the shared dialog to edit the selected product (SRS UI-15, AC-23).</summary>
+    [RelayCommand]
+    public async Task EditProductDialogAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedItem is not { } selected)
+        {
+            Status = "Pick a product first.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var record = await _products.FindByIdAsync(selected.Id, cancellationToken).ConfigureAwait(true);
+                if (record is null)
+                {
+                    Status = "That product no longer exists.";
+                    return;
+                }
+
+                var content = new ProductEditViewModel(
+                    _products,
+                    CategoryOptions,
+                    BrandOptions,
+                    BaseUomOptions,
+                    TypeLabels,
+                    TaxClassOptions,
+                    editingId: record.Id,
+                    initialCode: record.Code,
+                    initialName: record.Name,
+                    initialNameAlt: record.NameAlt ?? string.Empty,
+                    initialCategory: CategoryOptions.FirstOrDefault(o => o.Id == record.CategoryId) ?? CategoryOptions.FirstOrDefault(),
+                    initialBrand: BrandOptions.FirstOrDefault(o => o.Id == record.BrandId) ?? BrandOptions.FirstOrDefault(),
+                    initialBaseUom: BaseUomOptions.FirstOrDefault(o => o.Id == record.BaseUomId),
+                    initialTypeLabel: TypeChoices.Label(record.Type),
+                    initialTaxClass: TaxClassOptions.FirstOrDefault(o => o.Id == record.TaxClassId),
+                    initialLocation: record.Location ?? string.Empty,
+                    initialNonReturnable: record.NonReturnable,
+                    initialWarrantyDaysText: record.WarrantyDays?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    initialNotes: record.Notes ?? string.Empty);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Edit,
+                    "product",
+                    subjectDescription: selected.Name,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var name = content.Name;
+                    await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                    SelectedItem = Items.FirstOrDefault(item => item.Id == selected.Id);
+                    Status = name + " updated.";
+                }
             },
             cancellationToken).ConfigureAwait(true);
     }
@@ -457,6 +603,72 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
         VariantPriceText = value?.PriceText ?? string.Empty;
     }
 
+    /// <summary>Opens the shared dialog to create a new variant (SRS FR-2.6, UI-15, AC-23).</summary>
+    [RelayCommand]
+    public async Task NewVariantDialogAsync(CancellationToken cancellationToken)
+    {
+        if (_editingId is not { } productId)
+        {
+            Status = "Save the product before adding a variant.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var content = new ProductVariantEditViewModel(
+                    _products, productId, editingId: null, string.Empty, string.Empty, string.Empty);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Create,
+                    "variant",
+                    subjectDescription: null,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var sku = content.Sku;
+                    await RefreshVariantsAsync(productId).ConfigureAwait(true);
+                    Status = "Variant " + sku + " created.";
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>Opens the shared dialog to edit the selected variant (SRS FR-2.6, UI-15, AC-23).</summary>
+    [RelayCommand]
+    public async Task EditVariantDialogAsync(CancellationToken cancellationToken)
+    {
+        if (_editingId is not { } productId || SelectedVariant is not { } selected)
+        {
+            Status = "Pick a variant first.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var content = new ProductVariantEditViewModel(
+                    _products, productId, selected.Id, selected.Sku, selected.AttributesText, selected.PriceText);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Edit,
+                    "variant",
+                    subjectDescription: selected.Sku,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var sku = content.Sku;
+                    await RefreshVariantsAsync(productId).ConfigureAwait(true);
+                    Status = "Variant " + sku + " updated.";
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
     [RelayCommand]
     public void NewUomOption()
     {
@@ -523,12 +735,106 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
             cancellationToken).ConfigureAwait(true);
     }
 
+    /// <summary>Opens the shared dialog to add a new selling unit (SRS FR-2.4, FR-2.5, UI-15, AC-23).</summary>
+    [RelayCommand]
+    public async Task AddUomOptionDialogAsync(CancellationToken cancellationToken)
+    {
+        if (_editingId is not { } productId)
+        {
+            Status = "Save the product before adding a unit.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var content = new ProductUomOptionEditViewModel(
+                    _products,
+                    productId,
+                    editingId: null,
+                    AddableUomOptions,
+                    AddableUomOptions.FirstOrDefault(),
+                    string.Empty,
+                    string.Empty);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Create,
+                    "unit",
+                    subjectDescription: null,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    Status = "Unit added.";
+                    await RefreshUomOptionsAsync(productId).ConfigureAwait(true);
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Opens the shared dialog to edit the selected selling unit's factor and price (SRS FR-2.4,
+    /// FR-2.5, UI-15, AC-23).
+    /// </summary>
+    [RelayCommand]
+    public async Task EditUomOptionDialogAsync(CancellationToken cancellationToken)
+    {
+        if (_editingId is not { } productId || SelectedUomOption is not { } selected)
+        {
+            Status = "Pick a unit first.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var currentOption = new PickerOption(selected.UomId, selected.UomSymbol);
+                var content = new ProductUomOptionEditViewModel(
+                    _products,
+                    productId,
+                    selected.Id,
+                    [currentOption],
+                    currentOption,
+                    selected.FactorText,
+                    selected.SellingPriceText);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Edit,
+                    "unit",
+                    subjectDescription: selected.UomSymbol,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    Status = "Unit updated.";
+                    await RefreshUomOptionsAsync(productId).ConfigureAwait(true);
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Confirms through the shared dialog shell, naming the specific unit, before removing it
+    /// (SRS UI-05).
+    /// </summary>
     [RelayCommand]
     public async Task RemoveUomOptionAsync(CancellationToken cancellationToken)
     {
         if (_editingId is not { } productId || SelectedUomOption is not { } selected)
         {
             Status = "Pick a unit first.";
+            return;
+        }
+
+        var outcome = await _dialogService.ShowDeleteConfirmationAsync(
+            "unit",
+            selected.UomSymbol,
+            cancellationToken).ConfigureAwait(true);
+
+        if (outcome != DialogOutcome.Confirmed)
+        {
             return;
         }
 
@@ -702,4 +1008,41 @@ public sealed partial class ProductTabViewModel : ReferenceDataTabViewModel
         string.IsNullOrWhiteSpace(text)
             ? null
             : decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) ? value : null;
+
+    /// <summary>
+    /// Stands in for a real <see cref="IDialogService"/> only when this viewmodel is constructed
+    /// without one - which happens only in the protected P1-T05 test
+    /// (<c>ProductTabViewModelUomTests</c>) that predates task P3-T15 and never calls a
+    /// dialog-opening command. Every real, DI-resolved instance of this screen always receives a
+    /// real <see cref="IDialogService"/> (registered in <c>Counterpoint.App</c>'s composition
+    /// root); reaching this fallback in production would mean that wiring broke, so it fails fast
+    /// with a clear message rather than a null-reference exception two frames further down.
+    /// </summary>
+    private sealed class NoDialogService : IDialogService
+    {
+        internal static readonly NoDialogService Instance = new();
+
+        private NoDialogService()
+        {
+        }
+
+        public Task<DialogOutcome> ShowEditDialogAsync<TViewModel>(
+            DialogMode mode,
+            string entityName,
+            string? subjectDescription,
+            TViewModel content,
+            CancellationToken cancellationToken = default)
+            where TViewModel : ViewModelBase, IEditDialogContent =>
+            throw new InvalidOperationException(
+                "ProductTabViewModel was constructed without an IDialogService and a dialog-opening "
+                + "command was invoked. Resolve this screen through dependency injection.");
+
+        public Task<DialogOutcome> ShowDeleteConfirmationAsync(
+            string entityName,
+            string subjectDescription,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "ProductTabViewModel was constructed without an IDialogService and a delete "
+                + "confirmation was invoked. Resolve this screen through dependency injection.");
+    }
 }
