@@ -66,6 +66,9 @@ is a checkbox on a named `HW-T*` task.
 | **P3-T14** | Retrofit: sales screen and side panel | P3-T10, T12, T13 | 2d | UI-01, UI-03, NFR-U4* |
 | **P3-T15** | Retrofit: catalogue and settings screens | P3-T11, T12, T13 | 3d | UI-05, UI-06, UI-14*, UI-15* |
 | **P3-T16** | Retrofit: remaining windows and UI redesign gate | P3-T14, T15 | 2.5d | AC-21*, AC-22*, AC-23*, AC-24* |
+| **P3-T17** | Kiosk visual language: palette, type and base component styles | P3-T10 | 2d | UI-13, NFR-U4* |
+| **P3-T18** | Cashier screen: kiosk redesign, cashier-only status bar | P3-T17, T12, T13 | 2.5d | UI-01, UI-02, UI-03, UI-09† |
+| **P3-T19** | Back office: kiosk redesign, dashboard stat row and tile nav | P3-T17, T13, T18 | 2d | UI-09†, UI-11 |
 | **P4-T01** | Backup target abstraction | P1-T15 | 1.5d | FR-11.5, Q-09 |
 | **P4-T02** | Least-privilege and immutability setup | P4-T01 | 1d | NFR-S4 |
 | **P4-T03** | Upload worker with retry and backoff | P4-T01 | 2d | FR-11.5–11.8 |
@@ -85,13 +88,20 @@ is a checkbox on a named `HW-T*` task.
 | **P5-T08** | Training | P5-T06, T07 | 1d | NFR-U1 |
 | **P5-T09** | Go-live and handover | all | 1d | §16 |
 
-**Total:** ~112 developer-days ≈ 17 weeks for one developer, matching the SRS's indicative 16–18 weeks, **plus ~15.5 developer-days (≈3 weeks) for the P3-T10–P3-T16 UI redesign** added 2026-09-15 (~127.5d ≈ 20 weeks total). The HW track adds ~1 week on site after that, once the hardware has arrived.
+**Total:** ~112 developer-days ≈ 17 weeks for one developer, matching the SRS's indicative 16–18 weeks, **plus ~15.5 developer-days (≈3 weeks) for the P3-T10–P3-T16 UI redesign** added 2026-09-15, **plus ~6.5 developer-days (≈1.5 weeks) for the P3-T17–P3-T19 Kiosk Tile redesign** added 2026-09-18 after the owner rejected P3-T10–P3-T16's visual style (~134d ≈ 21 weeks total). The HW track adds ~1 week on site after that, once the hardware has arrived.
 
 `*` in the Key SRS column marks a requirement id newly introduced by the P3-T10–P3-T16 UI redesign
 (UI-13, UI-14, UI-15, NFR-U4, AC-21–AC-24). These are additions to the SRS in
 `docs/Counterpoint_Requirements.md`, not yet folded into that signed document — see the "UI
 redesign" section header in `docs/05_PHASE_3_reports_cash.md` for the full definitions and the
 owner decision this is pending.
+
+`†` marks **UI-09**, an *existing* requirement the owner has approved amending (not newly
+introduced) via P3-T18: the cashier screen should show no backup/cloud/printer status at all, so
+the status bar UI-09 describes splits into a cashier bar (user + shift only) and a back-office
+bar/dashboard (backup, cloud, printer — P3-T19). `docs/Counterpoint_Requirements.md` is
+permission-protected from automated edits, so the amended wording lives in the "UI redesign v2"
+section of `docs/05_PHASE_3_reports_cash.md` pending someone with access making the edit by hand.
 
 ---
 

@@ -1,8 +1,9 @@
 # Phase 3 — Reports and Cash Discipline
 
 **Duration:** 3 weeks · **Tasks:** 9 core (P3-T01–P3-T09) + 7 UI redesign (P3-T10–P3-T16, added
-2026-09-15 via `/plan-feature`, see that section below) · **Exit:** the owner has visibility and
-the day closes cleanly and immutably.
+2026-09-15 via `/plan-feature`, see that section below) + 3 UI redesign v2 (P3-T17–P3-T19, added
+2026-09-18 — the owner rejected the shipped P3-T10–P3-T16 visual style itself, see below) ·
+**Exit:** the owner has visibility and the day closes cleanly and immutably.
 
 ## Scope
 
@@ -570,3 +571,182 @@ something to fix inside this task.
       or explicitly out of scope with a reason
 - [ ] `dotnet test` is green, architecture tests are green, and the app still starts to the sales
       screen (`CLAUDE.md` definition of done)
+
+---
+
+## UI redesign v2 — Kiosk Tile direction (added 2026-09-18)
+
+P3-T10–P3-T16 shipped and closed the four confirmed defects (no light mode, an unreadable panel,
+vanishing labels, ambiguous create/edit forms), but the owner reviewed the result and rejected the
+visual style itself: "still... the same style... I do not think the current style is good...
+Redesign everything... do not use old POS style." Three concrete mockups (not a text description)
+were built and shown for comparison — **Kiosk Tile** (bold, high-contrast, big tap-target tiles, a
+workshop-branded palette instead of a generic dashboard blue), **Minimal Dashboard**, and **Command
+Rail** — and the owner chose **Kiosk Tile**. The owner also asked, separately and explicitly, that
+the cashier screen show no backup/cloud/printer status at all, and called the back-office screen
+(a bare `UniformGrid` of default-styled `Button`s under a 6px accent stripe) unacceptable.
+
+**This is a restyle and a layout rebuild, not a reopening of P3-T10–P3-T16's architecture.** The
+token/theme-variant infrastructure (P3-T10), the reusable dialog shell (P3-T11), the `LabeledField`
+family (P3-T12) and the single-process role-gated shell split (P3-T13) are sound and stay exactly
+as built — P3-T17 restyles the *values* inside the existing token dictionaries and adds the kiosk
+typography/component styles on top of that same infrastructure; P3-T18/P3-T19 rebuild the two
+shells' *layouts* on top of it. Nothing here touches `Application`/`Domain`/`Infrastructure`,
+schema, or the stock ledger.
+
+**Requirement change, owner-approved, not yet written into the signed document.** SRS **UI-09**
+currently reads "The status bar must permanently show: logged-in user, shift status, last backup
+time, cloud backup status, printer status" — written when the status bar was assumed to be one
+thing on one screen. The owner has now explicitly asked that the cashier never see backup/cloud/
+printer status. UI-09 should be amended to: the cashier's status bar shows only logged-in user and
+shift status; last-backup time, cloud backup status and printer status move to the back-office
+status/dashboard area exclusively. **`docs/Counterpoint_Requirements.md` is permission-protected
+from automated edits** (it is the signed client document), so this amendment is recorded here and
+in `docs/08_TASK_INDEX.md` as owner-approved and pending — the owner (or someone with write access
+to that file) still needs to make the edit by hand; P3-T18 implements the behaviour but does not
+touch that file. This is **not** a reversal of UI-13 (light+dark, user-selectable) — both Kiosk
+Tile token variants stay fully implemented; the owner picked the direction's palette and layout,
+not a return to dark-only.
+
+**Existing FR-9.7 Dashboard panel is out of scope here.** `SalesViewModel` already has an
+on-demand Dashboard panel (opened by a button, not a reserved UI-02 key) built on
+`IDashboardQueries`/`DashboardSummary` — today's sales, bill count, average bill, cash in drawer,
+low stock, last backup. That panel is not the always-visible status bar the owner objected to, and
+nothing here asks for it to move or change. P3-T19 reuses `IDashboardQueries` for the back-office
+stat-card row instead of inventing a new query; it does not touch the Dashboard panel itself.
+
+---
+
+### P3-T17 — Kiosk visual language: palette, type and base component styles
+**Depends on:** P3-T10 · **Est:** 2d · **SRS:** UI-13, NFR-U4
+
+**Context.** This task restyles the existing `Tokens.Light.axaml`/`Tokens.Dark.axaml` semantic
+brushes to the chosen Kiosk Tile palette and adds the typography and base component styles that
+direction needs. It does not touch any screen's layout — P3-T18/P3-T19 do that on top of what this
+task delivers.
+
+**Do this.**
+1. Redefine `WindowBackgroundBrush`, `PanelBackgroundBrush`, `PanelBorderBrush`, `PrimaryTextBrush`,
+   `SecondaryTextBrush`, `AccentBrush`, `WarningBrush`, `TotalHighlightBrush` in both token
+   dictionaries to the kiosk palette: **Dark** — charcoal surfaces (`#14171B`/`#1E2228`/`#262B33`),
+   warm off-white ink (`#F4F1EC`), a Milwaukee-red accent (`#E11D2E`), mint good/amber warn.
+   **Light** — an equivalent light-workshop palette at the same contrast ratios (light warm-grey
+   surfaces, dark charcoal ink, the same red accent) so **UI-13 is preserved, not reverted**: both
+   variants stay fully implemented and user-selectable, only their *values* change. Add whatever
+   new semantic tokens the kiosk layout needs (e.g. a raised-surface brush for tiles/cards, a
+   `GoodBrush` alongside the existing `WarningBrush`).
+2. Bundle three open-source (SIL OFL — licence-clear to redistribute) font families as embedded
+   Avalonia font assets under `Assets/Fonts/`, registered via `avares://` `FontFamily` resources —
+   **never a network font load**; this is an offline-first app and the fonts must ship inside the
+   package: **Barlow Condensed** (display/headers, 700/900), **Work Sans** (body, 400/500/600),
+   **IBM Plex Mono** (every money/quantity column — Avalonia has no `font-variant-numeric`, so use
+   the monospace face directly wherever figures must align). Expose them as role-based theme
+   resources (`DisplayFontFamily`, `BodyFontFamily`, `NumeralFontFamily`) so screens bind to a role,
+   never a literal font name.
+3. Add `Styles/Kiosk.axaml`: reusable `ControlTheme`/`Style` resources for a big-tile button, a
+   stat/total card, and an F-key chip, merged into `App.axaml` after the token dictionaries, so
+   P3-T18/P3-T19 apply them by style key instead of repeating markup per screen.
+4. Extend `ThemeTokenContrastTests` to the new palette values (WCAG AA 4.5:1 minimum stays the
+   bar) in both variants.
+
+**Deliverables.** Restyled `Tokens.Light.axaml`/`Tokens.Dark.axaml`, three embedded font assets and
+their font-role resources, `Styles/Kiosk.axaml`, extended contrast test coverage.
+
+**Risks.** Bundling fonts grows the installed app's size — acceptable for a Windows desktop
+install; the risk is bundling them in a way that silently reaches the network at runtime instead —
+don't. Do not touch any screen's layout in this task.
+
+**Done when.**
+- [ ] Both Light and Dark variants render the kiosk palette and pass the WCAG AA contrast test
+- [ ] Barlow Condensed, Work Sans and IBM Plex Mono are bundled as app assets; nothing in the
+      codebase loads a font over the network
+- [ ] `Styles/Kiosk.axaml` exists and is merged into `App.axaml`
+- [ ] No existing test regresses; zero raw hex colour literals introduced
+
+---
+
+### P3-T18 — Cashier screen: kiosk redesign, cashier-only status bar
+**Depends on:** P3-T17, P3-T12, P3-T13 · **Est:** 2.5d · **SRS:** UI-01, UI-02, UI-03, UI-09
+(amended), NFR-U4
+
+**Context.** Two things land in this task: the UI-09 status-bar split the owner asked for, and the
+Kiosk Tile layout rebuild of `SalesWindow` itself (a re-colour of the existing layout is what the
+owner already rejected once, in P3-T14 — this is a genuine layout change, not a second coat of
+paint on the same structure).
+
+**Do this.**
+1. Remove `StatusBackupText`/`StatusCloudText`/`StatusPrinterText`/`StatusPrintQueueText` from
+   `SalesWindow`'s status bar bindings entirely. Keep the underlying `SalesViewModel` properties
+   and their refresh logic untouched — P3-T19 binds them on the back-office side — only their
+   presence on this screen is removed. Keep `StatusUserText`/`StatusShiftText` on the cashier bar.
+2. Rebuild the sale screen on the P3-T17 kiosk styles: a prominent total card
+   (`TotalHighlightBrush`, `DisplayFontFamily` for the label, `NumeralFontFamily` for the amount)
+   replacing the current plain total line; Hold/Discount/Pay as big tile-style buttons (the P3-T17
+   tile style, not a plain `Button` row); the ticket list restyled onto the kiosk surface and type
+   roles.
+3. Rebuild the F1–F12 row as a horizontal strip of compact chip tiles (key + label, per the chosen
+   mockup) using the P3-T17 F-key chip style, replacing today's plain buttons. The `Window`-level
+   `KeyBinding`s themselves, and every P1-T09/P1-T10 scanner/keyboard behaviour, do not change —
+   this is presentation only, exactly like P3-T14's own constraint.
+4. `docs/Counterpoint_Requirements.md` is permission-protected from automated edits — do not
+   attempt to write to it. The UI-09 amendment is recorded above and in `docs/08_TASK_INDEX.md` as
+   owner-approved and pending a manual edit by someone with access to that file.
+
+**Deliverables.** Redesigned `SalesWindow.axaml`/`SalesSidePanelView.axaml` on the P3-T17 kiosk
+styles, extended contrast/label-inspection coverage for the new markup.
+
+**Risks.** Same regression risk P3-T14 already named: re-run every P1-T09/P1-T10 test unmodified —
+none of them should need to change if this stayed visual/structural-only. Removing the status
+bindings from the *view* must not remove the ViewModel properties or the refresh logic feeding
+them; P3-T19 still needs both.
+
+**Done when.**
+- [ ] `SalesWindow`'s status bar shows only user and shift status; backup/cloud/printer/print-queue
+      status appears nowhere on the cashier screen
+- [ ] The sale screen matches the chosen Kiosk Tile direction (total card, tile actions, F-key chip
+      row) built from P3-T17's tokens/styles; zero raw hex colour literals
+- [ ] Every existing P1-T09/P1-T10 test still passes, unmodified
+- [ ] The UI-09 amendment is recorded in the task docs as owner-approved and pending (not written
+      into `docs/Counterpoint_Requirements.md`, which this task does not touch)
+
+---
+
+### P3-T19 — Back office: kiosk redesign, dashboard stat row and tile navigation
+**Depends on:** P3-T17, P3-T13, P3-T18 · **Est:** 2d · **SRS:** UI-09 (amended), UI-11, NFR-U4
+
+**Context.** The owner called the shipped back office (a bare `UniformGrid` of default-styled
+`Button`s under a 6px accent stripe) unacceptable. This task rebuilds `BackOfficeShellWindow` on
+the chosen Kiosk Tile direction and is where backup/cloud/printer status now lives exclusively,
+per P3-T18's UI-09 amendment.
+
+**Do this.**
+1. Add a stat-card row (the P3-T17 stat/total card style) showing today's sales, low-stock count
+   and open-shift duration read through the existing `IDashboardQueries`/`DashboardSummary`
+   (FR-9.7) — do not invent a new query for figures that abstraction already provides — plus,
+   moved here from the cashier screen, last-backup time, cloud backup status and printer status as
+   a status-dot-plus-text pair using the P3-T17 `GoodBrush`/`WarningBrush`.
+2. Replace the `UniformGrid` of plain `Button`s with a big-tile navigation grid (the P3-T17 tile
+   style) for Catalogue/Settings/Users/Purchasing/Labels. Each tile keeps exactly the role gating
+   it has today (`CanManageCatalogue` etc.) — presentation only, no change to the Application-layer
+   authorisation checks behind any of them.
+3. Restyle the existing accent-stripe/status-bar concept from P3-T13 (the UI-11 visual-distinctness
+   mechanism) onto the kiosk tokens and typography; keep the mechanism, change only its look.
+4. Extend `AC24_CashierAndOwnerShellsAreVisuallyAndNavigationallyDistinct` and
+   `AC21_EveryScreenIsLegibleInBothThemes` coverage to the new markup — re-run, don't rewrite, their
+   underlying assertions.
+
+**Deliverables.** Redesigned `BackOfficeShellWindow.axaml` (and `BackOfficeShellViewModel.cs` only
+if new stat-row bindings are needed) on the P3-T17 kiosk styles.
+
+**Risks.** None of this should touch `Application`/`Domain`/`Infrastructure`. If a stat the mockup
+wants isn't already exposed by `IDashboardQueries`, use what is available now and flag the gap in
+the report rather than adding a new query inside a UI-only task.
+
+**Done when.**
+- [ ] `BackOfficeShellWindow` shows the stat-card row (backup/cloud/printer status now exclusively
+      here) and a big-tile navigation grid, matching the chosen Kiosk Tile direction
+- [ ] Role-gating on every tile is unchanged and still enforced at the Application layer (existing
+      AC-24 test re-run, not rewritten, and green)
+- [ ] AC-21 contrast coverage extends to the new layout and stays green in both themes
+- [ ] `dotnet test` is green, architecture tests are green, and the app still starts to the sales
+      screen
