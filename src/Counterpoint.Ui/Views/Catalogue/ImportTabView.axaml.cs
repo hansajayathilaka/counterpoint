@@ -1,4 +1,5 @@
 using System.Threading;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -16,6 +17,17 @@ public partial class ImportTabView : UserControl
     public ImportTabView()
     {
         InitializeComponent();
+
+        // The "Saved profile" combo keeps its own ItemTemplate (rendering ImportMappingProfile.Name),
+        // so it stays a plain ComboBox rather than the P3-T12 LabeledComboField (which does not
+        // expose ItemTemplate) - wired to its persistent label the same way LabeledComboField
+        // wires its own (SRS UI-14).
+        var profileCombo = this.FindControl<ComboBox>("ProfileCombo");
+        var profileLabel = this.FindControl<TextBlock>("ProfileLabel");
+        if (profileCombo is not null && profileLabel is not null)
+        {
+            AutomationProperties.SetLabeledBy(profileCombo, profileLabel);
+        }
     }
 
     private ImportTabViewModel? ViewModel => DataContext as ImportTabViewModel;

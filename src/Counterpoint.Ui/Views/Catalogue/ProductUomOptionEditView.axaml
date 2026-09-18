@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="220"
+             x:Class="Counterpoint.Ui.Views.Catalogue.ProductUomOptionEditView"
+             x:DataType="vm:ProductUomOptionEditViewModel">
+
+  <!-- Task P3-T15 (SRS FR-2.4, FR-2.5, UI-05, UI-06, UI-14, UI-15, AC-22, AC-23), built from the P3-T12 LabeledField family. -->
+  <StackPanel Spacing="12">
+    <controls:LabeledComboField Name="UomField" Label="Unit" ItemsSource="{Binding AddableUomOptions}" SelectedItem="{Binding SelectedUom}" IsEnabled="{Binding UomEditable}" />
+    <controls:LabeledNumericField Name="FactorField" Label="Factor (base units)" Text="{Binding FactorText}" />
+    <controls:LabeledNumericField Name="SellingPriceField" Label="Selling price (optional)" Text="{Binding SellingPriceText}" />
+  </StackPanel>
+
+</UserControl>

@@ -5,41 +5,33 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Counterpoint.Application.Catalogue;
-using Counterpoint.Ui.ViewModels;
+using Counterpoint.Ui.Services;
 
 namespace Counterpoint.Ui.ViewModels.Catalogue;
 
 /// <summary>The customer tab of the catalogue screen (SRS FR-6.1).</summary>
+/// <remarks>
+/// Task P3-T15: converted onto the P3-T11 dialog shell following the Category screen's
+/// proof-of-concept exactly. New and Edit each open <see cref="CustomerEditViewModel"/> through
+/// <see cref="IDialogService"/> with an explicit <see cref="DialogMode"/>; the old inline form -
+/// five watermark-only fields task P3-T12's own tests used as the "still unconverted" fixture -
+/// is gone. Delete confirms through the same shell before it does anything, naming the specific
+/// customer (SRS UI-05).
+/// </remarks>
 public sealed partial class CustomerTabViewModel : ReferenceDataTabViewModel
 {
     private readonly ICustomerMaintenance _customers;
-    private long? _editingId;
-
-    [ObservableProperty]
-    private string _name = string.Empty;
-
-    [ObservableProperty]
-    private string _phone = string.Empty;
-
-    [ObservableProperty]
-    private string _address = string.Empty;
-
-    [ObservableProperty]
-    private string _taxNo = string.Empty;
-
-    [ObservableProperty]
-    private bool _isTrade;
-
-    [ObservableProperty]
-    private string _creditLimitText = "0";
+    private readonly IDialogService _dialogService;
 
     [ObservableProperty]
     private CustomerRowViewModel? _selectedItem;
 
-    public CustomerTabViewModel(ICustomerMaintenance customers)
+    public CustomerTabViewModel(ICustomerMaintenance customers, IDialogService dialogService)
     {
         ArgumentNullException.ThrowIfNull(customers);
+        ArgumentNullException.ThrowIfNull(dialogService);
         _customers = customers;
+        _dialogService = dialogService;
     }
 
     public ObservableCollection<CustomerRowViewModel> Items { get; } = [];
@@ -63,41 +55,69 @@ public sealed partial class CustomerTabViewModel : ReferenceDataTabViewModel
             cancellationToken).ConfigureAwait(true);
     }
 
+    /// <summary>Opens the shared dialog to create a new customer (SRS UI-15, AC-23).</summary>
     [RelayCommand]
-    public void New()
-    {
-        _editingId = null;
-        SelectedItem = null;
-        Name = string.Empty;
-        Phone = string.Empty;
-        Address = string.Empty;
-        TaxNo = string.Empty;
-        IsTrade = false;
-        CreditLimitText = "0";
-    }
-
-    [RelayCommand]
-    public async Task SaveAsync(CancellationToken cancellationToken)
+    public async Task NewAsync(CancellationToken cancellationToken)
     {
         await RunAsync(
             async () =>
             {
-                var command = new SaveCustomerCommand(
-                    Name, Phone, Address, TaxNo, IsTrade ? "TRADE" : "RETAIL", SettingsText.ToMoney(CreditLimitText));
+                var content = new CustomerEditViewModel(
+                    _customers, editingId: null, "", "", "", "", isTrade: false, "0");
 
-                if (_editingId is { } id)
-                {
-                    await _customers.UpdateAsync(id, command, cancellationToken).ConfigureAwait(true);
-                    Status = Name + " updated.";
-                }
-                else
-                {
-                    await _customers.CreateAsync(command, cancellationToken).ConfigureAwait(true);
-                    Status = Name + " created.";
-                }
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Create,
+                    "customer",
+                    subjectDescription: null,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
 
-                New();
-                await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var name = content.Name;
+                    await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                    Status = name + " created.";
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>Opens the shared dialog to edit the selected customer (SRS UI-15, AC-23).</summary>
+    [RelayCommand]
+    public async Task EditAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedItem is not { } selected)
+        {
+            Status = "Pick a customer first.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var content = new CustomerEditViewModel(
+                    _customers,
+                    selected.Id,
+                    selected.Name,
+                    selected.Phone,
+                    selected.Address,
+                    selected.TaxNo,
+                    selected.Type == "TRADE",
+                    selected.CreditLimitText);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Edit,
+                    "customer",
+                    subjectDescription: selected.Name,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var name = content.Name;
+                    await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                    Status = name + " updated.";
+                }
             },
             cancellationToken).ConfigureAwait(true);
     }
@@ -130,6 +150,10 @@ public sealed partial class CustomerTabViewModel : ReferenceDataTabViewModel
             cancellationToken).ConfigureAwait(true);
     }
 
+    /// <summary>
+    /// Confirms through the shared dialog shell, naming the specific customer, before deleting it
+    /// (SRS UI-05).
+    /// </summary>
     [RelayCommand]
     public async Task DeleteAsync(CancellationToken cancellationToken)
     {
@@ -139,25 +163,24 @@ public sealed partial class CustomerTabViewModel : ReferenceDataTabViewModel
             return;
         }
 
+        var outcome = await _dialogService.ShowDeleteConfirmationAsync(
+            "customer",
+            selected.Name,
+            cancellationToken).ConfigureAwait(true);
+
+        if (outcome != DialogOutcome.Confirmed)
+        {
+            return;
+        }
+
         await RunAsync(
             async () =>
             {
                 await _customers.DeleteAsync(selected.Id, cancellationToken).ConfigureAwait(true);
-                New();
+                SelectedItem = null;
                 await RefreshAsync(cancellationToken).ConfigureAwait(true);
                 Status = selected.Name + " deleted.";
             },
             cancellationToken).ConfigureAwait(true);
-    }
-
-    partial void OnSelectedItemChanged(CustomerRowViewModel? value)
-    {
-        _editingId = value?.Id;
-        Name = value?.Name ?? string.Empty;
-        Phone = value?.Phone ?? string.Empty;
-        Address = value?.Address ?? string.Empty;
-        TaxNo = value?.TaxNo ?? string.Empty;
-        IsTrade = value?.Type == "TRADE";
-        CreditLimitText = value?.CreditLimitText ?? "0";
     }
 }

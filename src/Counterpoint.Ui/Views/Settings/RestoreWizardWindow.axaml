@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+        xmlns:controls="using:Counterpoint.Ui.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="480"
@@ -16,17 +17,20 @@
     Guided restore (SRS FR-11.12, FR-11.13). Four steps, in order: choose a file, check it (no
     passphrase needed), type the passphrase and the exact confirmation phrase, then restore. Every
     box below the "Check" button is disabled until the checksum has verified, so there is no path
-    through this screen that skips a step.
+    through this screen that skips a step. Task P3-T16 (SRS UI-06, UI-14, AC-22): the file path and
+    confirmation-phrase fields are P3-T12 LabeledField controls; the passphrase box keeps a plain
+    TextBox/TextBlock pair wired to AutomationProperties.LabeledBy in the code-behind - the same
+    accepted fallback BackupSettingsView's own two passphrase boxes use - because it needs
+    PasswordChar masking, which the family does not offer.
   -->
   <StackPanel Margin="16" Spacing="8">
 
     <TextBlock TextWrapping="Wrap" FontWeight="Bold"
                Text="Restoring replaces this till's data with an earlier backup. The current database is backed up first, automatically." />
 
-    <TextBlock Text="Backup file (local folder or a USB drive)" />
     <DockPanel>
-      <Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="_Browse..." Click="OnBrowseFileClick" />
-      <TextBox Text="{Binding FilePath}" />
+      <Button DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Bottom" Content="_Browse..." Click="OnBrowseFileClick" />
+      <controls:LabeledTextField Label="Backup file (local folder or a USB drive)" IsReadOnly="True" Text="{Binding FilePath}" />
     </DockPanel>
 
     <Button Content="_Check backup" Command="{Binding CheckBackupCommand}" IsEnabled="{Binding !Busy}" />
@@ -35,11 +39,15 @@
 
     <StackPanel IsEnabled="{Binding HasVerifiedPreview}" Spacing="8" Margin="0,8,0,0">
 
-      <TextBlock Text="Passphrase this backup was encrypted with" />
-      <TextBox PasswordChar="•" Text="{Binding Passphrase}" />
+      <StackPanel Spacing="4">
+        <TextBlock Name="PassphraseLabel" Text="Passphrase this backup was encrypted with"
+                   Foreground="{DynamicResource SecondaryTextBrush}" />
+        <TextBox Name="PassphraseBox" PasswordChar="•" Text="{Binding Passphrase}" />
+      </StackPanel>
 
-      <TextBlock Text="{Binding RequiredConfirmationPhrase, StringFormat='Type {0} exactly to confirm'}" />
-      <TextBox Text="{Binding TypedConfirmation}" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="{Binding RequiredConfirmationPhrase, StringFormat='Type {0} exactly to confirm'}" />
+      <controls:LabeledTextField Label="Confirmation phrase" Text="{Binding TypedConfirmation}" />
 
       <Button Content="_Restore" Command="{Binding RestoreCommand}" />
 

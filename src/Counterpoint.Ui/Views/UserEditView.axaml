@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="340" d:DesignHeight="220"
+             x:Class="Counterpoint.Ui.Views.UserEditView"
+             x:DataType="vm:UserEditViewModel">
+
+  <!--
+    Task P3-T16 (SRS UI-05, UI-06, UI-14, UI-15, AC-22, AC-23): the username, display name and
+    owner checkbox only apply to creating a new account and are hidden while resetting an existing
+    one's password - the username is still shown, but read-only, so the record being acted on is
+    never in doubt (SRS UI-05). The password box keeps a plain TextBox/TextBlock pair wired to
+    AutomationProperties.LabeledBy in the code-behind, the same accepted fallback
+    BackupSettingsView's own passphrase boxes use, because it needs PasswordChar masking, which
+    the LabeledField family does not offer.
+  -->
+  <StackPanel Spacing="12">
+    <controls:LabeledTextField Name="UsernameField" Label="Username" Text="{Binding Username}"
+                                IsReadOnly="{Binding !IsCreate}" />
+    <controls:LabeledTextField Name="DisplayNameField" Label="Name on screen" Text="{Binding DisplayName}"
+                                IsVisible="{Binding IsCreate}" />
+    <controls:LabeledCheckBoxField Name="OwnerField" CheckBoxLabel="Owner" IsChecked="{Binding IsOwner}"
+                                    IsVisible="{Binding IsCreate}" />
+    <StackPanel Spacing="4">
+      <TextBlock Name="PasswordLabel" Text="{Binding PasswordFieldLabel, FallbackValue=Password}"
+                 Foreground="{DynamicResource SecondaryTextBrush}" />
+      <TextBox Name="PasswordBox" PasswordChar="•" Text="{Binding Password}" />
+    </StackPanel>
+  </StackPanel>
+
+</UserControl>

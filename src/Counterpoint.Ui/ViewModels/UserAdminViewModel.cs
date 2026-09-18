@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Counterpoint.Application.Security;
 using Counterpoint.Domain.Security;
+using Counterpoint.Ui.Services;
 
 namespace Counterpoint.Ui.ViewModels;
 
@@ -24,10 +25,26 @@ namespace Counterpoint.Ui.ViewModels;
 /// Deliberately plain, as the sales screen is: this is the shape of the operations, not the shape
 /// of the finished till.
 /// </para>
+/// <para>
+/// Task P3-T16 (SRS UI-15, AC-23): <see cref="NewUserDialogAsync"/> and
+/// <see cref="ResetPasswordDialogAsync"/> open the retrofitted view's create/edit actions through
+/// the shared <see cref="IDialogService"/> shell, each hosting its own small
+/// <see cref="UserEditViewModel"/>. <b>The legacy <see cref="NewUsername"/>/<see cref="NewDisplayName"/>/
+/// <see cref="NewPassword"/>/<see cref="NewUserIsOwner"/>/<see cref="CreateAsync"/>/
+/// <see cref="ReplacementPassword"/>/<see cref="ResetPasswordAsync"/> family below is kept
+/// byte-for-byte unchanged</b> - not because the retrofitted view still uses them (it does not),
+/// but because the protected <c>LoginScreenTests</c> (SRS AC-17, FR-1.4) construct this type
+/// directly with its original single-argument constructor and drive them without ever touching a
+/// view, and this task's own done-when requires those tests to keep passing unmodified. They are
+/// dead weight from the retrofitted view's point of view, left in place deliberately rather than
+/// deleted, and documented as such rather than silently unused - the same choice task P3-T15 made
+/// for <c>ProductTabViewModel</c>'s own legacy family.
+/// </para>
 /// </remarks>
 public sealed partial class UserAdminViewModel : ViewModelBase
 {
     private readonly IUserAdministration _users;
+    private readonly IDialogService _dialogService;
 
     [ObservableProperty]
     private string _newUsername = string.Empty;
@@ -53,10 +70,19 @@ public sealed partial class UserAdminViewModel : ViewModelBase
     [ObservableProperty]
     private bool _busy;
 
-    public UserAdminViewModel(IUserAdministration users)
+    /// <param name="dialogService">
+    /// Optional only so the protected <c>LoginScreenTests</c> - which predate task P3-T16 and
+    /// construct this type directly with one positional argument - keep compiling and passing
+    /// unmodified. Every real caller resolves this type through DI, which always supplies a real
+    /// <see cref="IDialogService"/>; a screen that actually reaches one of the two dialog-opening
+    /// commands below without one fails fast with a clear message rather than a null-reference
+    /// exception (see <see cref="NoDialogService"/>).
+    /// </param>
+    public UserAdminViewModel(IUserAdministration users, IDialogService? dialogService = null)
     {
         ArgumentNullException.ThrowIfNull(users);
         _users = users;
+        _dialogService = dialogService ?? NoDialogService.Instance;
     }
 
     /// <summary>Every account on the till, in username order.</summary>
@@ -94,7 +120,80 @@ public sealed partial class UserAdminViewModel : ViewModelBase
             cancellationToken).ConfigureAwait(true);
     }
 
-    /// <summary>Creates an account.</summary>
+    /// <summary>
+    /// Opens the shared dialog to create a new account (SRS UI-15, AC-23) - the view's own New
+    /// action, task P3-T16.
+    /// </summary>
+    [RelayCommand]
+    public async Task NewUserDialogAsync(CancellationToken cancellationToken)
+    {
+        await RunAsync(
+            async () =>
+            {
+                var content = new UserEditViewModel(
+                    _users,
+                    editingId: null,
+                    initialUsername: string.Empty,
+                    initialDisplayName: string.Empty,
+                    initialIsOwner: false);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Create,
+                    "user",
+                    subjectDescription: null,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var created = content.Username.Trim();
+                    await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                    Status = created + " can now sign in.";
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Opens the shared dialog to set a new password on the selected account (SRS UI-15, AC-23) -
+    /// the view's own Edit action, task P3-T16.
+    /// </summary>
+    [RelayCommand]
+    public async Task ResetPasswordDialogAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedUser is not { } selected)
+        {
+            Status = "Pick a user first.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var content = new UserEditViewModel(
+                    _users,
+                    editingId: selected.Id,
+                    initialUsername: selected.Username,
+                    initialDisplayName: selected.DisplayName,
+                    initialIsOwner: selected.RoleText == "Owner");
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Edit,
+                    "user",
+                    subjectDescription: selected.Username,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                    Status = selected.Username + " has a new password and is no longer locked.";
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>Creates an account. Legacy - see this type's remarks.</summary>
     [RelayCommand]
     public async Task CreateAsync(CancellationToken cancellationToken)
     {
@@ -154,7 +253,10 @@ public sealed partial class UserAdminViewModel : ViewModelBase
             cancellationToken).ConfigureAwait(true);
     }
 
-    /// <summary>Sets a new password on the selected account, which also clears any lockout.</summary>
+    /// <summary>
+    /// Sets a new password on the selected account, which also clears any lockout. Legacy - see
+    /// this type's remarks.
+    /// </summary>
     [RelayCommand]
     public async Task ResetPasswordAsync(CancellationToken cancellationToken)
     {
@@ -209,5 +311,42 @@ public sealed partial class UserAdminViewModel : ViewModelBase
         {
             Busy = alreadyBusy;
         }
+    }
+
+    /// <summary>
+    /// Stands in for a real <see cref="IDialogService"/> only when this viewmodel is constructed
+    /// without one - which happens only in the protected <c>LoginScreenTests</c> that predate task
+    /// P3-T16 and never call a dialog-opening command. Every real, DI-resolved instance of this
+    /// screen always receives a real <see cref="IDialogService"/> (registered in
+    /// <c>Counterpoint.App</c>'s composition root); reaching this fallback in production would
+    /// mean that wiring broke, so it fails fast with a clear message rather than a null-reference
+    /// exception two frames further down.
+    /// </summary>
+    private sealed class NoDialogService : IDialogService
+    {
+        internal static readonly NoDialogService Instance = new();
+
+        private NoDialogService()
+        {
+        }
+
+        public Task<DialogOutcome> ShowEditDialogAsync<TViewModel>(
+            DialogMode mode,
+            string entityName,
+            string? subjectDescription,
+            TViewModel content,
+            CancellationToken cancellationToken = default)
+            where TViewModel : ViewModelBase, IEditDialogContent =>
+            throw new InvalidOperationException(
+                "UserAdminViewModel was constructed without an IDialogService and a dialog-opening "
+                + "command was invoked. Resolve this screen through dependency injection.");
+
+        public Task<DialogOutcome> ShowDeleteConfirmationAsync(
+            string entityName,
+            string subjectDescription,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "UserAdminViewModel was constructed without an IDialogService and a delete "
+                + "confirmation was invoked. Resolve this screen through dependency injection.");
     }
 }

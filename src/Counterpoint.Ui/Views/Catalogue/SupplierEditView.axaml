@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Catalogue.SupplierEditView"
+             x:DataType="vm:SupplierEditViewModel">
+
+  <!-- Task P3-T15 (SRS UI-05, UI-06, UI-14, UI-15, AC-22, AC-23), built from the P3-T12 LabeledField family. -->
+  <StackPanel Spacing="12">
+    <controls:LabeledTextField Name="NameField" Label="Supplier name" Text="{Binding Name}" />
+    <controls:LabeledTextField Name="ContactField" Label="Contact person" Text="{Binding Contact}" />
+    <controls:LabeledTextField Name="PhoneField" Label="Phone" Text="{Binding Phone}" />
+    <controls:LabeledTextField Name="AddressField" Label="Address" Text="{Binding Address}" />
+    <controls:LabeledTextField Name="TaxNoField" Label="Tax number" Text="{Binding TaxNo}" />
+    <controls:LabeledTextField Name="PaymentTermsField" Label="Payment terms" Text="{Binding PaymentTerms}" />
+  </StackPanel>
+
+</UserControl>

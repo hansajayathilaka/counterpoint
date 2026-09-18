@@ -14,8 +14,8 @@ using Counterpoint.Application.Settings;
 namespace Counterpoint.Ui.ViewModels.Settings;
 
 /// <summary>
-/// The owner's settings screen: the eight FR-10 groups, edited together and saved as one
-/// (SRS FR-10.1-10.9, NFR-M1).
+/// The owner's settings screen: the eight FR-10 groups plus Display (UI-13, NFR-U4), edited
+/// together and saved as one (SRS FR-10.1-10.9, UI-13, NFR-M1, NFR-U4).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -108,7 +108,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
         Backup = new BackupSettingsViewModel(manualBackup, connectionTester);
         Backup.RestoreRequested += (_, e) => RestoreWizardRequested?.Invoke(this, e);
 
-        Groups = [Shop, Financial, Tax, Numbering, Policy, Peripherals, Backup, Receipt];
+        Groups = [Shop, Financial, Tax, Numbering, Policy, Peripherals, Backup, Receipt, Display];
 
         foreach (var group in Groups)
         {
@@ -153,7 +153,10 @@ public sealed partial class SettingsViewModel : ViewModelBase, IDisposable
     /// <summary>FR-10.8.</summary>
     public ReceiptSettingsViewModel Receipt { get; }
 
-    /// <summary>The eight groups, in the order FR-10 lists them.</summary>
+    /// <summary>UI-13, NFR-U4 (task P3-T10).</summary>
+    public DisplaySettingsViewModel Display { get; } = new();
+
+    /// <summary>The eight FR-10 groups, in the order FR-10 lists them, plus Display (UI-13).</summary>
     public IReadOnlyList<SettingsGroupViewModel> Groups { get; }
 
     /// <summary>

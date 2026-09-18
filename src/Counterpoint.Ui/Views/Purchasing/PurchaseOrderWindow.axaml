@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Counterpoint.Ui.ViewModels.Purchasing"
         xmlns:catalogueVm="using:Counterpoint.Ui.ViewModels.Catalogue"
+        xmlns:controls="using:Counterpoint.Ui.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
@@ -16,6 +17,10 @@
     Owner only - not by anything on this window, but by [RequiresRole(Role.Owner)] on
     IPurchaseOrderService (SRS NFR-S2, AC-17). Two tabs: raising/sending/cancelling/printing
     orders (SRS FR-4.5, FR-4.10), and the suggested-order report (SRS FR-4.6).
+
+    Task P3-T16: a document-building screen shaped like SalesWindow's own side panel (P3-T14),
+    not a master-data New/Edit/Delete list, so it is retrofitted onto the P3-T10 tokens and the
+    P3-T12 LabeledField family directly rather than the P3-T11 EditDialogWindow shell.
   -->
   <DockPanel Margin="10">
     <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding Status}" />
@@ -49,7 +54,7 @@
 
             <!-- Selected order's own actions -->
             <Border DockPanel.Dock="Top" IsVisible="{Binding HasSelectedOrder}"
-                    Margin="0,0,0,10" Padding="0,0,0,10" BorderThickness="0,0,0,1" BorderBrush="#DDDDDD">
+                    Margin="0,0,0,10" Padding="0,0,0,10" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource PanelBorderBrush}">
               <StackPanel Spacing="6">
                 <TextBlock Text="{Binding SelectedOrderDetail.PoNo}" FontSize="16" FontWeight="Bold" />
                 <StackPanel Orientation="Horizontal" Spacing="16">
@@ -70,11 +75,11 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
                   <Button Content="_Send" Command="{Binding SendCommand}"
                           IsEnabled="{Binding CanSendSelected}" />
                   <Button Content="_Print" Command="{Binding PrintCommand}" />
-                  <TextBox Width="240" Watermark="Cancellation reason" Text="{Binding CancelReason}" />
+                  <controls:LabeledTextField Width="240" Label="Cancellation reason" Text="{Binding CancelReason}" />
                   <Button Content="Ca_ncel order" Command="{Binding CancelCommand}"
                           IsEnabled="{Binding CanCancelSelected}" />
                 </StackPanel>
@@ -85,21 +90,31 @@
             <StackPanel Spacing="8">
               <TextBlock Text="New purchase order" FontSize="16" FontWeight="Bold" />
 
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <ComboBox Width="220" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DraftSupplier}"
-                          PlaceholderText="Supplier">
-                  <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="catalogueVm:SupplierRowViewModel">
-                      <TextBlock Text="{Binding Name}" />
-                    </DataTemplate>
-                  </ComboBox.ItemTemplate>
-                </ComboBox>
-                <TextBox Width="140" Watermark="Expected date (yyyy-mm-dd)" Text="{Binding DraftExpectedDate}" />
-                <TextBox Width="220" Watermark="Note" Text="{Binding DraftNote}" />
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                <!--
+                  A plain TextBlock+ComboBox pair wired to AutomationProperties.LabeledBy in the
+                  code-behind, the same accepted fallback ImportTabView/ProductTabView/
+                  BackupSettingsView use for a field the LabeledField family cannot express - here
+                  because the family's LabeledComboField has no ItemTemplate passthrough, and this
+                  combo needs one to show a supplier's name rather than its ToString().
+                -->
+                <StackPanel Spacing="4">
+                  <TextBlock Name="SupplierLabel" Text="Supplier" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <ComboBox Name="SupplierCombo" Width="220" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DraftSupplier}"
+                            PlaceholderText="Supplier">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="catalogueVm:SupplierRowViewModel">
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <controls:LabeledTextField Width="140" Label="Expected date (yyyy-mm-dd)" Text="{Binding DraftExpectedDate}" />
+                <controls:LabeledTextField Width="220" Label="Note" Text="{Binding DraftNote}" />
               </StackPanel>
 
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBox Width="260" Watermark="Find a product to order" Text="{Binding LineSearchQuery}" />
+                <controls:LabeledTextField Width="260" Label="Find a product to order" Text="{Binding LineSearchQuery}" />
               </StackPanel>
 
               <ListBox Height="90" ItemsSource="{Binding LineSearchResults}" SelectedItem="{Binding SelectedLineSearchResult}">
@@ -118,21 +133,21 @@
               <Button Content="_Pick product" Command="{Binding PickLineProductCommand}"
                       CommandParameter="{Binding SelectedLineSearchResult}" />
 
-              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasPickedProduct}">
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasPickedProduct}" VerticalAlignment="Bottom">
                 <TextBlock VerticalAlignment="Center" Text="{Binding PickedProduct.ProductName}" />
-                <ComboBox Width="160" ItemsSource="{Binding PickedProductUoms}" SelectedItem="{Binding SelectedUom}" />
+                <controls:LabeledComboField Width="160" Label="Unit" ItemsSource="{Binding PickedProductUoms}" SelectedItem="{Binding SelectedUom}" />
                 <Button Content="_Add line" Command="{Binding AddDraftLineCommand}" />
               </StackPanel>
 
               <ItemsControl ItemsSource="{Binding DraftLines}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:PurchaseOrderDraftLineViewModel">
-                    <Grid ColumnDefinitions="220,90,90,90,80" Margin="0,2">
+                    <Grid ColumnDefinitions="220,90,90,90,80" Margin="0,2" VerticalAlignment="Bottom">
                       <TextBlock Grid.Column="0" Text="{Binding ProductDescription}" VerticalAlignment="Center" />
-                      <TextBox Grid.Column="1" Text="{Binding Quantity}" Watermark="Qty" />
+                      <controls:LabeledNumericField Grid.Column="1" Label="Qty" Text="{Binding Quantity}" />
                       <TextBlock Grid.Column="2" Text="{Binding UomSymbol}" VerticalAlignment="Center" />
-                      <TextBox Grid.Column="3" Text="{Binding UnitCost}" Watermark="Cost" />
-                      <Button Grid.Column="4" Content="Remove"
+                      <controls:LabeledNumericField Grid.Column="3" Label="Cost" Text="{Binding UnitCost}" />
+                      <Button Grid.Column="4" Content="Remove" VerticalAlignment="Center"
                               Command="{Binding $parent[Window].((vm:PurchaseOrderViewModel)DataContext).RemoveDraftLineCommand}"
                               CommandParameter="{Binding}" />
                     </Grid>

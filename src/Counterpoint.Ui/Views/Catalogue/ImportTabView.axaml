@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Counterpoint.Ui.ViewModels.Catalogue"
              xmlns:import="using:Counterpoint.Application.Import"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="640"
@@ -24,26 +25,29 @@
 
     <StackPanel DockPanel.Dock="Top" Spacing="6">
       <TextBlock FontWeight="Bold" Text="1. Choose a file" />
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBox Width="440" IsReadOnly="True" Watermark="No file chosen" Text="{Binding FilePath}" />
+      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+        <controls:LabeledTextField Name="FilePathField" Width="440" Label="Spreadsheet file"
+                                    IsReadOnly="True" Watermark="No file chosen" Text="{Binding FilePath}" />
         <Button Content="_Browse..." Click="OnBrowseFileClick" IsEnabled="{Binding !Busy}" />
         <Button Content="_Load headers" Command="{Binding LoadHeadersCommand}" IsEnabled="{Binding !Busy}" />
         <Button Content="E_xport catalogue..." Click="OnExportClick" IsEnabled="{Binding !Busy}" />
       </StackPanel>
 
       <TextBlock Margin="0,8,0,0" FontWeight="Bold" Text="2. Map columns, or apply a saved profile" />
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <TextBlock VerticalAlignment="Center" Text="Saved profile" />
-        <ComboBox Width="220" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}">
-          <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="import:ImportMappingProfile">
-              <TextBlock Text="{Binding Name}" />
-            </DataTemplate>
-          </ComboBox.ItemTemplate>
-        </ComboBox>
+      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+        <StackPanel Spacing="4">
+          <TextBlock Name="ProfileLabel" Text="Saved profile" Foreground="{DynamicResource SecondaryTextBrush}" />
+          <ComboBox Name="ProfileCombo" Width="220" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="import:ImportMappingProfile">
+                <TextBlock Text="{Binding Name}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </StackPanel>
         <Button Content="A_pply" Command="{Binding ApplyProfileCommand}" IsEnabled="{Binding !Busy}" />
         <Button Content="D_elete" Command="{Binding DeleteProfileCommand}" IsEnabled="{Binding !Busy}" />
-        <TextBox Width="200" Watermark="Save mapping as..." Text="{Binding ProfileNameToSave}" />
+        <controls:LabeledTextField Name="ProfileNameField" Width="200" Label="Save mapping as" Text="{Binding ProfileNameToSave}" />
         <Button Content="_Save mapping" Command="{Binding SaveProfileCommand}" IsEnabled="{Binding !Busy}" />
       </StackPanel>
     </StackPanel>
@@ -107,12 +111,9 @@
       <ItemsControl ItemsSource="{Binding MappingRows}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:ImportFieldMappingRowViewModel">
-            <Grid ColumnDefinitions="140,280" Margin="0,2">
-              <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{Binding Label}" />
-              <ComboBox Grid.Column="1" HorizontalAlignment="Left"
-                        ItemsSource="{Binding HeaderChoices}"
-                        SelectedItem="{Binding SelectedHeader}" />
-            </Grid>
+            <controls:LabeledComboField Margin="0,2" Label="{Binding Label}"
+                                         ItemsSource="{Binding HeaderChoices}"
+                                         SelectedItem="{Binding SelectedHeader}" />
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

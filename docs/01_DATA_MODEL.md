@@ -1666,6 +1666,7 @@ place; see that key's own remarks for why it is read and written directly throug
 | Label layout (FR-2.10, FR-2.12 — P1-T12) | `label.width_mm` (40), `label.height_mm` (30), `label.gap_mm` (2), `label.default_quantity_per_label` (1) | `INT` |
 | | `label.show_product_name`, `label.show_code`, `label.show_barcode`, `label.show_unit`, `label.show_price` (all true) | `BOOL` |
 | First run | `setup.completed_at` — ISO-8601. Its absence is how `IFirstRunSetup.IsRequiredAsync` knows the wizard has never run. | `STRING` |
+| Display (UI-13, NFR-U4 — P3-T10) | `ui.theme_variant` (`SYSTEM`/`LIGHT`/`DARK`, default `SYSTEM` — follows the operating system until the owner picks one explicitly on the Display tab) | `STRING` |
 
 **Three things are deliberately not rows.**
 

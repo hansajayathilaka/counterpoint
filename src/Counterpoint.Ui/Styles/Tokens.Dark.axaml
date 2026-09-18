@@ -1,0 +1,37 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Task P3-T10 (SRS UI-13, NFR-U4). The Dark half of the theme's semantic palette - see
+    Tokens.Light.axaml's own remarks for how the two halves are merged and why every key here is
+    proven against tests/Counterpoint.Domain.Tests/Ui/ThemeTokenContrastTests.cs rather than
+    trusting a screenshot. Every key name here must match Tokens.Light.axaml exactly: a key
+    present in one theme dictionary and missing from the other resolves to nothing at all the
+    moment the shop switches variant.
+  -->
+
+  <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#111827" />
+
+  <!-- A raised surface: a side panel, a card, a dialog body. -->
+  <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#1F2937" />
+
+  <!-- The border around a panel. Decorative chrome, not text - see Tokens.Light.axaml's remark
+       on the 3:1 non-text threshold this key is held to instead of 4.5:1. -->
+  <SolidColorBrush x:Key="PanelBorderBrush" Color="#374151" />
+
+  <!-- Body text: headings, labels, the words a cashier reads on every screen. -->
+  <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F9FAFB" />
+
+  <!-- Secondary text: captions, hints, a SKU under a product name. -->
+  <SolidColorBrush x:Key="SecondaryTextBrush" Color="#D1D5DB" />
+
+  <!-- The shop's own accent: a link, a focus ring, a "this is selected" stripe. -->
+  <SolidColorBrush x:Key="AccentBrush" Color="#60A5FA" />
+
+  <!-- A warning or a negative figure - a bill discount, a stock-take shortfall. -->
+  <SolidColorBrush x:Key="WarningBrush" Color="#FCA5A5" />
+
+  <!-- SRS UI-03: the running bill total must be the most prominent thing on the sales screen. -->
+  <SolidColorBrush x:Key="TotalHighlightBrush" Color="#34D399" />
+
+</ResourceDictionary>

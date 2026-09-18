@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="220" d:DesignHeight="60"
+             x:Class="Counterpoint.Ui.Controls.LabeledCheckBoxField"
+             x:Name="Root">
+
+  <!--
+    Task P3-T12 (SRS UI-06, UI-14, AC-22): a CheckBox's own Content is already a persistent,
+    always-visible label next to the box - it is never a watermark and never disappears - so no
+    separate label element is required for the box itself. "Label" here is an optional heading
+    above the box, for a field grid where every other field in the group carries one (kept empty
+    and collapsed when a screen has no use for it).
+  -->
+  <StackPanel Spacing="4">
+    <TextBlock Name="LabelBlock"
+               Text="{Binding #Root.Label}"
+               Foreground="{DynamicResource SecondaryTextBrush}"
+               IsVisible="{Binding #Root.Label, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+    <CheckBox Name="InputCheckBox"
+              Content="{Binding #Root.CheckBoxLabel}"
+              IsChecked="{Binding #Root.IsChecked, Mode=TwoWay}" />
+    <TextBlock Text="{Binding #Root.ValidationMessage}"
+               Foreground="{DynamicResource WarningBrush}"
+               IsVisible="{Binding #Root.ValidationMessage, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+  </StackPanel>
+
+</UserControl>

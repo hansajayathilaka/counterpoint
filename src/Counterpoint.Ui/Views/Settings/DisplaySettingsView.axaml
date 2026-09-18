@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
+             x:Class="Counterpoint.Ui.Views.Settings.DisplaySettingsView"
+             x:DataType="vm:DisplaySettingsViewModel">
+
+  <!--
+    UI-13, NFR-U4 (task P3-T10). The one tab this task builds from the token system: every colour
+    below is a semantic DynamicResource key from Styles/Tokens.Light.axaml and
+    Styles/Tokens.Dark.axaml, never a hex literal - see
+    tests/Counterpoint.Domain.Tests/Ui/NoRawHexColourLiteralsTests.cs, which fails the build the
+    day that stops being true.
+
+    The theme picker below applies its choice the instant it changes
+    (DisplaySettingsViewModel.OnThemeVariantChoiceChanged) - the panel underneath is there so the
+    owner can see every token repaint at once, live, before ever pressing Ctrl+S.
+  -->
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="10">
+
+      <TextBlock TextWrapping="Wrap"
+                 Foreground="{DynamicResource PrimaryTextBrush}"
+                 Text="Which visual theme the till trades in." />
+
+      <controls:LabeledComboField Width="280" HorizontalAlignment="Left"
+                                   Label="Theme"
+                                   ItemsSource="{Binding ThemeVariantChoices}"
+                                   SelectedItem="{Binding ThemeVariantChoice}" />
+
+      <TextBlock TextWrapping="Wrap" FontSize="12"
+                 Foreground="{DynamicResource SecondaryTextBrush}"
+                 Text="Changes every screen at once, with no restart. Ctrl+S keeps it; Ctrl+R (or reopening this window) brings back whatever is actually in force." />
+
+      <Border Background="{DynamicResource PanelBackgroundBrush}"
+              BorderBrush="{DynamicResource PanelBorderBrush}"
+              BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,8,0,0">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Preview" FontWeight="Bold"
+                     Foreground="{DynamicResource PrimaryTextBrush}" />
+          <TextBlock Text="Body text reads like this (PrimaryTextBrush)."
+                     Foreground="{DynamicResource PrimaryTextBrush}" />
+          <TextBlock Text="A caption or a SKU reads like this (SecondaryTextBrush)."
+                     Foreground="{DynamicResource SecondaryTextBrush}" />
+          <TextBlock Text="A link or a selected row reads like this (AccentBrush)."
+                     Foreground="{DynamicResource AccentBrush}" />
+          <TextBlock Text="A warning or a negative figure reads like this (WarningBrush)."
+                     Foreground="{DynamicResource WarningBrush}" />
+          <TextBlock Text="TOTAL 1,234.50 reads like this (TotalHighlightBrush) - UI-03's own rule: the most prominent thing on the sales screen."
+                     TextWrapping="Wrap" FontSize="20" FontWeight="Bold"
+                     Foreground="{DynamicResource TotalHighlightBrush}" />
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

@@ -1,0 +1,82 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Counterpoint.Ui.ViewModels.Dialogs"
+        xmlns:conv="using:Avalonia.Data.Converters"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="480" d:DesignHeight="280"
+        x:Class="Counterpoint.Ui.Views.EditDialogWindow"
+        x:DataType="vm:EditDialogWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        SizeToContent="WidthAndHeight"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Title="{Binding HeaderText}">
+
+  <!--
+    Task P3-T11 (SRS UI-05, UI-06, UI-15, AC-23). The one shell every add/edit/delete action in
+    the back office goes through - one content grid, one Save/Cancel (or Confirm/Cancel) footer.
+    The header comes only from EditDialogWindowViewModel.HeaderText, itself fixed at construction
+    from the caller's explicit DialogMode/entity name/subject description - never from whether a
+    field in the content below happens to be blank, which was the confirmed defect this task
+    replaces.
+
+    Keyboard first (UI-01): IsDefault/IsCancel below give Enter-saves and Escape-cancels for free,
+    the same mechanism LoginWindow.axaml already uses, without a window-level KeyBinding that
+    could fight a multi-line text box. Tab order follows the order controls are declared here:
+    the content grid first, the footer buttons last, so an operator reaches every field before
+    Cancel/Save.
+
+    IDialogService shows this modal only to the window it resolves as the current top-level
+    window (ShowDialog(owner)) - never to the whole application - so a back-office dialog never
+    blocks SalesWindow.
+  -->
+  <DockPanel Margin="16" MinWidth="420">
+
+    <TextBlock DockPanel.Dock="Top"
+               Margin="0,0,0,12"
+               FontSize="18"
+               FontWeight="Bold"
+               Foreground="{DynamicResource PrimaryTextBrush}"
+               Text="{Binding HeaderText}" />
+
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource PanelBackgroundBrush}"
+            BorderBrush="{DynamicResource PanelBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="16">
+      <Grid>
+        <!-- Delete confirmation: a plain sentence naming the record (UI-05). -->
+        <TextBlock TextWrapping="Wrap"
+                   Foreground="{DynamicResource PrimaryTextBrush}"
+                   IsVisible="{Binding IsDeleteConfirmation}"
+                   Text="{Binding Message}" />
+        <!-- Create/edit: the caller's own content viewmodel, resolved through the existing ViewLocator. -->
+        <ContentControl IsVisible="{Binding !IsDeleteConfirmation}" Content="{Binding Content}" />
+      </Grid>
+    </Border>
+
+    <TextBlock DockPanel.Dock="Top"
+               Margin="0,12,0,0"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource WarningBrush}"
+               IsVisible="{Binding ErrorMessage, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"
+               Text="{Binding ErrorMessage}" />
+
+    <StackPanel DockPanel.Dock="Top"
+                Margin="0,16,0,0"
+                Orientation="Horizontal"
+                Spacing="8"
+                HorizontalAlignment="Right">
+      <Button Content="{Binding CancelButtonText}" IsCancel="True" Command="{Binding CancelCommand}" IsEnabled="{Binding !Busy}" />
+      <Button Content="{Binding PrimaryButtonText}"
+              IsDefault="True"
+              Command="{Binding PrimaryCommand}"
+              IsEnabled="{Binding !Busy}" />
+    </StackPanel>
+
+  </DockPanel>
+
+</Window>

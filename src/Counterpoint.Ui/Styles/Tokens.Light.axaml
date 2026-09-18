@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Task P3-T10 (SRS UI-13, NFR-U4). The Light half of the theme's semantic palette. Every value
+    a screen needs comes from here or from Tokens.Dark.axaml, never from a hex literal typed into
+    a view - App.axaml merges both as Avalonia's own Light/Dark theme dictionaries, so a
+    DynamicResource lookup against one of these keys resolves to whichever half is active and
+    re-resolves the instant Application.Current.RequestedThemeVariant changes, with no restart.
+
+    Every key here is proven to meet WCAG AA's 4.5:1 minimum contrast for normal text against
+    every background it is documented to sit on - see
+    tests/Counterpoint.Domain.Tests/Ui/ThemeTokenContrastTests.cs, which computes the ratio from
+    the colours below rather than trusting a screenshot. Change a colour here and that test is
+    what proves the change did not quietly make a screen illegible.
+  -->
+
+  <!-- The plain window/page background most screens sit on. -->
+  <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFFFFF" />
+
+  <!--
+    A raised surface: a side panel, a card, a dialog body. Distinct from the window background so
+    a panel reads as a panel in either theme (the confirmed "side panel is not compatible with
+    dark mode" defect this task exists to fix at the token level; P3-T14 retrofits the sales
+    screen's own panel onto this key).
+  -->
+  <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#F3F4F6" />
+
+  <!-- The border around a panel. Decorative chrome, not text - held to WCAG's 3:1 non-text
+       threshold rather than the 4.5:1 text threshold the other keys are proven against. -->
+  <SolidColorBrush x:Key="PanelBorderBrush" Color="#D1D5DB" />
+
+  <!-- Body text: headings, labels, the words a cashier reads on every screen. -->
+  <SolidColorBrush x:Key="PrimaryTextBrush" Color="#111827" />
+
+  <!-- Secondary text: captions, hints, a SKU under a product name - present but deliberately
+       quieter than PrimaryTextBrush, while still meeting 4.5:1. -->
+  <SolidColorBrush x:Key="SecondaryTextBrush" Color="#4B5563" />
+
+  <!-- The shop's own accent: a link, a focus ring, a "this is selected" stripe. -->
+  <SolidColorBrush x:Key="AccentBrush" Color="#1D4ED8" />
+
+  <!-- A warning or a negative figure - a bill discount, a stock-take shortfall. -->
+  <SolidColorBrush x:Key="WarningBrush" Color="#B91C1C" />
+
+  <!-- SRS UI-03: the running bill total must be the most prominent thing on the sales screen.
+       This is the colour that makes it so, wherever a screen shows a grand total. -->
+  <SolidColorBrush x:Key="TotalHighlightBrush" Color="#047857" />
+
+</ResourceDictionary>

@@ -1,0 +1,241 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="360" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.SalesSidePanelView"
+             x:DataType="vm:SalesViewModel">
+
+  <!--
+    Task P3-T14 (SRS UI-01, UI-03, UI-09, NFR-U4): the sales screen's one non-modal side panel,
+    pulled out of SalesWindow.axaml into its own view so task P3-T12's view-inspection helper
+    (Counterpoint.Ui.Tests.Support.ViewLabelInspector) - which hosts the Control it is given
+    directly as a new window's Content - can open it on its own the same way it already opens
+    CategoryEditView/CustomerTabView; SalesWindow itself is a Window, not a Control, so it cannot
+    be handed to that helper directly. DataContext is inherited from SalesWindow (both share the
+    one SalesViewModel), exactly as before this split - nothing here changes what any binding
+    below resolves to.
+
+    Every field below is a P3-T12 LabeledField: a persistent label that survives empty, focused,
+    filled and disabled, replacing the old pattern of a bare TextBox/ComboBox with a watermark or a
+    standalone heading TextBlock standing in as the only label. Every colour is a P3-T10
+    DynamicResource token, never a literal hex value - see Styles/Tokens.Light.axaml and
+    Tokens.Dark.axaml for what each key resolves to in each theme.
+
+    Enter-submits-the-panel keyboard behaviour (SRS UI-01) is unchanged: a KeyBinding that used to
+    sit on a field's own TextBox now sits on the wrapping LabeledField control instead, and still
+    fires while the nested TextBox has focus (proven in
+    Counterpoint.Ui.Tests.LabeledFieldKeyBindingTests) - the same routed-event bubbling that
+    already lets SalesWindow's own Window-level F1-F12 KeyBindings fire regardless of focus.
+  -->
+  <Border Width="360" Padding="12"
+          Background="{DynamicResource PanelBackgroundBrush}"
+          BorderBrush="{DynamicResource PanelBorderBrush}"
+          BorderThickness="1"
+          IsVisible="{Binding IsAnyPanelOpen}">
+    <Grid RowDefinitions="*">
+
+      <!-- F1 Help (SRS UI-12). -->
+      <ScrollViewer IsVisible="{Binding IsHelpPanelOpen}">
+        <TextBlock Text="{Binding HelpText}" FontFamily="monospace" TextWrapping="NoWrap"
+                   Foreground="{DynamicResource PrimaryTextBrush}" />
+      </ScrollViewer>
+
+      <!-- F3 Search (SRS FR-2.11, FR-3.3). -->
+      <DockPanel IsVisible="{Binding IsSearchPanelOpen}">
+        <TextBlock DockPanel.Dock="Top" Text="Search" FontWeight="Bold" Margin="0,0,0,6"
+                   Foreground="{DynamicResource PrimaryTextBrush}" />
+        <controls:LabeledTextField DockPanel.Dock="Top" Label="Name, code or SKU" Text="{Binding SearchQuery}">
+          <controls:LabeledTextField.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding PickSearchResultCommand}" CommandParameter="{Binding SelectedSearchResult}" />
+          </controls:LabeledTextField.KeyBindings>
+        </controls:LabeledTextField>
+        <Button DockPanel.Dock="Bottom" Margin="0,6,0,0" Content="Add selected"
+                Command="{Binding PickSearchResultCommand}" CommandParameter="{Binding SelectedSearchResult}" />
+        <ListBox Margin="0,6,0,0" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchResult}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:SalesSearchResultViewModel">
+              <StackPanel Margin="0,2">
+                <TextBlock Text="{Binding ProductName}" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+                <TextBlock Text="{Binding Sku}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <TextBlock Text="{Binding PriceText}" FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}" />
+                <TextBlock Text="{Binding StockText}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+
+      <!-- F5 Hold (SRS FR-3.32). -->
+      <StackPanel IsVisible="{Binding IsHoldPanelOpen}" Spacing="8">
+        <TextBlock Text="Hold this bill" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <controls:LabeledTextField Label="Label" Watermark="e.g. 'Kamal - cable'" Text="{Binding HoldLabel}">
+          <controls:LabeledTextField.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding ConfirmHoldCommand}" />
+          </controls:LabeledTextField.KeyBindings>
+        </controls:LabeledTextField>
+        <Button Content="Hold" Command="{Binding ConfirmHoldCommand}" />
+      </StackPanel>
+
+      <!-- F6 Recall (SRS FR-3.32, FR-3.33). -->
+      <DockPanel IsVisible="{Binding IsHeldBillsPanelOpen}">
+        <TextBlock DockPanel.Dock="Top" Text="Held bills" FontWeight="Bold" Margin="0,0,0,6"
+                   Foreground="{DynamicResource PrimaryTextBrush}" />
+        <Button DockPanel.Dock="Bottom" Margin="0,6,0,0" Content="Recall selected"
+                Command="{Binding RecallSelectedCommand}" CommandParameter="{Binding SelectedHeldBill}" />
+        <ListBox ItemsSource="{Binding HeldBillRows}" SelectedItem="{Binding SelectedHeldBill}">
+          <ListBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding RecallSelectedCommand}" CommandParameter="{Binding SelectedHeldBill}" />
+          </ListBox.KeyBindings>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:HeldBillRowViewModel">
+              <StackPanel Margin="0,2">
+                <TextBlock Text="{Binding Label}" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+                <TextBlock Text="{Binding CreatedAtText}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <TextBlock Text="{Binding LineCountText}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+
+      <!-- F7 Discount (SRS FR-3.16, FR-3.17, FR-3.18). -->
+      <StackPanel IsVisible="{Binding IsDiscountPanelOpen}" Spacing="8">
+        <TextBlock Text="Discount" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock Text="{Binding DiscountTargetText}" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <RadioButton Content="Percent" GroupName="DiscountKind" IsChecked="{Binding DiscountIsPercent}" />
+          <RadioButton Content="Amount" GroupName="DiscountKind" IsChecked="{Binding !DiscountIsPercent}" />
+        </StackPanel>
+        <controls:LabeledNumericField Label="Value" Watermark="e.g. 10" Text="{Binding DiscountValueText}">
+          <controls:LabeledNumericField.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding ApplyDiscountCommand}" />
+          </controls:LabeledNumericField.KeyBindings>
+        </controls:LabeledNumericField>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Apply" Command="{Binding ApplyDiscountCommand}" />
+          <Button Content="Clear" Command="{Binding ClearDiscountCommand}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- F8 Customer (SRS FR-3.21, FR-3.22). Trade pricing (FR-3.23) is Phase 5 - out of
+           scope in Phase 1 - so attaching a customer here is for record-keeping only. -->
+      <DockPanel IsVisible="{Binding IsCustomerPanelOpen}">
+        <TextBlock DockPanel.Dock="Top" Text="Customer" FontWeight="Bold" Margin="0,0,0,6"
+                   Foreground="{DynamicResource PrimaryTextBrush}" />
+        <controls:LabeledTextField DockPanel.Dock="Top" Label="Name or phone" Text="{Binding CustomerQuery}" />
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+          <Button Content="Attach selected" Command="{Binding PickCustomerCommand}" CommandParameter="{Binding SelectedCustomerResult}" />
+          <Button Content="Walk-in" Command="{Binding ClearCustomerCommand}" />
+        </StackPanel>
+        <ListBox Margin="0,6,0,0" ItemsSource="{Binding CustomerResults}" SelectedItem="{Binding SelectedCustomerResult}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:CustomerSearchResultViewModel">
+              <StackPanel Margin="0,2">
+                <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+                <TextBlock Text="{Binding Phone}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+
+      <!-- F11 Stock enquiry (SRS FR-4, FR-3.11). -->
+      <ScrollViewer IsVisible="{Binding IsStockPanelOpen}">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Stock on hand" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+          <TextBlock Text="{Binding StockEnquiryText}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryTextBrush}" />
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Open shift (SRS FR-8.1) - a button, not one of the reserved UI-02 keys. -->
+      <StackPanel IsVisible="{Binding IsOpenShiftPanelOpen}" Spacing="8">
+        <TextBlock Text="Open shift" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <controls:LabeledNumericField Label="Opening cash float" Watermark="e.g. 5000" Text="{Binding OpeningFloatText}">
+          <controls:LabeledNumericField.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding ConfirmOpenShiftCommand}" />
+          </controls:LabeledNumericField.KeyBindings>
+        </controls:LabeledNumericField>
+        <Button Content="Open" Command="{Binding ConfirmOpenShiftCommand}" />
+      </StackPanel>
+
+      <!-- Dashboard (SRS FR-9.7) - a button, not one of the reserved UI-02 keys. -->
+      <ScrollViewer IsVisible="{Binding IsDashboardPanelOpen}">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Dashboard" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+          <TextBlock Text="{Binding DashboardText}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryTextBrush}" />
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Open item (SRS FR-2.8) - a button, not one of the reserved UI-02 keys. -->
+      <StackPanel IsVisible="{Binding IsOpenItemPanelOpen}" Spacing="8">
+        <TextBlock Text="Open item" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <controls:LabeledTextField Label="Description" Watermark="e.g. Cut to size" Text="{Binding OpenItemDescription}" />
+        <controls:LabeledNumericField Label="Quantity" Text="{Binding OpenItemQuantityText}" />
+        <controls:LabeledComboField Label="Unit" ItemsSource="{Binding OpenItemUnitChoices}" SelectedItem="{Binding OpenItemSelectedUnit}" />
+        <controls:LabeledNumericField Label="Price" Text="{Binding OpenItemPriceText}">
+          <controls:LabeledNumericField.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding AddOpenItemCommand}" />
+          </controls:LabeledNumericField.KeyBindings>
+        </controls:LabeledNumericField>
+        <Button Content="Add" Command="{Binding AddOpenItemCommand}" />
+      </StackPanel>
+
+      <!-- F9 Pay (SRS FR-3.16-FR-3.22, FR-3.24-FR-3.26): cash, card, bank transfer and
+           cheque, split across as many as needed. The cash box is pre-filled with the exact
+           total, so F9 then Enter still pays a single-tender bill in two keystrokes. -->
+      <DockPanel IsVisible="{Binding IsPaymentPanelOpen}">
+        <TextBlock DockPanel.Dock="Top" Text="Pay" FontWeight="Bold" Margin="0,0,0,6"
+                   Foreground="{DynamicResource PrimaryTextBrush}" />
+
+        <StackPanel DockPanel.Dock="Bottom" Spacing="8">
+          <TextBlock Text="{Binding TenderPreviewText}" FontWeight="Bold" FontSize="18"
+                     Foreground="{DynamicResource TotalHighlightBrush}" TextWrapping="Wrap" />
+          <Button Content="Complete sale" Command="{Binding CompletePaymentCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="Bold" />
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <controls:LabeledNumericField Label="Cash" Text="{Binding CashTenderText}">
+            <controls:LabeledNumericField.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding CompletePaymentCommand}" />
+            </controls:LabeledNumericField.KeyBindings>
+          </controls:LabeledNumericField>
+          <ItemsControl ItemsSource="{Binding QuickCashDenominations}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:Decimal">
+                <Button Content="{Binding}" Margin="0,0,4,4" Command="{Binding $parent[Window].((vm:SalesViewModel)DataContext).AddQuickCashCommand}" CommandParameter="{Binding}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <controls:LabeledNumericField Label="Card" Text="{Binding CardTenderText}">
+            <controls:LabeledNumericField.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding CompletePaymentCommand}" />
+            </controls:LabeledNumericField.KeyBindings>
+          </controls:LabeledNumericField>
+
+          <controls:LabeledNumericField Label="Bank transfer" Text="{Binding BankTransferTenderText}">
+            <controls:LabeledNumericField.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding CompletePaymentCommand}" />
+            </controls:LabeledNumericField.KeyBindings>
+          </controls:LabeledNumericField>
+
+          <controls:LabeledNumericField Label="Cheque" Text="{Binding ChequeTenderText}">
+            <controls:LabeledNumericField.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding CompletePaymentCommand}" />
+            </controls:LabeledNumericField.KeyBindings>
+          </controls:LabeledNumericField>
+        </StackPanel>
+      </DockPanel>
+
+    </Grid>
+  </Border>
+
+</UserControl>

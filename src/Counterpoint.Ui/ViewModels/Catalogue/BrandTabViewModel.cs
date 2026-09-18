@@ -5,25 +5,33 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Ui.Services;
 
 namespace Counterpoint.Ui.ViewModels.Catalogue;
 
 /// <summary>The brand tab of the catalogue screen (SRS FR-2.21).</summary>
+/// <remarks>
+/// Task P3-T15: converted onto the P3-T11 dialog shell following the Category screen's
+/// proof-of-concept exactly. New and Edit each open <see cref="BrandEditViewModel"/> through
+/// <see cref="IDialogService"/> with an explicit <see cref="DialogMode"/>; the old inline form -
+/// one set of fields bound to whichever row was selected, shared by a "_New" button and a "_Save"
+/// button with nothing on screen naming the action or the record - is gone. Delete confirms
+/// through the same shell before it does anything, naming the specific brand (SRS UI-05).
+/// </remarks>
 public sealed partial class BrandTabViewModel : ReferenceDataTabViewModel
 {
     private readonly IBrandMaintenance _brands;
-    private long? _editingId;
-
-    [ObservableProperty]
-    private string _name = string.Empty;
+    private readonly IDialogService _dialogService;
 
     [ObservableProperty]
     private BrandRowViewModel? _selectedItem;
 
-    public BrandTabViewModel(IBrandMaintenance brands)
+    public BrandTabViewModel(IBrandMaintenance brands, IDialogService dialogService)
     {
         ArgumentNullException.ThrowIfNull(brands);
+        ArgumentNullException.ThrowIfNull(dialogService);
         _brands = brands;
+        _dialogService = dialogService;
     }
 
     public ObservableCollection<BrandRowViewModel> Items { get; } = [];
@@ -47,35 +55,60 @@ public sealed partial class BrandTabViewModel : ReferenceDataTabViewModel
             cancellationToken).ConfigureAwait(true);
     }
 
+    /// <summary>Opens the shared dialog to create a new brand (SRS UI-15, AC-23).</summary>
     [RelayCommand]
-    public void New()
-    {
-        _editingId = null;
-        SelectedItem = null;
-        Name = string.Empty;
-    }
-
-    [RelayCommand]
-    public async Task SaveAsync(CancellationToken cancellationToken)
+    public async Task NewAsync(CancellationToken cancellationToken)
     {
         await RunAsync(
             async () =>
             {
-                var command = new SaveBrandCommand(Name);
+                var content = new BrandEditViewModel(_brands, editingId: null, initialName: string.Empty);
 
-                if (_editingId is { } id)
-                {
-                    await _brands.UpdateAsync(id, command, cancellationToken).ConfigureAwait(true);
-                    Status = Name + " updated.";
-                }
-                else
-                {
-                    await _brands.CreateAsync(command, cancellationToken).ConfigureAwait(true);
-                    Status = Name + " created.";
-                }
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Create,
+                    "brand",
+                    subjectDescription: null,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
 
-                New();
-                await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var name = content.Name;
+                    await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                    Status = name + " created.";
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>Opens the shared dialog to edit the selected brand (SRS UI-15, AC-23).</summary>
+    [RelayCommand]
+    public async Task EditAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedItem is not { } selected)
+        {
+            Status = "Pick a brand first.";
+            return;
+        }
+
+        await RunAsync(
+            async () =>
+            {
+                var content = new BrandEditViewModel(_brands, selected.Id, selected.Name);
+
+                var outcome = await _dialogService.ShowEditDialogAsync(
+                    DialogMode.Edit,
+                    "brand",
+                    subjectDescription: selected.Name,
+                    content,
+                    cancellationToken).ConfigureAwait(true);
+
+                if (outcome == DialogOutcome.Confirmed)
+                {
+                    var name = content.Name;
+                    await RefreshAsync(cancellationToken).ConfigureAwait(true);
+                    Status = name + " updated.";
+                }
             },
             cancellationToken).ConfigureAwait(true);
     }
@@ -108,6 +141,10 @@ public sealed partial class BrandTabViewModel : ReferenceDataTabViewModel
             cancellationToken).ConfigureAwait(true);
     }
 
+    /// <summary>
+    /// Confirms through the shared dialog shell, naming the specific brand, before deleting it
+    /// (SRS UI-05).
+    /// </summary>
     [RelayCommand]
     public async Task DeleteAsync(CancellationToken cancellationToken)
     {
@@ -117,20 +154,24 @@ public sealed partial class BrandTabViewModel : ReferenceDataTabViewModel
             return;
         }
 
+        var outcome = await _dialogService.ShowDeleteConfirmationAsync(
+            "brand",
+            selected.Name,
+            cancellationToken).ConfigureAwait(true);
+
+        if (outcome != DialogOutcome.Confirmed)
+        {
+            return;
+        }
+
         await RunAsync(
             async () =>
             {
                 await _brands.DeleteAsync(selected.Id, cancellationToken).ConfigureAwait(true);
-                New();
+                SelectedItem = null;
                 await RefreshAsync(cancellationToken).ConfigureAwait(true);
                 Status = selected.Name + " deleted.";
             },
             cancellationToken).ConfigureAwait(true);
-    }
-
-    partial void OnSelectedItemChanged(BrandRowViewModel? value)
-    {
-        _editingId = value?.Id;
-        Name = value?.Name ?? string.Empty;
     }
 }

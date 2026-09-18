@@ -93,6 +93,7 @@ internal static partial class Program
         AppBuilder.Configure(() => new Ui.App(
                 services.GetRequiredService<Ui.ViewModels.LoginViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.SalesViewModel>(),
+                services.GetRequiredService<Ui.ViewModels.BackOfficeShellViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.UserAdminViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Catalogue.CatalogueViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Purchasing.PurchaseOrderViewModel>(),
@@ -101,6 +102,7 @@ internal static partial class Program
                 services.GetRequiredService<Ui.ViewModels.Settings.SettingsViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.Settings.RestoreWizardViewModel>(),
                 services.GetRequiredService<Ui.ViewModels.FirstRun.FirstRunWizardViewModel>(),
+                services.GetRequiredService<ISettings>(),
                 firstRunRequired))
             .UsePlatformDetect()
             .LogToTrace();

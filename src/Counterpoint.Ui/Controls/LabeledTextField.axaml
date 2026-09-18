@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="70"
+             x:Class="Counterpoint.Ui.Controls.LabeledTextField"
+             x:Name="Root">
+
+  <!--
+    Task P3-T12 (SRS UI-06, UI-14, AC-22): the persistent "LabelBlock" TextBlock below is what
+    identifies this field - it never disappears, unlike a watermark. "Watermark" on the TextBox is
+    retained only as supplementary example text shown before typing (e.g. "e.g. 07X XXX XXXX"),
+    never as the field's only label (see LabeledTextField.axaml.cs's remarks on
+    AutomationProperties.LabeledBy, which is what task P3-T12's view-inspection test helper
+    checks).
+  -->
+  <StackPanel Spacing="4">
+    <TextBlock Name="LabelBlock"
+               Text="{Binding #Root.Label}"
+               Foreground="{DynamicResource SecondaryTextBrush}" />
+    <TextBox Name="InputBox"
+             Text="{Binding #Root.Text, Mode=TwoWay}"
+             Watermark="{Binding #Root.Watermark}"
+             IsReadOnly="{Binding #Root.IsReadOnly}" />
+    <TextBlock Text="{Binding #Root.ValidationMessage}"
+               Foreground="{DynamicResource WarningBrush}"
+               IsVisible="{Binding #Root.ValidationMessage, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+  </StackPanel>
+
+</UserControl>

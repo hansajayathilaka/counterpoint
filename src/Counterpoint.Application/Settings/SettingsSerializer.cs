@@ -47,6 +47,7 @@ public static class SettingsSerializer
         AppendBackup(rows, snapshot.Backup);
         AppendReceipt(rows, snapshot.Receipt);
         AppendLabel(rows, snapshot.Label);
+        AppendDisplay(rows, snapshot.Display);
 
         return rows;
     }
@@ -76,7 +77,8 @@ public static class SettingsSerializer
             ReadPeripherals(rows, fallback.Peripherals),
             ReadBackup(rows, fallback.Backup),
             ReadReceipt(rows, fallback.Receipt),
-            ReadLabel(rows, fallback.Label));
+            ReadLabel(rows, fallback.Label),
+            ReadDisplay(rows, fallback.Display));
     }
 
     // ---- FR-10.1 Shop profile ----------------------------------------------------------------
@@ -467,6 +469,20 @@ public static class SettingsSerializer
             ReadBool(rows, SettingKeys.LabelShowUnit, fallback.ShowUnit),
             ReadBool(rows, SettingKeys.LabelShowPrice, fallback.ShowPrice),
             ReadInt(rows, SettingKeys.LabelDefaultQuantityPerLabel, fallback.DefaultQuantityPerLabel));
+
+    // ---- UI-13, NFR-U4 Display (task P3-T10) --------------------------------------------------
+
+    private static void AppendDisplay(List<SettingRow> rows, DisplaySettings display)
+    {
+        rows.Add(Text(SettingKeys.UiThemeVariant, SettingTokens.From(display.ThemeVariant)));
+    }
+
+    private static DisplaySettings ReadDisplay(
+        IReadOnlyDictionary<string, StoredSetting> rows,
+        DisplaySettings fallback) => new(
+            SettingTokens.ToUiThemeVariant(
+                ReadText(rows, SettingKeys.UiThemeVariant, string.Empty),
+                fallback.ThemeVariant));
 
     // ---- Row builders ------------------------------------------------------------------------
 

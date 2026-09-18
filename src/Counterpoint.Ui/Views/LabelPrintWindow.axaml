@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Counterpoint.Ui.ViewModels.Labels"
+        xmlns:controls="using:Counterpoint.Ui.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
@@ -14,7 +15,9 @@
   <!--
     Print for a hand-picked product list or a search result set (SRS FR-2.10, FR-2.12). No
     styling beyond what is needed to read it - the same minimal-first approach SalesWindow takes,
-    because the layout worth polishing is the one on the label itself, not this screen.
+    because the layout worth polishing is the one on the label itself, not this screen. Task
+    P3-T16: the two free-text/numeric fields are P3-T12 LabeledField controls (SRS UI-06, UI-14,
+    AC-22).
   -->
   <DockPanel Margin="12">
 
@@ -23,14 +26,12 @@
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,12,*" RowDefinitions="Auto,*,Auto">
 
       <!-- Search: types or scans a barcode, finds a result set to add from. -->
-      <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8">
-        <TextBox Width="260"
-                 Watermark="Search or scan a barcode"
-                 Text="{Binding SearchText}">
-          <TextBox.KeyBindings>
+      <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+        <controls:LabeledTextField Width="260" Label="Search or scan a barcode" Text="{Binding SearchText}">
+          <controls:LabeledTextField.KeyBindings>
             <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
-          </TextBox.KeyBindings>
-        </TextBox>
+          </controls:LabeledTextField.KeyBindings>
+        </controls:LabeledTextField>
         <Button Content="_Search" Command="{Binding SearchCommand}" />
         <Button Content="_Add to batch" Command="{Binding AddSelectedToBatchCommand}" />
       </StackPanel>
@@ -61,12 +62,11 @@
                 SelectedItem="{Binding SelectedBatchLine}">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:LabelBatchLineViewModel">
-            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-              <TextBlock Grid.Column="0" Text="{Binding ProductName}" />
-              <TextBlock Grid.Column="1" Margin="12,0,0,0" Text="{Binding Sku}" />
-              <TextBlock Grid.Column="2" Margin="12,0,0,0" Text="{Binding UnitPriceText}" />
-              <TextBlock Grid.Column="3" Margin="12,0,0,0" Text="qty" />
-              <TextBox Grid.Column="4" Width="60" Margin="4,0,0,0" Text="{Binding QuantityText}" />
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" VerticalAlignment="Bottom">
+              <TextBlock Grid.Column="0" Text="{Binding ProductName}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Margin="12,0,0,0" Text="{Binding Sku}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Margin="12,0,0,0" Text="{Binding UnitPriceText}" VerticalAlignment="Center" />
+              <controls:LabeledNumericField Grid.Column="3" Width="70" Margin="8,0,0,0" Label="Qty" Text="{Binding QuantityText}" />
             </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>

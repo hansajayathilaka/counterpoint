@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Counterpoint.Ui.ViewModels.Settings"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="420"
@@ -10,48 +11,54 @@
   <!--
     FR-10.6. The printer is named, not discovered: listing print queues is a Windows call behind
     an interface this project may not reference, and the real names are read off the terminal
-    when the hardware is commissioned.
+    when the hardware is commissioned. Task P3-T15 (SRS UI-06, UI-14, AC-22): every field is a
+    persistent-label P3-T12 LabeledField.
   -->
   <ScrollViewer>
-    <StackPanel Margin="12" Spacing="6">
+    <StackPanel Margin="12" Spacing="12">
 
       <TextBlock TextWrapping="Wrap" Text="The hardware on the counter." />
 
-      <TextBlock Text="Receipt printer queue name" />
-      <TextBox Width="320" HorizontalAlignment="Left" Text="{Binding ReceiptPrinterName}" />
-      <TextBlock TextWrapping="Wrap" FontSize="12"
-                 Text="Leave this empty to print to a file, which is what a development machine does." />
+      <StackPanel Spacing="4">
+        <controls:LabeledTextField Name="ReceiptPrinterNameField" Width="320" HorizontalAlignment="Left"
+                                    Label="Receipt printer queue name" Text="{Binding ReceiptPrinterName}" />
+        <TextBlock TextWrapping="Wrap" FontSize="12"
+                   Text="Leave this empty to print to a file, which is what a development machine does." />
+      </StackPanel>
 
-      <TextBlock Text="Paper width, in millimetres" />
-      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding PaperWidthMm}" />
+      <controls:LabeledNumericField Name="PaperWidthMmField" Width="100" HorizontalAlignment="Left"
+                                     Label="Paper width, in millimetres" Text="{Binding PaperWidthMm}" />
 
-      <TextBlock Text="Copies of each bill" />
-      <TextBox Width="100" HorizontalAlignment="Left" Text="{Binding ReceiptCopies}" />
+      <controls:LabeledNumericField Name="ReceiptCopiesField" Width="100" HorizontalAlignment="Left"
+                                     Label="Copies of each bill" Text="{Binding ReceiptCopies}" />
 
-      <TextBlock Text="Label printer queue name" />
-      <TextBox Width="320" HorizontalAlignment="Left" Text="{Binding LabelPrinterName}" />
+      <controls:LabeledTextField Name="LabelPrinterNameField" Width="320" HorizontalAlignment="Left"
+                                  Label="Label printer queue name" Text="{Binding LabelPrinterName}" />
 
-      <CheckBox Content="Open the cash drawer on a cash sale"
-                IsChecked="{Binding OpenDrawerOnCashSale}" />
+      <controls:LabeledCheckBoxField Name="OpenDrawerOnCashSaleField"
+                                      CheckBoxLabel="Open the cash drawer on a cash sale"
+                                      IsChecked="{Binding OpenDrawerOnCashSale}" />
 
-      <TextBlock Text="Drawer kick-out pin (2 or 5)" />
-      <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding DrawerKickPin}" />
+      <controls:LabeledNumericField Name="DrawerKickPinField" Width="80" HorizontalAlignment="Left"
+                                     Label="Drawer kick-out pin (2 or 5)" Text="{Binding DrawerKickPin}" />
 
-      <TextBlock Text="What the scanner sends at the end of a scan" />
-      <ComboBox Width="360" HorizontalAlignment="Left"
-                ItemsSource="{Binding ScannerSuffixChoices}"
-                SelectedItem="{Binding ScannerSuffixChoice}" />
+      <controls:LabeledComboField Name="ScannerSuffixField" Width="360" HorizontalAlignment="Left"
+                                   Label="What the scanner sends at the end of a scan"
+                                   ItemsSource="{Binding ScannerSuffixChoices}"
+                                   SelectedItem="{Binding ScannerSuffixChoice}" />
 
-      <TextBlock Text="Shortest input treated as a scan" />
-      <TextBox Width="80" HorizontalAlignment="Left" Text="{Binding ScannerMinimumLength}" />
+      <controls:LabeledNumericField Name="ScannerMinimumLengthField" Width="80" HorizontalAlignment="Left"
+                                     Label="Shortest input treated as a scan" Text="{Binding ScannerMinimumLength}" />
 
-      <CheckBox Content="A weighing scale is connected" IsChecked="{Binding ScaleEnabled}" />
+      <controls:LabeledCheckBoxField Name="ScaleEnabledField"
+                                      CheckBoxLabel="A weighing scale is connected"
+                                      IsChecked="{Binding ScaleEnabled}" />
 
-      <TextBlock Text="Scale serial port" />
-      <TextBox Width="140" HorizontalAlignment="Left" Text="{Binding ScalePort}" />
+      <controls:LabeledTextField Name="ScalePortField" Width="140" HorizontalAlignment="Left"
+                                  Label="Scale serial port" Text="{Binding ScalePort}" />
 
-      <TextBlock Text="Scale baud rate" />
-      <TextBox Width="140" HorizontalAlignment="Left" Text="{Binding ScaleBaudRate}" />
+      <controls:LabeledNumericField Name="ScaleBaudRateField" Width="140" HorizontalAlignment="Left"
+                                     Label="Scale baud rate" Text="{Binding ScaleBaudRate}" />
 
     </StackPanel>
   </ScrollViewer>
