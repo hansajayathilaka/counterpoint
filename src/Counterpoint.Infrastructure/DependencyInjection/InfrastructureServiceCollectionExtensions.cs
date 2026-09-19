@@ -107,6 +107,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IShiftLookup, SqliteShiftLookup>();
         services.AddSingleton<IDashboardReader, SqliteDashboardReader>();
 
+        // P3-T22: the dashboard's recent-sales list (SRS FR-9.7 extension). No role requirement
+        // of its own - see IRecentSalesQuery's own remarks.
+        services.AddSingleton<IRecentSalesQuery, SqliteRecentSalesQuery>();
+
         // P3-T01: cash in, cash out and the expected-drawer calculation's own read side (SRS
         // FR-8.1, FR-8.2).
         services.AddSingleton<ICashMovementWriter, SqliteCashMovementWriter>();
