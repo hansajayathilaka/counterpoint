@@ -367,3 +367,13 @@ it stopped.
 - `2026-09-17T11:13:29Z` **P4-T01** done — 39 files, 28+ test methods across AwsSigV4SignerTests.cs, BackupTargetErrorMessagesNeverLeakSecretsTests.cs and the target/factory/credential-store test files, review clean after 1 fix round (3 must-fix closed), PR #43
 
 **Run ended 2026-09-17T11:13:48Z** — 2 completed, 0 halted
+
+## Run 2026-09-19T08:11:05Z
+
+- branch: `main`
+- head: `9fd45e9`
+- budget: 2 task(s)
+
+- `2026-09-19T08:11:07Z` **P3-T04** start — Report query layer
+- `2026-09-19T09:10:00Z` **P3-T04** fix-attempt — 1: rollup segment missing <= @To upper bound (over-counts any past range while a shift is open); stale rollup after post-close cancellation; bare PeriodFiguresReader registration; doc inaccuracies
+- `2026-09-19T09:57:23Z` **P3-T04** halted — review round 2: money defect + perf regression; root cause outside P3-T04
