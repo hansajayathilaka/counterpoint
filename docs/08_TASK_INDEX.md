@@ -66,6 +66,13 @@ is a checkbox on a named `HW-T*` task.
 | **P3-T14** | Retrofit: sales screen and side panel | P3-T10, T12, T13 | 2d | UI-01, UI-03, NFR-U4* |
 | **P3-T15** | Retrofit: catalogue and settings screens | P3-T11, T12, T13 | 3d | UI-05, UI-06, UI-14*, UI-15* |
 | **P3-T16** | Retrofit: remaining windows and UI redesign gate | P3-T14, T15 | 2.5d | AC-21*, AC-22*, AC-23*, AC-24* |
+| **P3-T17** | Design tokens v2: extended palette and bundled fonts | P3-T10 | 2.5d | UI-13, NFR-U4, NFR-U5** |
+| **P3-T18** | Back-office shell: nav rail, Trading/People, Catalogue folded in | P3-T17, P3-T13 | 3d | UI-11, UI-16**, AC-24 |
+| **P3-T19** | Back-office shell: System group folds Settings in | P3-T18 | 3d | UI-11, UI-16**, AC-24, UI-05 |
+| **P3-T20** | Dashboard landing content (Overview) | P3-T18, P3-T22 | 2.5d | FR-9.7, UI-16** |
+| **P3-T21** | Sales screen visual refresh | P3-T17 | 2d | UI-01–UI-03, NFR-U4 |
+| **P3-T22** | Recent-sales list query (read-only) | P1-T14 | 1d | FR-9.7 |
+| **P3-T23** | UI redesign v2 acceptance gate | P3-T17…T22 | 1.5d | AC-21, AC-24, AC-25**, NFR-U5** |
 | **P4-T01** | Backup target abstraction | P1-T15 | 1.5d | FR-11.5, Q-09 |
 | **P4-T02** | Least-privilege and immutability setup | P4-T01 | 1d | NFR-S4 |
 | **P4-T03** | Upload worker with retry and backoff | P4-T01 | 2d | FR-11.5–11.8 |
@@ -85,13 +92,14 @@ is a checkbox on a named `HW-T*` task.
 | **P5-T08** | Training | P5-T06, T07 | 1d | NFR-U1 |
 | **P5-T09** | Go-live and handover | all | 1d | §16 |
 
-**Total:** ~112 developer-days ≈ 17 weeks for one developer, matching the SRS's indicative 16–18 weeks, **plus ~15.5 developer-days (≈3 weeks) for the P3-T10–P3-T16 UI redesign** added 2026-09-15 (~127.5d ≈ 20 weeks total). The HW track adds ~1 week on site after that, once the hardware has arrived.
+**Total:** ~112 developer-days ≈ 17 weeks for one developer, matching the SRS's indicative 16–18 weeks, **plus ~15.5 developer-days (≈3 weeks) for the P3-T10–P3-T16 UI redesign** added 2026-09-15, **plus a further ~15.5 developer-days (≈3 weeks) for the P3-T17–P3-T23 UI redesign v2** added 2026-09-19 (~143d ≈ 23 weeks total). The HW track adds ~1 week on site after that, once the hardware has arrived.
 
 `*` in the Key SRS column marks a requirement id newly introduced by the P3-T10–P3-T16 UI redesign
-(UI-13, UI-14, UI-15, NFR-U4, AC-21–AC-24). These are additions to the SRS in
+(UI-13, UI-14, UI-15, NFR-U4, AC-21–AC-24). `**` marks a requirement id newly introduced by the
+P3-T17–P3-T23 UI redesign v2 (UI-16, NFR-U5, AC-25). These are additions to the SRS in
 `docs/Counterpoint_Requirements.md`, not yet folded into that signed document — see the "UI
-redesign" section header in `docs/05_PHASE_3_reports_cash.md` for the full definitions and the
-owner decision this is pending.
+redesign" and "UI redesign v2" section headers in `docs/05_PHASE_3_reports_cash.md` for the full
+definitions and the owner decision this is pending.
 
 ---
 
@@ -138,6 +146,7 @@ Anything on this path that slips slips the project. Notably: **P1-T05 (UOM and v
 | Import/export & migration | P1-T13, P3-T07, P5-T06 |
 | Documentation | P5-T07, ongoing from Phase 1 |
 | UI redesign (tokens, dialog/field framework, shell split, retrofit) | P3-T10…P3-T16 — does not depend on or block P3-T02…P3-T09 |
+| UI redesign v2 (tokens v2, bundled fonts, nav rail, dashboard, sales refresh) | P3-T17…P3-T23 — does not depend on or block P3-T02…P3-T09; P3-T22 is the one non-UI (Infrastructure) task in the set |
 | Hardware integration (on site, after software-complete) | HW-T01…HW-T10 |
 
 The catalogue → stock → sales chain (P1-T05 → T07 → T09 → T10) is inherently sequential and should stay with one developer.
@@ -173,7 +182,8 @@ Every SRS acceptance criterion, and where it is first proven.
 | AC-21 *(new, UI redesign)* | Every screen legible in both Light and Dark theme | P3-T16 |
 | AC-22 *(new, UI redesign)* | Every field label stays visible before/during/after entry | P3-T16 |
 | AC-23 *(new, UI redesign)* | Every add/edit/delete uses the shared dialog with an unambiguous header | P3-T16 |
-| AC-24 *(new, UI redesign)* | Cashier and owner shells are visually and navigationally distinct | P3-T16 |
+| AC-24 *(new, UI redesign)* | Cashier and owner shells are visually and navigationally distinct | P3-T16, re-proven P3-T23 after the nav rail replaces the flat tile grid |
+| AC-25 *(new, UI redesign v2)* | Back-office nav-rail navigation never bypasses the Application-layer role check | P3-T23 |
 
 **Every acceptance criterion has an owning task.** If a criterion has no test by the end of its owning phase, that phase is not done. AC-13, AC-15, AC-16 and AC-18 are proven in software against the fakes at the phase gate and **re-verified on the shop hardware** in the HW track (`HW-T07…HW-T10`); both are required before go-live.
 

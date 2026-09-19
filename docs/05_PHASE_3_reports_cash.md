@@ -1,8 +1,11 @@
 # Phase 3 — Reports and Cash Discipline
 
 **Duration:** 3 weeks · **Tasks:** 9 core (P3-T01–P3-T09) + 7 UI redesign (P3-T10–P3-T16, added
-2026-09-15 via `/plan-feature`, see that section below) · **Exit:** the owner has visibility and
-the day closes cleanly and immutably.
+2026-09-15 via `/plan-feature`, see that section below) + 7 UI redesign v2 (P3-T17–P3-T23, added
+2026-09-19 via `/plan-feature`, a second owner-approved redesign pass — persistent back-office nav
+rail, richer token set, bundled display/body fonts, dashboard landing content, sales-screen visual
+refresh — see that section below) · **Exit:** the owner has visibility and the day closes cleanly
+and immutably.
 
 ## Scope
 
@@ -570,3 +573,418 @@ something to fix inside this task.
       or explicitly out of scope with a reason
 - [ ] `dotnet test` is green, architecture tests are green, and the app still starts to the sales
       screen (`CLAUDE.md` definition of done)
+
+---
+
+## UI redesign v2 (added 2026-09-19)
+
+Added by `/plan-feature` in response to a second owner request: a full UI redesign, delivered as a
+Claude Artifact HTML/CSS prototype (four screens: sales/till, back-office dashboard, back-office
+catalogue/products, back-office settings/shop-profile), grounded in the real Avalonia views listed
+below and approved by the owner ("This prototype is great. Create the plan to implement this.").
+This is a second, later pass over the same surface `P3-T10–P3-T16` already redesigned once — it
+extends that work rather than replacing it.
+
+**Grounding.** Read against these files as they stand after `P3-T10–P3-T16`:
+`src/Counterpoint.Ui/Views/SalesWindow.axaml` (F1-F12+Esc `KeyBinding`s, scan box, bill `ListBox`,
+totals, non-modal side panel via `SalesSidePanelView`),
+`src/Counterpoint.Ui/Views/BackOfficeShellWindow.axaml` (currently a flat 5-button `UniformGrid`,
+each tile `IsVisible` bound to a `Can*` role flag on `BackOfficeShellViewModel` — a courtesy; the
+Application layer is the real control regardless),
+`src/Counterpoint.Ui/Views/CatalogueWindow.axaml` (a `TabControl` with 8 tabs),
+`src/Counterpoint.Ui/Views/SettingsWindow.axaml` (a `TabControl` with 9 tabs),
+`src/Counterpoint.Ui/Styles/Tokens.Light.axaml` and `Tokens.Dark.axaml` (the P3-T10 eight-brush
+set, proven against WCAG AA 4.5:1 by `ThemeTokenContrastTests`, with `NoRawHexColourLiteralsTests`
+banning raw hex outside those two files repository-wide).
+
+**The four checks, run before writing any task below.**
+
+1. **Out of scope?** No. Checked against `docs/Counterpoint_Requirements.md` §15 (OS-01…OS-13):
+   this redesign is pure presentation on the existing single-terminal, single-database,
+   single-`IHost` application — it adds no second terminal, no server, no LAN component, no
+   e-commerce, no loyalty programme and no live cloud dashboard. It clears §15 cleanly, the same
+   conclusion the first redesign reached for the identical reason.
+2. **Conflicts with an architectural decision?** One real risk, closed by task design rather than
+   waved past: the prototype's own type system used Google Fonts CDN `<link>` tags. A network font
+   fetch on any screen — including the back office, which the owner may use during trading hours
+   per SRS A-02 — would violate `CLAUDE.md`'s "no code path... may touch the network" rule and
+   NFR-R1/C-02/ADR-001. **P3-T17 bundles both typefaces as embedded Avalonia resources instead; no
+   task in this set makes a live font request.** No other part of the redesign (nav rail, richer
+   tokens, dashboard content, sales refresh) touches ADR-001, ADR-002 or ADR-003 — it is confined to
+   `Counterpoint.Ui` and its `Styles`/`Assets`, with the one exception named and separately scoped
+   below (P3-T22).
+3. **Touches an append-only table or the stock ledger?** No, with one named, deliberately isolated
+   exception: **P3-T22** adds a single read-only query (`IRecentSalesQuery`) for the new dashboard's
+   recent-sales tile. It performs a `SELECT` against the existing `sale`/`payment` tables through
+   the existing `ix_sale_date` index — no schema change, no new projection, no write path, and no
+   contact with `stock_movement` or `StockLedger.PostAsync` at all. Because it changes no schema, it
+   does not need a data-modeler review the way a schema task would; it still needs the normal
+   code-reviewer pass any Infrastructure-layer addition gets. Every other task in this set is
+   `Counterpoint.Ui`-only and touches no table at all, append-only or otherwise.
+4. **Cost.** See the estimate table at the end of this section: **15.5 developer-days (~3 weeks)**,
+   the same order of magnitude as the first redesign. It further postpones `P3-T04–P3-T09` (report
+   query layer through the Phase 3 acceptance gate) for a single developer working the task list in
+   order — those tasks are not *blocked* by this work (same non-dependency as the first redesign;
+   see the sequencing note below), but a second ~3-week UI pass ahead of them is a real calendar
+   cost the owner should see plainly stated, not discover later. Maintenance burden: the token set
+   grows from 8 keys to roughly 20 (P3-T17 is additive, not a rename, specifically to avoid breaking
+   every screen `P3-T14`–`P3-T16` already converted — the tradeoff is that two "generations" of key
+   additions now coexist in the same two files, permanently, unless a future cleanup task
+   deliberately retires any keys that turn out unused); two bundled font families to track for
+   licence provenance and upstream updates; and two more structurally significant views (the nav
+   rail, the dashboard) to keep pixel- and behaviour-consistent with everything else going forward.
+
+**New requirement ids** (additions to the SRS in `docs/Counterpoint_Requirements.md`, not yet
+folded into that signed document — flagged to the owner in this plan's summary, the same way the
+first redesign's UI-13…UI-15/AC-21…AC-24 were flagged):
+
+| ID | Requirement |
+|---|---|
+| UI-16 | The back-office shell must present navigation as a persistent grouped rail (Overview, Catalogue, Trading, People, System) rather than a flat button grid, swapping its content pane in place rather than opening a separate window per section. Role-gating of rail items remains a UI courtesy only; the Application-layer authorisation check already required by NFR-S2/AC-17 is unchanged by this navigation model. |
+| NFR-U5 | No font, icon or other asset used by the application may be loaded over the network. Every typeface the UI uses must be bundled with the installer and resolved from an embedded application resource. |
+| AC-25 | Selecting any back-office nav-rail item swaps only the content pane — the shell chrome (rail, status bar, accent) does not reload — and every screen reachable through the rail enforces its existing Application-layer role check regardless of which nav path was used to reach it. |
+
+**Sequencing note.** `P3-T17` (tokens v2 + bundled fonts) is foundational to everything else here
+and should land first, the same way `P3-T10` did for the first redesign. `P3-T18`/`P3-T19` (the nav
+rail folding Catalogue then Settings into the shell) are the largest and riskiest tasks in this set
+— `P3-T19` in particular changes real behaviour (the unsaved-settings-changes guard) and deserves
+its own careful review, not a rushed pass alongside `P3-T18`. `P3-T20` (dashboard content) depends
+on `P3-T22` (the one non-UI query) landing first. `P3-T21` (sales screen refresh) has no dependency
+on `P3-T18`–`P3-T20` and can run in parallel with them once `P3-T17` is done. None of `P3-T17`–
+`P3-T23` blocks, or is blocked by, `P3-T02`–`P3-T09` — exactly the relationship the first redesign
+had with this phase's reporting work (see the note on `P3-T09` above), and for the same reason: they
+touch disjoint files.
+
+**Placement decision.** Appended to Phase 3, as `P3-T17`–`P3-T23`, rather than started as a new
+phase document or inserted earlier in this one. Three reasons: it is a direct continuation of the
+`P3-T10`–`P3-T16` workstream over the exact same components (the back-office shell, the catalogue
+and settings navigation, the sales screen, the token files) rather than a new area of the product;
+`docs/README.md`'s own working agreement says to prefer appending to the current phase over
+inserting into an earlier one, since renumbering breaks every existing cross-reference; and Phase 3
+is still genuinely mid-flight (`P3-T04`–`P3-T09` are `todo`), which is exactly the state the first
+redesign was appended into for the same reasons.
+
+---
+
+### P3-T17 — Design tokens v2: extended semantic palette and bundled display/body fonts
+**Depends on:** P3-T10 · **Est:** 2.5d · **SRS:** UI-13, NFR-U4, NFR-M1, NFR-U5*
+
+**Context.** The approved redesign specifies a richer semantic set — surface and sunken-surface,
+primary/secondary/tertiary text, brand/brand-hover/brand-tint, success/success-tint, danger/
+danger-tint — plus a distinct dark nav-rail sub-palette for the back-office shell specifically, and
+two bundled typefaces: Manrope for display/headings/totals, IBM Plex Sans for body. The prototype
+used Google Fonts CDN `<link>` tags for those; per the redesign's own "conflicts with an
+architectural decision?" check above, that must become bundled, embedded fonts, never a live fetch.
+This task only extends `P3-T10`'s token files and adds the font assets — it does not touch any
+consuming screen; `P3-T18`–`P3-T21` do.
+
+**Do this.**
+1. Extend `Styles/Tokens.Light.axaml`/`Tokens.Dark.axaml` with the new keys above, **additive** to
+   the eight `P3-T10` keys already in use everywhere — no rename, no removal, so every existing
+   consumer (`SalesWindow`, every catalogue/settings screen, the dialog framework) keeps working
+   unmodified.
+2. Add the nav-rail sub-palette (`RailBackgroundBrush`, `RailActiveBackgroundBrush`,
+   `RailTextBrush`, `RailActiveTextBrush`, `RailMutedTextBrush`) — a fixed dark rail per the
+   approved design, not a third theme variant; it exists once, identically, in both
+   `Tokens.Light.axaml` and `Tokens.Dark.axaml`.
+3. Add Manrope and IBM Plex Sans (both SIL OFL 1.1, permissively licensed, consistent with every
+   other dependency rule in `docs/00_ENGINEERING_GUIDE.md`) as embedded font files under
+   `src/Counterpoint.Ui/Assets/Fonts/{Manrope,IBMPlexSans}/`, each with its OFL licence text
+   committed alongside; mark them `<AvaloniaResource>` and expose `DisplayFontFamily`/
+   `BodyFontFamily` resources resolving to `avares://Counterpoint.Ui/Assets/Fonts/...#Manrope` /
+   `#IBM Plex Sans`.
+4. Add a short `docs/adr/` note recording the bundled-font addition and its licence, per the
+   engineering guide's "do not add a dependency without a note in `docs/adr/`" rule.
+5. Extend `ThemeTokenContrastTests` to cover every new text-bearing pair (rail text on rail
+   background, rail active text on rail active background, tertiary text, success/danger text on
+   their own tint backgrounds) using the same proven arithmetic-on-resolved-colours method, in both
+   variants.
+6. A test proving `DisplayFontFamily`/`BodyFontFamily` resolve and render a glyph run from the
+   embedded `avares://` resource alone — no `HttpClient`, no socket, nothing reachable over the
+   network on the resolution path (NFR-U5).
+
+**Deliverables.** Extended `Tokens.Light.axaml`/`Tokens.Dark.axaml`, `Assets/Fonts/**` with licence
+files, `DisplayFontFamily`/`BodyFontFamily` resources, extended `ThemeTokenContrastTests`, the
+offline font-resolution test, the `docs/adr/` note.
+
+**Risks.** A third, informally-scoped palette drifting away from the two documented files — every
+new key lands in the same two files `P3-T10` established, never a third dictionary. Upstream font
+licence or file changes — OFL is chosen specifically because the files are handed to the owner
+outright, not rented.
+
+**Done when.**
+- [ ] Every new semantic and rail key resolves in both Light and Dark with no missing-resource
+      warning
+- [ ] `ThemeTokenContrastTests` proves the documented minimum contrast for every new pair, in both
+      variants
+- [ ] `DisplayFontFamily` and `BodyFontFamily` render a glyph run with zero network calls, proven by
+      test (NFR-U5)
+- [ ] `NoRawHexColourLiteralsTests`' existing repository-wide sweep still passes unmodified with the
+      new files in place
+
+---
+
+### P3-T18 — Back-office shell: persistent nav rail, Trading/People entry points, Catalogue folded in
+**Depends on:** P3-T17, P3-T13 · **Est:** 3d · **SRS:** UI-11, UI-16*, NFR-S2, AC-24
+
+**Context.** `BackOfficeShellWindow` today is a flat 5-button `UniformGrid`. The approved redesign
+replaces it with a persistent left nav rail grouped into Overview / Catalogue / Trading / People /
+System, and folds `CatalogueWindow`'s 8-tab `TabControl` into the rail as content-pane-swapping
+entries rather than a separate popup window. Trading (Purchase orders, Labels) and People (Users)
+keep opening their existing windows exactly as today's tile buttons do — only Catalogue's navigation
+model changes in this task; System/Settings is `P3-T19`.
+
+**Do this.**
+1. Replace `BackOfficeShellWindow`'s `UniformGrid` with a two-pane layout: a persistent left
+   `NavRail` (grouped sections, built from the `P3-T17` rail tokens) and a right `ContentControl`
+   hosting whichever section is selected.
+2. Sections: Overview (wired to a placeholder pending `P3-T20`), Catalogue (8 sub-items: Categories,
+   Brands, Units, Tax classes, Suppliers, Customers, Products, Import/Export), Trading (Purchase
+   orders, Labels — the exact same `Command`s today's tile buttons use, still opening
+   `PurchaseOrderWindow`/`LabelPrintWindow` unchanged), People (Users — the exact same
+   `ManageUsersCommand` opening `UserAdminWindow` unchanged).
+3. Extract `CatalogueWindow.axaml`'s `TabControl` content into a `CatalogueSectionContent`
+   `UserControl` hosting the same eight existing tab views unchanged; a new
+   `BackOfficeShellViewModel.SelectedCatalogueSection` property drives which one is visible,
+   replacing `TabControl.SelectedIndex`. `CatalogueViewModel` and every child tab viewmodel are
+   untouched.
+4. Nav-item visibility stays gated by the exact same `Can*` flags `BackOfficeShellViewModel` already
+   exposes (a courtesy, per CLAUDE.md invariant 8 and the existing `P3-T13` pattern) — no new
+   authorisation logic anywhere in this task.
+5. Retire `CatalogueWindow` as a directly-opened window; nothing opens it standalone once the rail
+   is in place. Delete the now-unused window shell, or keep it only if a test still needs to
+   instantiate it in isolation.
+
+**Deliverables.** Rewritten `BackOfficeShellWindow.axaml`/`BackOfficeShellViewModel`, a `NavRail`
+control, `CatalogueSectionContent`, updated tests.
+
+**Risks.** Losing the `TabControl`'s built-in keyboard navigation — the nav rail must replicate
+keyboard selection (UI-01); test it explicitly. Silently changing which `Can*` flag gates which
+item — keep the mapping identical to today's tile-to-flag mapping, verified by test.
+
+**Done when.**
+- [ ] The nav rail renders Overview/Catalogue/Trading/People grouped exactly as specified, each item
+      gated by the same `Can*` flag the equivalent tile used today
+- [ ] Selecting each of the 8 Catalogue nav items swaps the content pane to the correct existing tab
+      view with no change in that view's own behaviour (every pre-existing Catalogue*ViewModel/View
+      test passes unmodified)
+- [ ] The nav rail is fully keyboard-operable (UI-01): keyboard focus moves between items and
+      activates the selected one, with no mouse required
+- [ ] An `AC-24`-style test confirms every Catalogue destination still throws `NotAuthorisedException`
+      for a cashier session at the Application layer, regardless of the new navigation path
+
+---
+
+### P3-T19 — Back-office shell: System group folds Settings' 9 sub-groups into the rail
+**Depends on:** P3-T18 · **Est:** 3d · **SRS:** UI-11, UI-16*, NFR-S2, AC-24, UI-05
+
+**Context.** The redesign folds `SettingsWindow`'s 9-tab `TabControl` into the shell "the same way"
+as Catalogue — an expandable "System" nav group listing all nine (Shop profile, Financial, Tax,
+Numbering, Policy, Peripherals, Backup, Receipt, Display), swapping the content pane rather than
+opening a separate window. This is the riskiest task in this set: `SettingsWindow` today owns its
+own Save/Undo/Close command bar and `Ctrl+S`/`Ctrl+R`/`Escape` keybindings, including an
+asks-before-closing-with-unsaved-changes guard. None of that behaviour may be lost or weakened by
+embedding it in a shell that also hosts Catalogue.
+
+**Do this.**
+1. Expand "System" as a collapsible nav-rail group listing the nine settings groups as sub-items.
+2. Extract `SettingsWindow.axaml`'s content (the `TabControl` and its own Save/Undo/Close bar) into
+   a `SettingsSectionContent` `UserControl`, hosted in the shell's content pane whenever a System
+   sub-item is selected. `SettingsViewModel` and every child settings viewmodel are untouched — only
+   the hosting chrome changes.
+3. Re-home the Save/Undo/status bar so it is visible whenever the System group is active (not
+   per sub-item), and re-scope `Ctrl+S`/`Ctrl+R` to fire only while a System sub-item is selected,
+   not globally across the whole shell.
+4. Replace `Escape`-closes-the-window semantics (meaningless once there is no separate window) with:
+   navigating away from System to any other nav group while `HasUnsavedChanges` is true shows the
+   same `P3-T11` `IDialogService` confirmation shell used elsewhere (UI-05), naming what will be
+   discarded; confirming discards and navigates, cancelling keeps System selected with the edit
+   intact.
+5. Retire `SettingsWindow` as a directly-opened window, the same way `P3-T18` retired
+   `CatalogueWindow`.
+
+**Deliverables.** `SettingsSectionContent`, the navigate-away confirmation guard, updated
+`BackOfficeShellViewModel`, updated tests.
+
+**Risks.** The largest behavioural risk in this whole set — an unsaved-changes guard that fails to
+fire, or fires wrongly, could lose or silently discard a settings change. Cover it with a dedicated
+test that edits a field, attempts to navigate to Catalogue, confirms the dialog appears, and proves
+both the "cancel" and "discard and go" paths behave correctly, plus one proving a *saved* change
+never prompts.
+
+**Done when.**
+- [ ] The System nav group expands to all nine settings sub-items, each swapping the content pane to
+      the correct existing settings view with no change in that view's own behaviour (every
+      pre-existing Settings*ViewModel/View test passes unmodified)
+- [ ] `Ctrl+S`/`Ctrl+R` still work exactly as before while a System sub-item is active, and do
+      nothing when a different nav group is active
+- [ ] Navigating away from System with unsaved changes shows the shared confirmation dialog naming
+      the discard; navigating away with no unsaved changes shows nothing
+- [ ] An `AC-24`-style test confirms every Settings destination still throws `NotAuthorisedException`
+      for a cashier session at the Application layer, regardless of the new navigation path
+
+---
+
+### P3-T20 — Dashboard landing content (Overview)
+**Depends on:** P3-T18, P3-T22 · **Est:** 2.5d · **SRS:** FR-9.7, UI-16*
+
+**Context.** The Overview nav item is a placeholder from `P3-T18`. This task builds the landing
+content the redesign specifies — KPI cards, a recent-sales list, reorder alerts and quick actions —
+built only from data already exposed by completed features, plus the one small new query `P3-T22`
+adds.
+
+**Do this.**
+1. KPI cards: today's sales, transaction count, low-stock count, cash in drawer — bound directly to
+   the existing `IDashboardQueries.GetSummaryAsync()` (`DashboardSummary.TodaysSales`/`BillCount`/
+   `LowStockCount`/`CashInDrawer`). No new Application-layer code for these four figures; this task
+   is UI-only for them.
+2. Reorder-alerts panel: the existing `IReorderListQuery.GetReorderListAsync()` (`P2-T11`), shown as
+   a short list. If no full reorder screen exists yet to link out to, show the raw list only — do
+   not build a new reorder screen in this task; note the gap rather than filling it.
+3. Recent-sales list: the new `IRecentSalesQuery` from `P3-T22`.
+4. Quick actions: buttons wired to commands that already exist elsewhere (e.g. New sale returns to
+   the sales screen, Open shift where none is open, refresh the dashboard) — no new business action
+   is invented here.
+5. Build entirely from the `P3-T17` tokens (e.g. the low-stock KPI card draws the danger tint when
+   its count is greater than zero).
+
+**Deliverables.** `DashboardView`/`DashboardViewModel` hosted under Overview, wired to the existing
+queries plus `P3-T22`'s new one.
+
+**Risks.** Inventing a dashboard figure that does not exist — every tile in this task must trace to
+an existing query or to `P3-T22`; if a tile the prototype shows cannot be traced to real data, it is
+dropped from this task and flagged, not approximated or hard-coded.
+
+**Done when.**
+- [ ] Every KPI card value matches `IDashboardQueries.GetSummaryAsync()` on a seeded dataset
+- [ ] The reorder-alerts panel matches `IReorderListQuery` on the same seeded dataset
+- [ ] The recent-sales list matches `IRecentSalesQuery` on the same seeded dataset
+- [ ] No tile renders a figure that does not trace to an existing or `P3-T22` query, verified by
+      review: every binding in the view is traceable to a named service method
+
+---
+
+### P3-T21 — Sales screen visual refresh (tokens v2, F9 dominant, reflowed function-key strip)
+**Depends on:** P3-T17 · **Est:** 2d · **SRS:** UI-01, UI-02, UI-03, FR-3.*, NFR-U4
+
+**Context.** Purely cosmetic: the redesign restyles `SalesWindow`/`SalesSidePanelView` onto the
+richer token set and reflows the function-key row, with F9 Pay visually dominant. Every keyboard
+binding, scanner-first focus behaviour and sale-building rule from `P1-T09`/`P1-T10` must be
+provably unchanged — this is explicitly not a functional change.
+
+**Do this.**
+1. Re-skin `SalesWindow.axaml`/`SalesSidePanelView.axaml` onto the `P3-T17` extended tokens
+   (brand/brand-tint for the total banner, success/danger tints where appropriate) — no
+   `Grid`/`KeyBinding`/`Command` structure changes.
+2. Reflow the 13-button function-key `UniformGrid` into a tidier strip with F9 Pay visually
+   dominant (size/weight/colour only) — the `Command` bindings, `Gesture`s and the set of twelve
+   F-keys plus Escape are unchanged.
+3. Apply `DisplayFontFamily` to the total figure and `BodyFontFamily` elsewhere, per the approved
+   type system.
+4. Re-run every existing `P1-T09`/`P1-T10` test unmodified as proof nothing functional moved.
+
+**Deliverables.** Restyled `SalesWindow.axaml`, restyled `SalesSidePanelView.axaml`, an extended
+contrast test.
+
+**Risks.** This is exactly the kind of task where a "cosmetic" change quietly breaks the scanner
+burst filter or F-key routing. Treat any apparent need to touch `SalesWindow.axaml.cs` or
+`SalesViewModel.cs` as a stop-and-flag signal, not something to fix inline.
+
+**Done when.**
+- [ ] Every existing `P1-T09`/`P1-T10` test (scan-to-line, F-key bindings, hold/recall, tender/
+      complete) passes unmodified
+- [ ] F9 Pay is visually the most prominent function key (size/weight/colour); all thirteen keys
+      remain present and bound to their existing `Gesture`s
+- [ ] The side panel and total banner pass an extended contrast test using the new tokens, in both
+      Light and Dark
+- [ ] `SalesWindow.axaml.cs` and `SalesViewModel.cs` are unmodified (diff review)
+
+---
+
+### P3-T22 — Recent-sales list query (read-only; extends FR-9.7's dashboard)
+**Depends on:** P1-T14 · **Est:** 1d · **SRS:** FR-9.7 (extension)
+
+> **Flag.** This is the one piece of this workstream that is not pure UI. It adds a small read-only
+> Application/Infrastructure query (`IRecentSalesQuery`) — no schema change, no write path, no
+> contact with `stock_movement` or `StockLedger.PostAsync`, reading `sale`/`payment` through the
+> existing `ix_sale_date` index. It is called out as its own explicitly-scoped task, exactly as the
+> redesign's own scope guard requires, rather than folded silently into a UI task. It needs the same
+> code-reviewer sign-off as any other Infrastructure-layer addition; it is not exempt because the
+> rest of this workstream is UI-only, and it does not need a data-modeler review because it changes
+> no schema.
+
+**Context.** The approved dashboard prototype includes a recent-sales list. No existing query
+returns "the last N completed sales" — `IDashboardQueries` returns aggregate figures only, and
+`IReturnableSaleLookup` searches by criteria for the returns flow, not a recency-ordered list for a
+landing screen.
+
+**Do this.**
+1. `IRecentSalesQuery.GetRecentAsync(int count, CancellationToken)` returning bill number, completed
+   time, customer name (or "Walk-in"), and total, for the most recent N completed sales, most recent
+   first.
+2. Back it with a single indexed read against `sale` (`status = 'COMPLETED'`, ordered by
+   `business_date`/`created_at` descending, `LIMIT @count`), reusing `ix_sale_date`; add a covering
+   secondary sort column only if the query plan shows a sort step at the seeded volume, otherwise
+   none is needed.
+3. No cost/margin field in the DTO — this is a cashier-visible figure the same way
+   `IDashboardQueries` already is (CLAUDE.md invariant 8), so no `RequiresRole` attribute is needed,
+   matching `IDashboardQueries`'s own reasoning.
+
+**Deliverables.** `IRecentSalesQuery`, `SqliteRecentSalesQuery`, DI registration, tests.
+
+**Risks.** Scope creep into a full bill-search screen (FR-3.35) — out of scope here; this is a
+fixed-length "last N" list feeding one dashboard tile, nothing more.
+
+**Done when.**
+- [ ] `GetRecentAsync` returns the correct N most recent completed sales, most recent first, on a
+      seeded dataset
+- [ ] A cancelled sale never appears in the list
+- [ ] The DTO carries no cost or margin field
+- [ ] The query executes in under 50 ms against the 100k-line seeded database, consistent with the
+      existing `ix_sale_date` index and requiring no new index
+
+---
+
+### P3-T23 — UI redesign v2 acceptance gate
+**Depends on:** P3-T17, P3-T18, P3-T19, P3-T20, P3-T21, P3-T22 · **Est:** 1.5d · **SRS:** AC-21, AC-24, AC-25*, NFR-U5*
+
+**Context.** Closes this workstream the way `P3-T16` closed the first one.
+
+**Do this.**
+1. Extend `AC21_EveryScreenIsLegibleInBothThemes` to cover the new nav-rail, dashboard and
+   re-skinned sales screens — it already reuses the repository-wide hex/contrast sweep, so confirm
+   it rather than rebuild it.
+2. Extend `AC24_CashierAndOwnerShellsAreVisuallyAndNavigationallyDistinct` to prove the nav-rail
+   shell is still visually/navigationally distinct and that the Application-layer role check still
+   gates every destination regardless of the new navigation path, now that Catalogue and System are
+   both folded in.
+3. New `AC25_NavigatingTheBackOfficeRailNeverBypassesTheApplicationLayerRoleCheck` (or an extension
+   of the AC-24 class if that reads more naturally) covering the two newly-folded-in sections
+   specifically.
+4. New test (NFR-U5): a static scan for `http://`/`https://` in any `FontFamily`/`Image`/`Source`
+   attribute across every `*.axaml` under `Counterpoint.Ui`, asserting zero matches.
+5. Re-run every `P3-T10`–`P3-T16` test class unmodified, plus `P1-T09`/`P1-T10`, to confirm nothing
+   from the first redesign or from core sales regressed.
+6. Update the printable cheat sheet (UI-12) if it exists by the time this task runs; if it still
+   does not (per `P3-T16`'s own note that it is built in `P5-T09`), state so rather than fabricating
+   it.
+
+**Deliverables.** Extended/new acceptance test classes, the network-asset scan test.
+
+**Risks.** None of this should touch `Application`/`Domain`/`Infrastructure` except the `P3-T22`
+query already merged — if a gate failure seems to need a service change, flag it, don't fix it
+inline here.
+
+**Done when.**
+- [ ] AC-21 and AC-24 pass against every screen touched by `P3-T17`–`P3-T22`, automated
+- [ ] AC-25 passes as an automated test
+- [ ] The network-asset scan finds zero network URIs in any font/image/source attribute under
+      `Counterpoint.Ui`
+- [ ] Every `P3-T10`–`P3-T16` test class and every `P1-T09`/`P1-T10` test passes unmodified
+- [ ] `dotnet test` is green, architecture tests are green, and the app still starts to the sales
+      screen (`CLAUDE.md` definition of done)
+
+---
+
+**UI redesign v2 estimate:** 2.5 + 3 + 3 + 2.5 + 2 + 1 + 1.5 = **15.5 developer-days (~3 weeks)**,
+the same order of magnitude as `P3-T10`–`P3-T16`.
