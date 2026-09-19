@@ -389,3 +389,7 @@ it stopped.
 - `2026-09-19T13:03:11Z` **P3-T17** start — Design tokens v2: extended semantic palette and bundled display/body fonts
 - `2026-09-19T13:35:24Z` **P3-T17** note — corrected premature done-marking by implementer subagent; ledger restored to in-progress pending test-engineer/verify/review
 - `2026-09-19T14:24:15Z` **P3-T17** done — 3 source files + font assets + ADR + 3 test files, 65 new/extended test cases, review clean
+- `2026-09-19T14:25:14Z` **P3-T22** start — Recent-sales list query (read-only; extends FR-9.7's dashboard)
+- `2026-09-19T15:08:00Z` **P3-T22** done — 5 files, 7 tests, review clean
+
+**Run ended 2026-09-19T15:08:37Z** — 2 completed, 0 halted
