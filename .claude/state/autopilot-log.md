@@ -387,3 +387,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-19T13:03:11Z` **P3-T17** start — Design tokens v2: extended semantic palette and bundled display/body fonts
+- `2026-09-19T13:35:24Z` **P3-T17** note — corrected premature done-marking by implementer subagent; ledger restored to in-progress pending test-engineer/verify/review
