@@ -61,6 +61,13 @@ P3-T13	P1-T02,P3-T10	2	auto	Role-based navigation shell (cashier vs back office)
 P3-T14	P3-T10,P3-T12,P3-T13	2	auto	Retrofit: sales screen and side panel
 P3-T15	P3-T11,P3-T12,P3-T13	3	auto	Retrofit: catalogue and settings screens
 P3-T16	P3-T14,P3-T15	2.5	auto	Retrofit: remaining windows and UI redesign gate
+P3-T17	P3-T10	2.5	auto	Design tokens v2: extended semantic palette and bundled display/body fonts
+P3-T18	P3-T17,P3-T13	3	auto	Back-office shell: persistent nav rail, Trading/People entry points, Catalogue folded in
+P3-T19	P3-T18	3	auto	Back-office shell: System group folds Settings' 9 sub-groups into the rail
+P3-T20	P3-T18,P3-T22	2.5	auto	Dashboard landing content (Overview)
+P3-T21	P3-T17	2	auto	Sales screen visual refresh (tokens v2, F9 dominant, reflowed function-key strip)
+P3-T22	P1-T14	1	auto	Recent-sales list query (read-only; extends FR-9.7's dashboard)
+P3-T23	P3-T17,P3-T18,P3-T19,P3-T20,P3-T21,P3-T22	1.5	auto	UI redesign v2 acceptance gate
 P4-T01	P1-T15	1.5	auto	Backup target abstraction
 P4-T02	P4-T01	1	human	Least-privilege and immutability setup
 P4-T03	P4-T01	2	auto	Upload worker with retry and backoff
