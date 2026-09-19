@@ -91,6 +91,104 @@ public sealed class ThemeTokenContrastTests
             + "nothing at all the moment the shop switches variant");
     }
 
+    /// <summary>
+    /// Task P3-T17's own extended semantic pairs (SRS UI-13, NFR-U4): every new text-bearing pair
+    /// the redesign introduces, tested the same arithmetic-on-resolved-colours way as
+    /// <see cref="TextPairs"/> above. <c>TertiaryTextBrush</c> is checked against the same two
+    /// backgrounds the original set already checks Primary/Secondary/Warning/TotalHighlight
+    /// against; <c>SuccessBrush</c>/<c>DangerBrush</c> are checked against their own pale/dark
+    /// tint background, not the plain window/panel - that is the pair those two colours are
+    /// actually drawn on.
+    /// </summary>
+    private static readonly (string Foreground, string Background)[] ExtendedTextPairs =
+    [
+        ("TertiaryTextBrush", "WindowBackgroundBrush"),
+        ("TertiaryTextBrush", "PanelBackgroundBrush"),
+        ("SuccessBrush", "SuccessTintBrush"),
+        ("DangerBrush", "DangerTintBrush"),
+    ];
+
+    public static IEnumerable<object[]> ExtendedTextPairsData() =>
+        ExtendedTextPairs.Select(pair => new object[] { pair.Foreground, pair.Background });
+
+    [Theory]
+    [MemberData(nameof(ExtendedTextPairsData))]
+    public void UI_13_LightThemeExtendedTextPairsMeetWcagAaFourPointFiveToOne(string foreground, string background)
+    {
+        AssertContrast(LoadPalette("Tokens.Light.axaml"), foreground, background, MinimumTextContrast, "Light");
+    }
+
+    [Theory]
+    [MemberData(nameof(ExtendedTextPairsData))]
+    public void UI_13_DarkThemeExtendedTextPairsMeetWcagAaFourPointFiveToOne(string foreground, string background)
+    {
+        AssertContrast(LoadPalette("Tokens.Dark.axaml"), foreground, background, MinimumTextContrast, "Dark");
+    }
+
+    /// <summary>
+    /// Task P3-T17's nav-rail sub-palette (SRS UI-16, NFR-U4): rail text on the rail's own
+    /// background, and rail active text on the rail's own active-item background, in both
+    /// variants - the rail is a single fixed dark palette, but the pair is still proven in both
+    /// token files since each file is where the values actually live.
+    /// </summary>
+    private static readonly (string Foreground, string Background)[] RailTextPairs =
+    [
+        ("RailTextBrush", "RailBackgroundBrush"),
+        ("RailActiveTextBrush", "RailActiveBackgroundBrush"),
+    ];
+
+    public static IEnumerable<object[]> RailTextPairsData() =>
+        RailTextPairs.Select(pair => new object[] { pair.Foreground, pair.Background });
+
+    [Theory]
+    [MemberData(nameof(RailTextPairsData))]
+    public void UI_13_LightFileRailTextPairsMeetWcagAaFourPointFiveToOne(string foreground, string background)
+    {
+        AssertContrast(LoadPalette("Tokens.Light.axaml"), foreground, background, MinimumTextContrast, "Light");
+    }
+
+    [Theory]
+    [MemberData(nameof(RailTextPairsData))]
+    public void UI_13_DarkFileRailTextPairsMeetWcagAaFourPointFiveToOne(string foreground, string background)
+    {
+        AssertContrast(LoadPalette("Tokens.Dark.axaml"), foreground, background, MinimumTextContrast, "Dark");
+    }
+
+    /// <summary>
+    /// Task P3-T17's own risk, named in its task doc: "a third, informally-scoped palette
+    /// drifting away from the two documented files." The rail is meant to be a single fixed dark
+    /// palette, not a third theme variant, so its five keys must carry byte-identical colour
+    /// values in both token files, not merely the same key names (which
+    /// <see cref="UI_13_TheTwoTokenFilesDeclareExactlyTheSameKeys"/> above already proves).
+    /// </summary>
+    [Fact]
+    public void UI_13_TheRailPaletteIsIdenticalInBothTokenFiles()
+    {
+        string[] railKeys =
+        [
+            "RailBackgroundBrush",
+            "RailActiveBackgroundBrush",
+            "RailTextBrush",
+            "RailActiveTextBrush",
+            "RailMutedTextBrush",
+        ];
+
+        var light = LoadPalette("Tokens.Light.axaml");
+        var dark = LoadPalette("Tokens.Dark.axaml");
+
+        foreach (var key in railKeys)
+        {
+            light.Should().ContainKey(key);
+            dark.Should().ContainKey(key);
+
+            light[key].Should().Be(
+                dark[key],
+                "{0} is a fixed dark rail colour, not a third theme variant - it must carry the "
+                + "exact same value in both token files",
+                key);
+        }
+    }
+
     private static void AssertContrast(
         Dictionary<string, string> palette,
         string foregroundKey,

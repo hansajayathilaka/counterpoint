@@ -34,4 +34,64 @@
   <!-- SRS UI-03: the running bill total must be the most prominent thing on the sales screen. -->
   <SolidColorBrush x:Key="TotalHighlightBrush" Color="#34D399" />
 
+  <!--
+    Task P3-T17 (SRS UI-13, NFR-U4, NFR-M1). Extended semantic palette - see Tokens.Light.axaml's
+    own remarks for what each key is for. Every key name here must match Tokens.Light.axaml
+    exactly, the same rule the original eight keys are already held to.
+  -->
+
+  <!-- A raised card/tile on top of PanelBackgroundBrush/WindowBackgroundBrush. Lighter than
+       PanelBackgroundBrush, the dark-mode direction for an elevated surface. -->
+  <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#374151" />
+
+  <!-- A recessed well: a read-only field, a search box. Darker than WindowBackgroundBrush. -->
+  <SolidColorBrush x:Key="SunkenSurfaceBackgroundBrush" Color="#0F172A" />
+
+  <!-- The least prominent text tier - quieter than SecondaryTextBrush while still meeting WCAG
+       AA 4.5:1 against WindowBackgroundBrush and PanelBackgroundBrush. -->
+  <SolidColorBrush x:Key="TertiaryTextBrush" Color="#9CA3AF" />
+
+  <!-- The shop's brand colour for the redesigned dashboard/rail chrome - distinct from
+       AccentBrush. -->
+  <SolidColorBrush x:Key="BrandBrush" Color="#60A5FA" />
+
+  <!-- BrandBrush's hover/pressed state - one step more saturated. -->
+  <SolidColorBrush x:Key="BrandHoverBrush" Color="#3B82F6" />
+
+  <!-- A dark brand-tinted background for a selected/highlighted row or card. -->
+  <SolidColorBrush x:Key="BrandTintBrush" Color="#1E3A8A" />
+
+  <!-- A positive/confirming figure or status, distinct from TotalHighlightBrush's specific job. -->
+  <SolidColorBrush x:Key="SuccessBrush" Color="#34D399" />
+
+  <!-- SuccessBrush's own dark tint background - proven to meet WCAG AA 4.5:1 with SuccessBrush
+       text on it. -->
+  <SolidColorBrush x:Key="SuccessTintBrush" Color="#064E3B" />
+
+  <!-- A destructive action or hard failure, distinct from WarningBrush's job. -->
+  <SolidColorBrush x:Key="DangerBrush" Color="#FCA5A5" />
+
+  <!-- DangerBrush's own dark tint background - proven to meet WCAG AA 4.5:1 with DangerBrush
+       text on it. -->
+  <SolidColorBrush x:Key="DangerTintBrush" Color="#7F1D1D" />
+
+  <!--
+    The back-office nav rail sub-palette (SRS UI-16). A single fixed dark rail, not a third theme
+    variant - these five keys carry the exact same values as Tokens.Light.axaml's own copy,
+    proven identical by ThemeTokenContrastTests.UI_13_TheRailPaletteIsIdenticalInBothTokenFiles.
+  -->
+  <SolidColorBrush x:Key="RailBackgroundBrush" Color="#111827" />
+  <SolidColorBrush x:Key="RailActiveBackgroundBrush" Color="#1D4ED8" />
+  <SolidColorBrush x:Key="RailTextBrush" Color="#E5E7EB" />
+  <SolidColorBrush x:Key="RailActiveTextBrush" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="RailMutedTextBrush" Color="#9CA3AF" />
+
+  <!--
+    Bundled display/body typefaces (SRS NFR-U5) - see Tokens.Light.axaml's own remarks. Identical
+    in both token files, the same pattern as the rail palette above; a font does not change with
+    the theme variant.
+  -->
+  <FontFamily x:Key="DisplayFontFamily">avares://Counterpoint.Ui/Assets/Fonts/Manrope#Manrope</FontFamily>
+  <FontFamily x:Key="BodyFontFamily">avares://Counterpoint.Ui/Assets/Fonts/IBMPlexSans#IBM Plex Sans</FontFamily>
+
 </ResourceDictionary>

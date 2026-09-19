@@ -47,4 +47,76 @@
        This is the colour that makes it so, wherever a screen shows a grand total. -->
   <SolidColorBrush x:Key="TotalHighlightBrush" Color="#047857" />
 
+  <!--
+    Task P3-T17 (SRS UI-13, NFR-U4, NFR-M1). Extended semantic palette for the "UI redesign v2"
+    back-office rail/dashboard/sales-refresh work (P3-T18-P3-T21). Strictly additive to the eight
+    keys above - no rename, no removal, so every P3-T10-P3-T16 consumer keeps working unmodified.
+    Proven against tests/Counterpoint.Domain.Tests/Ui/ThemeTokenContrastTests.cs exactly as the
+    original eight are.
+  -->
+
+  <!-- A raised card/tile that sits on top of PanelBackgroundBrush or WindowBackgroundBrush - the
+       dashboard's own summary tiles, for example. Distinct from PanelBackgroundBrush so a screen
+       can nest a card inside a panel and still have the nesting read visually. -->
+  <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#FFFFFF" />
+
+  <!-- A recessed well: a read-only field, a search box, a code-like display. Darker than the
+       surface/panel/window it sits inside, the opposite direction from SurfaceBackgroundBrush. -->
+  <SolidColorBrush x:Key="SunkenSurfaceBackgroundBrush" Color="#E5E7EB" />
+
+  <!-- The least prominent text tier: timestamps, row counts, a muted caption - quieter than
+       SecondaryTextBrush while still meeting WCAG AA 4.5:1 against WindowBackgroundBrush and
+       PanelBackgroundBrush. -->
+  <SolidColorBrush x:Key="TertiaryTextBrush" Color="#5F6673" />
+
+  <!-- The shop's brand colour for the redesigned dashboard/rail chrome - distinct from
+       AccentBrush (P3-T10's link/focus-ring/selection colour) so a future screen can use one for
+       chrome and the other for interaction state without them fighting for the same hue. -->
+  <SolidColorBrush x:Key="BrandBrush" Color="#2563EB" />
+
+  <!-- BrandBrush's hover/pressed state - one step darker. -->
+  <SolidColorBrush x:Key="BrandHoverBrush" Color="#1D4ED8" />
+
+  <!-- A pale brand-tinted background for a selected or highlighted row/card, never used as text. -->
+  <SolidColorBrush x:Key="BrandTintBrush" Color="#DBEAFE" />
+
+  <!-- A positive/confirming figure or status - distinct from TotalHighlightBrush's specific "this
+       is the bill total" job, for general success states the redesign introduces (a completed
+       import, a healthy stock level). -->
+  <SolidColorBrush x:Key="SuccessBrush" Color="#047857" />
+
+  <!-- SuccessBrush's own pale tint background - SuccessBrush text on this background meets WCAG
+       AA 4.5:1, proven by ThemeTokenContrastTests. -->
+  <SolidColorBrush x:Key="SuccessTintBrush" Color="#D1FAE5" />
+
+  <!-- A destructive action or hard failure - distinct from WarningBrush's "warning/negative
+       figure" job, for the redesign's own delete/danger affordances. -->
+  <SolidColorBrush x:Key="DangerBrush" Color="#B91C1C" />
+
+  <!-- DangerBrush's own pale tint background - DangerBrush text on this background meets WCAG AA
+       4.5:1, proven by ThemeTokenContrastTests. -->
+  <SolidColorBrush x:Key="DangerTintBrush" Color="#FEE2E2" />
+
+  <!--
+    The back-office nav rail sub-palette (SRS UI-16, task P3-T18/P3-T19 consume it). A single
+    fixed dark rail per the approved design, not a third theme variant - these five keys carry
+    the exact same values in Tokens.Dark.axaml, proven identical by
+    ThemeTokenContrastTests.UI_13_TheRailPaletteIsIdenticalInBothTokenFiles.
+  -->
+  <SolidColorBrush x:Key="RailBackgroundBrush" Color="#111827" />
+  <SolidColorBrush x:Key="RailActiveBackgroundBrush" Color="#1D4ED8" />
+  <SolidColorBrush x:Key="RailTextBrush" Color="#E5E7EB" />
+  <SolidColorBrush x:Key="RailActiveTextBrush" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="RailMutedTextBrush" Color="#9CA3AF" />
+
+  <!--
+    Bundled display/body typefaces (SRS NFR-U5): embedded avares:// resources under
+    Assets/Fonts/**, never a network font fetch. Manrope for display/headings/totals, IBM Plex
+    Sans for body text. Both SIL OFL 1.1 - licence text committed alongside each font family's
+    files; see docs/adr/0009-bundled-manrope-and-ibm-plex-sans-fonts.md. Identical in both token
+    files, the same pattern as the rail palette above.
+  -->
+  <FontFamily x:Key="DisplayFontFamily">avares://Counterpoint.Ui/Assets/Fonts/Manrope#Manrope</FontFamily>
+  <FontFamily x:Key="BodyFontFamily">avares://Counterpoint.Ui/Assets/Fonts/IBMPlexSans#IBM Plex Sans</FontFamily>
+
 </ResourceDictionary>

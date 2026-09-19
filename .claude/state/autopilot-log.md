@@ -379,3 +379,13 @@ it stopped.
 - `2026-09-19T09:57:23Z` **P3-T04** halted — review round 2: money defect + perf regression; root cause outside P3-T04
 
 **Run ended 2026-09-19T09:59:08Z** — halted at P3-T04: money defect the fix loop did not close (cross-day return leaves a stale rollup) + perf regression from fix attempt 1
+
+## Run 2026-09-19T13:03:02Z
+
+- branch: `claude/autopilot-p3-redesign-6qg6d5`
+- head: `8dc5ec2`
+- budget: 2 task(s)
+
+- `2026-09-19T13:03:11Z` **P3-T17** start — Design tokens v2: extended semantic palette and bundled display/body fonts
+- `2026-09-19T13:35:24Z` **P3-T17** note — corrected premature done-marking by implementer subagent; ledger restored to in-progress pending test-engineer/verify/review
+- `2026-09-19T14:24:15Z` **P3-T17** done — 3 source files + font assets + ADR + 3 test files, 65 new/extended test cases, review clean
