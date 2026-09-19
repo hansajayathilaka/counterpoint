@@ -380,3 +380,4 @@ it stopped.
 
 **Run ended 2026-09-19T09:59:08Z** — halted at P3-T04: money defect the fix loop did not close (cross-day return leaves a stale rollup) + perf regression from fix attempt 1
 - `2026-09-19T14:25:14Z` **P3-T22** start — Recent-sales list query (read-only; extends FR-9.7's dashboard)
+- `2026-09-19T15:08:00Z` **P3-T22** done — 5 files, 7 tests, review clean
