@@ -377,3 +377,5 @@ it stopped.
 - `2026-09-19T08:11:07Z` **P3-T04** start — Report query layer
 - `2026-09-19T09:10:00Z` **P3-T04** fix-attempt — 1: rollup segment missing <= @To upper bound (over-counts any past range while a shift is open); stale rollup after post-close cancellation; bare PeriodFiguresReader registration; doc inaccuracies
 - `2026-09-19T09:57:23Z` **P3-T04** halted — review round 2: money defect + perf regression; root cause outside P3-T04
+
+**Run ended 2026-09-19T09:59:08Z** — halted at P3-T04: money defect the fix loop did not close (cross-day return leaves a stale rollup) + perf regression from fix attempt 1
