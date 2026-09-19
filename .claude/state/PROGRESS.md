@@ -122,7 +122,7 @@ SRS pending owner sign-off, the same way UI-13–UI-15/AC-21–AC-24 were for th
 | P3-T19 | Back-office shell: System group folds Settings in | todo | | |
 | P3-T20 | Dashboard landing content (Overview) | todo | | |
 | P3-T21 | Sales screen visual refresh | todo | | |
-| P3-T22 | Recent-sales list query (read-only) | todo | | |
+| P3-T22 | Recent-sales list query (read-only) | in-progress | | |
 | P3-T23 | UI redesign v2 acceptance gate | todo | | |
 
 ## Phase 4 — Backup and resilience (0/9)
