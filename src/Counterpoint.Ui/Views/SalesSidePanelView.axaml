@@ -6,8 +6,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="360" d:DesignHeight="640"
              x:Class="Counterpoint.Ui.Views.SalesSidePanelView"
-             x:DataType="vm:SalesViewModel"
-             FontFamily="{DynamicResource BodyFontFamily}">
+             x:DataType="vm:SalesViewModel">
 
   <UserControl.Styles>
     <!-- Task P3-T21 (SRS UI-01, UI-03, NFR-U4): a BrandTintBrush chip behind every panel's own
@@ -42,13 +41,18 @@
     Counterpoint.Ui.Tests.LabeledFieldKeyBindingTests) - the same routed-event bubbling that
     already lets SalesWindow's own Window-level F1-F12 KeyBindings fire regardless of focus.
 
-    Task P3-T21 restyle (SRS UI-01, UI-03, NFR-U4): purely cosmetic, onto the P3-T17 token set -
-    FontFamily resolves BodyFontFamily explicitly here (rather than relying on inheritance from
-    SalesWindow) so this view looks right wherever it is hosted, including task P3-T12's
-    ViewLabelInspector opening it standalone. Every section heading below gets the
-    "SectionHeader" class - a BrandTintBrush chip behind the existing PrimaryTextBrush caption,
-    proven safe by SalesScreenContrastTests' P3-T21 extension - with no change to any binding,
-    Command or KeyBinding on the controls beneath it.
+    Task P3-T21 restyle (SRS UI-01, UI-03, NFR-U4): purely cosmetic, onto the P3-T17 token set.
+    Every section heading below gets the "SectionHeader" class - a BrandTintBrush chip behind the
+    existing PrimaryTextBrush caption, proven safe by SalesScreenContrastTests' P3-T21 extension -
+    with no change to any binding, Command or KeyBinding on the controls beneath it.
+    BodyFontFamily/DisplayFontFamily are deliberately NOT applied anywhere in this file: doing so
+    (proven with a minimal repro and reverted before this file was committed) throws "Could not
+    create glyphTypeface" from Avalonia's real (non-headless-stub) FontManager for both bundled
+    P3-T17 fonts, at every FontWeight, and breaks this exact view's own pre-existing
+    ViewLabelInspectorTests/AC22 coverage - a pre-existing defect in that task's embedded
+    variable-font bundling, not something this cosmetic-only task introduces or is in scope to
+    fix. Flagged to the orchestrator/owner as a follow-up against P3-T17 rather than worked
+    around here.
   -->
   <Border Width="360" Padding="12"
           Background="{DynamicResource PanelBackgroundBrush}"

@@ -9,10 +9,19 @@
         x:DataType="vm:SalesViewModel"
         Width="1280" Height="720" MinWidth="1024" MinHeight="640"
         FontSize="16"
-        FontFamily="{DynamicResource BodyFontFamily}"
         Icon="/Assets/avalonia-logo.ico"
         Background="{DynamicResource WindowBackgroundBrush}"
         Title="Counterpoint - Sales">
+
+  <!--
+    Task P3-T21: DisplayFontFamily/BodyFontFamily are deliberately NOT applied anywhere in this
+    file. Doing so (proven with a minimal repro and reverted before this file was committed)
+    throws "Could not create glyphTypeface" from Avalonia's real (non-headless-stub) FontManager
+    for both bundled P3-T17 fonts, at every FontWeight - a pre-existing defect in that task's
+    embedded variable-font (single-file wght/wdth-axis .ttf) bundling, not something this
+    cosmetic-only task introduces or is in scope to fix. Flagged to the orchestrator/owner as a
+    follow-up against P3-T17 rather than worked around here.
+  -->
 
   <!--
     SRS UI-01: fully keyboard and scanner operable, the mouse optional throughout. Every
@@ -139,14 +148,16 @@
         <!--
           SRS UI-03: the running total is the most prominent element on the screen. Task P3-T21
           restyle: the same five bindings (CurrentCustomerText/SubtotalText/BillDiscountText/
-          TaxText/Total) in the same Grid.Column order as before - only the brushes, a BrandTint
-          "TOTAL" chip and the DisplayFontFamily figure are new. SuccessTintBrush is the banner's
-          background (rather than PanelBackgroundBrush) because TotalHighlightBrush is defined to
-          the exact same colour as SuccessBrush in both token files, so this reuses the already
-          WCAG-AA-proven SuccessBrush/SuccessTintBrush pairing under the name this screen actually
-          uses; SalesScreenContrastTests' P3-T21 extension proves every foreground below against
-          it explicitly, rather than relying on that coincidence alone. The discount figure keeps
-          its own DangerTintBrush chip so WarningBrush text never sits directly on SuccessTint.
+          TaxText/Total) in the same Grid.Column order as before - only the brushes and a
+          BrandTint "TOTAL" chip are new (see this file's own top-level remark on why
+          DisplayFontFamily is deliberately not applied to the figure below). SuccessTintBrush is
+          the banner's background (rather than PanelBackgroundBrush) because TotalHighlightBrush
+          is defined to the exact same colour as SuccessBrush in both token files, so this reuses
+          the already WCAG-AA-proven SuccessBrush/SuccessTintBrush pairing under the name this
+          screen actually uses; SalesScreenContrastTests' P3-T21 extension proves every foreground
+          below against it explicitly, rather than relying on that coincidence alone. The discount
+          figure keeps its own DangerTintBrush chip so WarningBrush text never sits directly on
+          SuccessTint.
         -->
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource SuccessTintBrush}" CornerRadius="10" Margin="0,10,0,0" Padding="16">
           <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
@@ -168,7 +179,7 @@
               <TextBlock Text="TOTAL" Foreground="{DynamicResource SecondaryTextBrush}"
                          Background="{DynamicResource BrandTintBrush}" Padding="8,2" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" />
               <TextBlock Text="{Binding Total}" Foreground="{DynamicResource TotalHighlightBrush}"
-                         FontFamily="{DynamicResource DisplayFontFamily}" FontSize="48" FontWeight="Bold"
+                         FontSize="48" FontWeight="Bold"
                          HorizontalAlignment="Right" Margin="0,4,0,0" />
             </StackPanel>
           </Grid>
