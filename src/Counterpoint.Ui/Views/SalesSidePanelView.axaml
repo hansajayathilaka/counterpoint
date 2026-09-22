@@ -6,7 +6,19 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="360" d:DesignHeight="640"
              x:Class="Counterpoint.Ui.Views.SalesSidePanelView"
-             x:DataType="vm:SalesViewModel">
+             x:DataType="vm:SalesViewModel"
+             FontFamily="{DynamicResource BodyFontFamily}">
+
+  <UserControl.Styles>
+    <!-- Task P3-T21 (SRS UI-01, UI-03, NFR-U4): a BrandTintBrush chip behind every panel's own
+         section heading. Applied by Classes so no per-header binding/Command/KeyBinding below
+         is touched - PrimaryTextBrush on BrandTintBrush is proven >=4.5:1 in both themes by
+         SalesScreenContrastTests' own P3-T21 extension. -->
+    <Style Selector="TextBlock.SectionHeader">
+      <Setter Property="Background" Value="{DynamicResource BrandTintBrush}" />
+      <Setter Property="Padding" Value="8,4" />
+    </Style>
+  </UserControl.Styles>
 
   <!--
     Task P3-T14 (SRS UI-01, UI-03, UI-09, NFR-U4): the sales screen's one non-modal side panel,
@@ -29,11 +41,20 @@
     fires while the nested TextBox has focus (proven in
     Counterpoint.Ui.Tests.LabeledFieldKeyBindingTests) - the same routed-event bubbling that
     already lets SalesWindow's own Window-level F1-F12 KeyBindings fire regardless of focus.
+
+    Task P3-T21 restyle (SRS UI-01, UI-03, NFR-U4): purely cosmetic, onto the P3-T17 token set -
+    FontFamily resolves BodyFontFamily explicitly here (rather than relying on inheritance from
+    SalesWindow) so this view looks right wherever it is hosted, including task P3-T12's
+    ViewLabelInspector opening it standalone. Every section heading below gets the
+    "SectionHeader" class - a BrandTintBrush chip behind the existing PrimaryTextBrush caption,
+    proven safe by SalesScreenContrastTests' P3-T21 extension - with no change to any binding,
+    Command or KeyBinding on the controls beneath it.
   -->
   <Border Width="360" Padding="12"
           Background="{DynamicResource PanelBackgroundBrush}"
           BorderBrush="{DynamicResource PanelBorderBrush}"
           BorderThickness="1"
+          CornerRadius="8"
           IsVisible="{Binding IsAnyPanelOpen}">
     <Grid RowDefinitions="*">
 
@@ -45,7 +66,7 @@
 
       <!-- F3 Search (SRS FR-2.11, FR-3.3). -->
       <DockPanel IsVisible="{Binding IsSearchPanelOpen}">
-        <TextBlock DockPanel.Dock="Top" Text="Search" FontWeight="Bold" Margin="0,0,0,6"
+        <TextBlock DockPanel.Dock="Top" Text="Search" Classes="SectionHeader" FontWeight="Bold" Margin="0,0,0,6"
                    Foreground="{DynamicResource PrimaryTextBrush}" />
         <controls:LabeledTextField DockPanel.Dock="Top" Label="Name, code or SKU" Text="{Binding SearchQuery}">
           <controls:LabeledTextField.KeyBindings>
@@ -70,7 +91,7 @@
 
       <!-- F5 Hold (SRS FR-3.32). -->
       <StackPanel IsVisible="{Binding IsHoldPanelOpen}" Spacing="8">
-        <TextBlock Text="Hold this bill" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock Text="Hold this bill" Classes="SectionHeader" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
         <controls:LabeledTextField Label="Label" Watermark="e.g. 'Kamal - cable'" Text="{Binding HoldLabel}">
           <controls:LabeledTextField.KeyBindings>
             <KeyBinding Gesture="Enter" Command="{Binding ConfirmHoldCommand}" />
@@ -81,7 +102,7 @@
 
       <!-- F6 Recall (SRS FR-3.32, FR-3.33). -->
       <DockPanel IsVisible="{Binding IsHeldBillsPanelOpen}">
-        <TextBlock DockPanel.Dock="Top" Text="Held bills" FontWeight="Bold" Margin="0,0,0,6"
+        <TextBlock DockPanel.Dock="Top" Text="Held bills" Classes="SectionHeader" FontWeight="Bold" Margin="0,0,0,6"
                    Foreground="{DynamicResource PrimaryTextBrush}" />
         <Button DockPanel.Dock="Bottom" Margin="0,6,0,0" Content="Recall selected"
                 Command="{Binding RecallSelectedCommand}" CommandParameter="{Binding SelectedHeldBill}" />
@@ -103,7 +124,7 @@
 
       <!-- F7 Discount (SRS FR-3.16, FR-3.17, FR-3.18). -->
       <StackPanel IsVisible="{Binding IsDiscountPanelOpen}" Spacing="8">
-        <TextBlock Text="Discount" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock Text="Discount" Classes="SectionHeader" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
         <TextBlock Text="{Binding DiscountTargetText}" Foreground="{DynamicResource PrimaryTextBrush}" />
         <StackPanel Orientation="Horizontal" Spacing="12">
           <RadioButton Content="Percent" GroupName="DiscountKind" IsChecked="{Binding DiscountIsPercent}" />
@@ -116,14 +137,15 @@
         </controls:LabeledNumericField>
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Content="Apply" Command="{Binding ApplyDiscountCommand}" />
-          <Button Content="Clear" Command="{Binding ClearDiscountCommand}" />
+          <Button Content="Clear" Command="{Binding ClearDiscountCommand}"
+                  Background="{DynamicResource DangerTintBrush}" Foreground="{DynamicResource WarningBrush}" />
         </StackPanel>
       </StackPanel>
 
       <!-- F8 Customer (SRS FR-3.21, FR-3.22). Trade pricing (FR-3.23) is Phase 5 - out of
            scope in Phase 1 - so attaching a customer here is for record-keeping only. -->
       <DockPanel IsVisible="{Binding IsCustomerPanelOpen}">
-        <TextBlock DockPanel.Dock="Top" Text="Customer" FontWeight="Bold" Margin="0,0,0,6"
+        <TextBlock DockPanel.Dock="Top" Text="Customer" Classes="SectionHeader" FontWeight="Bold" Margin="0,0,0,6"
                    Foreground="{DynamicResource PrimaryTextBrush}" />
         <controls:LabeledTextField DockPanel.Dock="Top" Label="Name or phone" Text="{Binding CustomerQuery}" />
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
@@ -145,14 +167,14 @@
       <!-- F11 Stock enquiry (SRS FR-4, FR-3.11). -->
       <ScrollViewer IsVisible="{Binding IsStockPanelOpen}">
         <StackPanel Spacing="6">
-          <TextBlock Text="Stock on hand" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+          <TextBlock Text="Stock on hand" Classes="SectionHeader" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
           <TextBlock Text="{Binding StockEnquiryText}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryTextBrush}" />
         </StackPanel>
       </ScrollViewer>
 
       <!-- Open shift (SRS FR-8.1) - a button, not one of the reserved UI-02 keys. -->
       <StackPanel IsVisible="{Binding IsOpenShiftPanelOpen}" Spacing="8">
-        <TextBlock Text="Open shift" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock Text="Open shift" Classes="SectionHeader" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
         <controls:LabeledNumericField Label="Opening cash float" Watermark="e.g. 5000" Text="{Binding OpeningFloatText}">
           <controls:LabeledNumericField.KeyBindings>
             <KeyBinding Gesture="Enter" Command="{Binding ConfirmOpenShiftCommand}" />
@@ -164,14 +186,14 @@
       <!-- Dashboard (SRS FR-9.7) - a button, not one of the reserved UI-02 keys. -->
       <ScrollViewer IsVisible="{Binding IsDashboardPanelOpen}">
         <StackPanel Spacing="6">
-          <TextBlock Text="Dashboard" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+          <TextBlock Text="Dashboard" Classes="SectionHeader" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
           <TextBlock Text="{Binding DashboardText}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryTextBrush}" />
         </StackPanel>
       </ScrollViewer>
 
       <!-- Open item (SRS FR-2.8) - a button, not one of the reserved UI-02 keys. -->
       <StackPanel IsVisible="{Binding IsOpenItemPanelOpen}" Spacing="8">
-        <TextBlock Text="Open item" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock Text="Open item" Classes="SectionHeader" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
         <controls:LabeledTextField Label="Description" Watermark="e.g. Cut to size" Text="{Binding OpenItemDescription}" />
         <controls:LabeledNumericField Label="Quantity" Text="{Binding OpenItemQuantityText}" />
         <controls:LabeledComboField Label="Unit" ItemsSource="{Binding OpenItemUnitChoices}" SelectedItem="{Binding OpenItemSelectedUnit}" />
@@ -187,13 +209,17 @@
            cheque, split across as many as needed. The cash box is pre-filled with the exact
            total, so F9 then Enter still pays a single-tender bill in two keystrokes. -->
       <DockPanel IsVisible="{Binding IsPaymentPanelOpen}">
-        <TextBlock DockPanel.Dock="Top" Text="Pay" FontWeight="Bold" Margin="0,0,0,6"
+        <TextBlock DockPanel.Dock="Top" Text="Pay" Classes="SectionHeader" FontWeight="Bold" Margin="0,0,0,6"
                    Foreground="{DynamicResource PrimaryTextBrush}" />
 
         <StackPanel DockPanel.Dock="Bottom" Spacing="8">
           <TextBlock Text="{Binding TenderPreviewText}" FontWeight="Bold" FontSize="18"
                      Foreground="{DynamicResource TotalHighlightBrush}" TextWrapping="Wrap" />
-          <Button Content="Complete sale" Command="{Binding CompletePaymentCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="Bold" />
+          <!-- Task P3-T21: same RailActiveBackground/RailActiveText pair F9 Pay uses on
+               SalesWindow's own function-key strip, so the one button that actually finishes the
+               sale reads consistently "primary action" colour wherever it appears. -->
+          <Button Content="Complete sale" Command="{Binding CompletePaymentCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" FontWeight="Bold"
+                  Background="{DynamicResource RailActiveBackgroundBrush}" Foreground="{DynamicResource RailActiveTextBrush}" />
         </StackPanel>
 
         <StackPanel Spacing="8">
