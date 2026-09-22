@@ -393,3 +393,11 @@ it stopped.
 - `2026-09-19T15:08:00Z` **P3-T22** done — 5 files, 7 tests, review clean
 
 **Run ended 2026-09-19T15:08:37Z** — 2 completed, 0 halted
+
+## Run 2026-09-22T06:41:12Z
+
+- branch: `claude/epic-wozniak-ch29d7`
+- head: `dc18446`
+- budget: 2 task(s)
+
+- `2026-09-22T06:41:15Z` **P3-T18** start — Back-office shell: persistent nav rail, Trading/People entry points, Catalogue folded in
