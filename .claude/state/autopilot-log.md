@@ -401,3 +401,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-22T06:41:15Z` **P3-T18** start — Back-office shell: persistent nav rail, Trading/People entry points, Catalogue folded in
+- `2026-09-22T07:39:57Z` **P3-T18** correction — task-implementer marked done prematurely; reverted to in-progress pending B4-B8
