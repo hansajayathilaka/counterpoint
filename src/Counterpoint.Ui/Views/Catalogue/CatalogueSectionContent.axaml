@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:Counterpoint.Ui.Views.Catalogue"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Catalogue.CatalogueSectionContent"
+             x:Name="Root">
+
+  <!--
+    Task P3-T18 (SRS FR-2.20, FR-2.21, FR-6, UI-11, UI-16). Exactly the eight tabs
+    CatalogueWindow's TabControl hosted - only how one is chosen has moved, from
+    TabControl.SelectedIndex to the nav rail's BackOfficeShellViewModel.SelectedCatalogueSection,
+    mirrored here 1:1 by SelectedSection. Every binding below is "#Root."-qualified (an explicit
+    ElementName reference to this control itself), never the ambient DataContext, so setting each
+    tab's own DataContext to its sub-viewmodel on the same element cannot shadow it.
+  -->
+  <Grid>
+    <views:CategoryTabView DataContext="{Binding #Root.Catalogue.Category}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Categories}" />
+    <views:BrandTabView DataContext="{Binding #Root.Catalogue.Brand}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Brands}" />
+    <views:UomTabView DataContext="{Binding #Root.Catalogue.Uom}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Units}" />
+    <views:TaxClassTabView DataContext="{Binding #Root.Catalogue.TaxClass}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Tax classes'}" />
+    <views:SupplierTabView DataContext="{Binding #Root.Catalogue.Supplier}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Suppliers}" />
+    <views:CustomerTabView DataContext="{Binding #Root.Catalogue.Customer}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Customers}" />
+    <views:ProductTabView DataContext="{Binding #Root.Catalogue.Product}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Products}" />
+    <views:ImportTabView DataContext="{Binding #Root.Catalogue.Import}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Import / Export'}" />
+  </Grid>
+
+</UserControl>

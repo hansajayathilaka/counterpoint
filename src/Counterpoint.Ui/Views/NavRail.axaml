@@ -1,0 +1,98 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="220" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.NavRail"
+             x:DataType="vm:BackOfficeShellViewModel"
+             Width="220">
+
+  <!--
+    Task P3-T18 (SRS UI-11, UI-16, NFR-S2, AC-24). Replaces BackOfficeShellWindow's old flat
+    UniformGrid of five tiles with a persistent, grouped rail, drawn from the P3-T17 rail
+    sub-palette (RailBackgroundBrush et al.) - never a raw hex literal. Every group below is
+    gated by exactly the Can* flag the equivalent tile used before this task (see
+    BackOfficeShellViewModel's own remarks for the full mapping).
+
+    Keyboard-first (UI-01, task P3-T18's own named risk): Trading/People/System stay plain
+    Buttons, exactly as keyboard-operable via Tab+Enter/Space as the tile buttons they replace
+    always were. Catalogue's eight destinations are a ListBox instead of the eight Buttons a
+    literal per-tile replacement would have used, because a ListBox's native Up/Down-arrow
+    selection is what actually replicates the TabControl keyboard behaviour CatalogueWindow's
+    TabControl used to provide (arrowing between tabs swaps content immediately) - a row of plain
+    Buttons would only have offered Tab, one keystroke per item, never an equivalent to that.
+  -->
+  <Border Background="{DynamicResource RailBackgroundBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="0,16,0,16" Spacing="20">
+
+        <!-- Overview (pending P3-T20's real dashboard content) -->
+        <StackPanel Spacing="4">
+          <TextBlock Text="OVERVIEW" Margin="16,0" FontSize="11" FontWeight="Bold"
+                     Foreground="{DynamicResource RailMutedTextBrush}" />
+          <ToggleButton Content="Overview"
+                        Command="{Binding SelectOverviewCommand}"
+                        IsChecked="{Binding !IsCatalogueSectionActive}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+        </StackPanel>
+
+        <!-- Catalogue: eight content-pane-swapping entries, folded in by task P3-T18 -->
+        <StackPanel Spacing="4" IsVisible="{Binding CanManageCatalogue}">
+          <TextBlock Text="CATALOGUE" Margin="16,0" FontSize="11" FontWeight="Bold"
+                     Foreground="{DynamicResource RailMutedTextBrush}" />
+          <ListBox x:Name="CatalogueList"
+                   ItemsSource="{Binding CatalogueSections}"
+                   SelectedItem="{Binding SelectedCatalogueSection, Mode=TwoWay}"
+                   Focusable="True"
+                   Background="Transparent"
+                   Foreground="{DynamicResource RailTextBrush}" />
+        </StackPanel>
+
+        <!-- Trading: unchanged from task P3-T13, still opening the same windows outright -->
+        <StackPanel Spacing="4" IsVisible="{Binding CanSeeTradingGroup}">
+          <TextBlock Text="TRADING" Margin="16,0" FontSize="11" FontWeight="Bold"
+                     Foreground="{DynamicResource RailMutedTextBrush}" />
+          <Button Content="Purchase orders" Command="{Binding ManagePurchaseOrdersCommand}"
+                  IsVisible="{Binding CanManagePurchasing}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                  Padding="16,10" Background="Transparent" BorderThickness="0"
+                  Foreground="{DynamicResource RailTextBrush}" />
+          <Button Content="Labels" Command="{Binding PrintLabelsCommand}"
+                  IsVisible="{Binding CanPrintLabels}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                  Padding="16,10" Background="Transparent" BorderThickness="0"
+                  Foreground="{DynamicResource RailTextBrush}" />
+        </StackPanel>
+
+        <!-- People: unchanged from task P3-T13, still opening UserAdminWindow outright -->
+        <StackPanel Spacing="4" IsVisible="{Binding CanManageUsers}">
+          <TextBlock Text="PEOPLE" Margin="16,0" FontSize="11" FontWeight="Bold"
+                     Foreground="{DynamicResource RailMutedTextBrush}" />
+          <Button Content="Users" Command="{Binding ManageUsersCommand}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                  Padding="16,10" Background="Transparent" BorderThickness="0"
+                  Foreground="{DynamicResource RailTextBrush}" />
+        </StackPanel>
+
+        <!--
+          System: today, only Settings - unchanged from task P3-T13, still opening SettingsWindow
+          outright. Folding Settings' own nine sub-groups into the rail's content pane is P3-T19,
+          not this task; SettingsWindow itself is untouched.
+        -->
+        <StackPanel Spacing="4" IsVisible="{Binding CanChangeSettings}">
+          <TextBlock Text="SYSTEM" Margin="16,0" FontSize="11" FontWeight="Bold"
+                     Foreground="{DynamicResource RailMutedTextBrush}" />
+          <Button Content="Settings" Command="{Binding OpenSettingsCommand}"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                  Padding="16,10" Background="Transparent" BorderThickness="0"
+                  Foreground="{DynamicResource RailTextBrush}" />
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+
+</UserControl>
