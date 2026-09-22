@@ -393,3 +393,4 @@ it stopped.
 - `2026-09-19T15:08:00Z` **P3-T22** done — 5 files, 7 tests, review clean
 
 **Run ended 2026-09-19T15:08:37Z** — 2 completed, 0 halted
+- `2026-09-22T08:37:15Z` **P3-T21** start — Sales screen visual refresh (tokens v2, F9 dominant, reflowed function-key strip)
