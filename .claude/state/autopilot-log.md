@@ -403,3 +403,4 @@ it stopped.
 - `2026-09-22T06:41:15Z` **P3-T18** start — Back-office shell: persistent nav rail, Trading/People entry points, Catalogue folded in
 - `2026-09-22T07:39:57Z` **P3-T18** correction — task-implementer marked done prematurely; reverted to in-progress pending B4-B8
 - `2026-09-22T08:17:12Z` **P3-T18** fix-attempt — 1: stale Catalogue reload bug - _catalogueLoaded never resets on the singleton VM after the shell window closes/reopens
+- `2026-09-22T08:36:20Z` **P3-T18** done — 15 files, 897 tests, review clean after 1 fix attempt (stale Catalogue reload)
