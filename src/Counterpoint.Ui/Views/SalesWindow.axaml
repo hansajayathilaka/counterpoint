@@ -14,6 +14,16 @@
         Title="Counterpoint - Sales">
 
   <!--
+    Task P3-T21: DisplayFontFamily/BodyFontFamily are deliberately NOT applied anywhere in this
+    file. Doing so (proven with a minimal repro and reverted before this file was committed)
+    throws "Could not create glyphTypeface" from Avalonia's real (non-headless-stub) FontManager
+    for both bundled P3-T17 fonts, at every FontWeight - a pre-existing defect in that task's
+    embedded variable-font (single-file wght/wdth-axis .ttf) bundling, not something this
+    cosmetic-only task introduces or is in scope to fix. Flagged to the orchestrator/owner as a
+    follow-up against P3-T17 rather than worked around here.
+  -->
+
+  <!--
     SRS UI-01: fully keyboard and scanner operable, the mouse optional throughout. Every
     function key of UI-02 is a Window-level KeyBinding, so it fires no matter which control
     inside the window has focus - the same reason the scanner burst filter in the code-behind
@@ -68,8 +78,28 @@
       </StackPanel>
     </StackPanel>
 
-    <!-- SRS UI-02: fixed, visible function keys, exactly as printed on the quick-reference card. -->
+    <!--
+      SRS UI-02: fixed, visible function keys, exactly as printed on the quick-reference card.
+      Task P3-T21 restyle: purely cosmetic. The Columns="13" UniformGrid, the button order, every
+      Content/Command below and the Window-level Gestures above are all unchanged from P1-T09 -
+      only the UniformGrid.Styles block adds a shared Padding/CornerRadius/FontSize so the strip
+      reads as a tidier group, and F9 Pay's own local Background/Foreground/FontSize (which, as
+      local values, take precedence over the shared Style) make it the visually dominant key, per
+      size/weight/colour alone. F9's Background/Foreground reuse the RailActiveBackground/
+      RailActiveText pair P3-T17 already proves at >=4.5:1 in both Light and Dark
+      (ThemeTokenContrastTests.UI_13_*FileRailTextPairsMeetWcagAaFourPointFiveToOne) - a solid
+      fill that stays legible in both themes, unlike BrandBrush/BrandHoverBrush which this token
+      set tunes as foreground accents rather than a button fill in Dark.
+    -->
     <UniformGrid DockPanel.Dock="Bottom" Columns="13" Margin="10,0">
+      <UniformGrid.Styles>
+        <Style Selector="Button">
+          <Setter Property="Padding" Value="4,10" />
+          <Setter Property="Margin" Value="2" />
+          <Setter Property="FontSize" Value="14" />
+          <Setter Property="CornerRadius" Value="4" />
+        </Style>
+      </UniformGrid.Styles>
       <Button Content="F1 Help" Command="{Binding HelpCommand}" />
       <Button Content="F2 New" Command="{Binding NewSaleCommand}" />
       <Button Content="F3 Search" Command="{Binding SearchCommand}" />
@@ -78,7 +108,10 @@
       <Button Content="F6 Recall" Command="{Binding RecallCommand}" />
       <Button Content="F7 Discount" Command="{Binding DiscountCommand}" />
       <Button Content="F8 Customer" Command="{Binding CustomerCommand}" />
-      <Button Content="F9 Pay" Command="{Binding PayCommand}" IsEnabled="{Binding !Busy}" FontWeight="Bold" />
+      <Button Content="F9 Pay" Command="{Binding PayCommand}" IsEnabled="{Binding !Busy}"
+              FontWeight="Bold" FontSize="18"
+              Background="{DynamicResource RailActiveBackgroundBrush}"
+              Foreground="{DynamicResource RailActiveTextBrush}" />
       <Button Content="F10 Reprint" Command="{Binding ReprintCommand}" />
       <Button Content="F11 Stock" Command="{Binding StockCommand}" />
       <Button Content="F12 Day close" Command="{Binding DayCloseCommand}" />
@@ -112,8 +145,21 @@
           </TextBox>
         </StackPanel>
 
-        <!-- SRS UI-03: the running total is the most prominent element on the screen. -->
-        <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBackgroundBrush}" Margin="0,10,0,0" Padding="16">
+        <!--
+          SRS UI-03: the running total is the most prominent element on the screen. Task P3-T21
+          restyle: the same five bindings (CurrentCustomerText/SubtotalText/BillDiscountText/
+          TaxText/Total) in the same Grid.Column order as before - only the brushes and a
+          BrandTint "TOTAL" chip are new (see this file's own top-level remark on why
+          DisplayFontFamily is deliberately not applied to the figure below). SuccessTintBrush is
+          the banner's background (rather than PanelBackgroundBrush) because TotalHighlightBrush
+          is defined to the exact same colour as SuccessBrush in both token files, so this reuses
+          the already WCAG-AA-proven SuccessBrush/SuccessTintBrush pairing under the name this
+          screen actually uses; SalesScreenContrastTests' P3-T21 extension proves every foreground
+          below against it explicitly, rather than relying on that coincidence alone. The discount
+          figure keeps its own DangerTintBrush chip so WarningBrush text never sits directly on
+          SuccessTint.
+        -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource SuccessTintBrush}" CornerRadius="10" Margin="0,10,0,0" Padding="16">
           <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
             <TextBlock Grid.Column="0" Text="{Binding CurrentCustomerText}" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Margin="16,0" HorizontalAlignment="Right">
@@ -122,15 +168,19 @@
             </StackPanel>
             <StackPanel Grid.Column="2" Margin="16,0" HorizontalAlignment="Right" IsVisible="{Binding HasBillDiscount}">
               <TextBlock Text="Discount" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="13" HorizontalAlignment="Right" />
-              <TextBlock Text="{Binding BillDiscountText}" Foreground="{DynamicResource WarningBrush}" HorizontalAlignment="Right" />
+              <TextBlock Text="{Binding BillDiscountText}" Foreground="{DynamicResource WarningBrush}"
+                         Background="{DynamicResource DangerTintBrush}" Padding="6,2" HorizontalAlignment="Right" />
             </StackPanel>
             <StackPanel Grid.Column="3" Margin="16,0" HorizontalAlignment="Right">
               <TextBlock Text="Tax" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="13" HorizontalAlignment="Right" />
               <TextBlock Text="{Binding TaxText}" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Right" />
             </StackPanel>
             <StackPanel Grid.Column="4" Margin="16,0,0,0" HorizontalAlignment="Right">
-              <TextBlock Text="TOTAL" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="15" HorizontalAlignment="Right" />
-              <TextBlock Text="{Binding Total}" Foreground="{DynamicResource TotalHighlightBrush}" FontSize="44" FontWeight="Bold" HorizontalAlignment="Right" />
+              <TextBlock Text="TOTAL" Foreground="{DynamicResource SecondaryTextBrush}"
+                         Background="{DynamicResource BrandTintBrush}" Padding="8,2" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right" />
+              <TextBlock Text="{Binding Total}" Foreground="{DynamicResource TotalHighlightBrush}"
+                         FontSize="48" FontWeight="Bold"
+                         HorizontalAlignment="Right" Margin="0,4,0,0" />
             </StackPanel>
           </Grid>
         </Border>
@@ -157,7 +207,8 @@
                 <TextBlock Grid.Column="3" Text="{Binding UnitPriceText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
                 <TextBlock Grid.Column="4" Text="{Binding DiscountText}" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" />
                 <TextBlock Grid.Column="5" Text="{Binding LineTotalText}" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                <Button Grid.Column="6" Content="✕" Margin="4,0,0,0" Command="{Binding RemoveCommand}" />
+                <Button Grid.Column="6" Content="✕" Margin="4,0,0,0" Command="{Binding RemoveCommand}"
+                        Background="{DynamicResource DangerTintBrush}" Foreground="{DynamicResource WarningBrush}" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>

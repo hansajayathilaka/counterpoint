@@ -404,3 +404,7 @@ it stopped.
 - `2026-09-22T07:39:57Z` **P3-T18** correction — task-implementer marked done prematurely; reverted to in-progress pending B4-B8
 - `2026-09-22T08:17:12Z` **P3-T18** fix-attempt — 1: stale Catalogue reload bug - _catalogueLoaded never resets on the singleton VM after the shell window closes/reopens
 - `2026-09-22T08:36:20Z` **P3-T18** done — 15 files, 897 tests, review clean after 1 fix attempt (stale Catalogue reload)
+- `2026-09-22T08:37:15Z` **P3-T21** start — Sales screen visual refresh (tokens v2, F9 dominant, reflowed function-key strip)
+- `2026-09-22T10:00:54Z` **P3-T21** done — 3 files, F9-dominance + contrast tests, review clean, font application deferred to a P3-T17 follow-up
+
+**Run ended 2026-09-22T10:01:08Z** — 2 completed, 0 halted

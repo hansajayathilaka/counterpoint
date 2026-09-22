@@ -76,4 +76,78 @@ public sealed class SalesScreenContrastTests
             MinimumTextContrast,
             ratio);
     }
+
+    /// <summary>
+    /// Task P3-T21's own restyle onto the P3-T17 extended token set (SRS UI-01, UI-02, UI-03,
+    /// NFR-U4) - a purely cosmetic reskin of <c>SalesWindow.axaml</c>/
+    /// <c>SalesSidePanelView.axaml</c>, proven the same arithmetic-on-resolved-colours way as
+    /// every pair above. Every pair here is a foreground/background combination one of those two
+    /// files actually draws, introduced by this task:
+    /// <list type="bullet">
+    /// <item>the running-total banner's own background moved from <c>PanelBackgroundBrush</c> to
+    /// <c>SuccessTintBrush</c>, so every foreground the banner draws directly against it
+    /// (<c>TotalHighlightBrush</c> for the total figure itself, <c>PrimaryTextBrush</c> for the
+    /// Subtotal/Tax amounts, <c>SecondaryTextBrush</c> for their captions and the current-customer
+    /// line) needs its own proof against that new background;</item>
+    /// <item>the small "TOTAL"/section-heading chips use <c>BrandTintBrush</c> as their
+    /// background, with <c>PrimaryTextBrush</c>/<c>SecondaryTextBrush</c> as their foreground;</item>
+    /// <item>the discount figure's own chip, the bill line's remove ("x") button and the F7
+    /// panel's Clear button all use <c>WarningBrush</c> text on <c>DangerTintBrush</c>.</item>
+    /// </list>
+    /// <c>TotalHighlightBrush</c>/<c>SuccessBrush</c> and <c>WarningBrush</c>/<c>DangerBrush</c>
+    /// are each defined to the exact same colour in both token files (see
+    /// <c>Tokens.Light.axaml</c>/<c>Tokens.Dark.axaml</c>'s own remarks) - this class still proves
+    /// each pair under the name the screen actually uses, rather than relying on that coincidence
+    /// holding forever. F9 Pay and the Pay panel's "Complete sale" button reuse
+    /// <c>RailActiveTextBrush</c>/<c>RailActiveBackgroundBrush</c>, a pair
+    /// <see cref="ThemeTokenContrastTests"/> already proves - not re-tested here.
+    /// </summary>
+    private static readonly (string Foreground, string Background)[] RestyledSurfacePairs =
+    [
+        ("TotalHighlightBrush", "SuccessTintBrush"),
+        ("PrimaryTextBrush", "SuccessTintBrush"),
+        ("SecondaryTextBrush", "SuccessTintBrush"),
+        ("PrimaryTextBrush", "BrandTintBrush"),
+        ("SecondaryTextBrush", "BrandTintBrush"),
+        ("WarningBrush", "DangerTintBrush"),
+    ];
+
+    public static IEnumerable<object[]> RestyledSurfacePairsData() =>
+        RestyledSurfacePairs.Select(pair => new object[] { pair.Foreground, pair.Background });
+
+    [Theory]
+    [MemberData(nameof(RestyledSurfacePairsData))]
+    public void UI_03_TheRestyledSalesScreenSurfacesMeetWcagAaInLight(string foreground, string background)
+    {
+        AssertSurfaceContrast(ThemeTokenContrastTests.LoadPalette("Tokens.Light.axaml"), foreground, background, "Light");
+    }
+
+    [Theory]
+    [MemberData(nameof(RestyledSurfacePairsData))]
+    public void UI_03_TheRestyledSalesScreenSurfacesMeetWcagAaInDark(string foreground, string background)
+    {
+        AssertSurfaceContrast(ThemeTokenContrastTests.LoadPalette("Tokens.Dark.axaml"), foreground, background, "Dark");
+    }
+
+    private static void AssertSurfaceContrast(
+        Dictionary<string, string> palette,
+        string foregroundKey,
+        string backgroundKey,
+        string variant)
+    {
+        palette.Should().ContainKey(foregroundKey);
+        palette.Should().ContainKey(backgroundKey);
+
+        var ratio = ThemeTokenContrastTests.ContrastRatio(palette[foregroundKey], palette[backgroundKey]);
+
+        ratio.Should().BeGreaterThanOrEqualTo(
+            MinimumTextContrast,
+            "{0} theme's restyled sales-screen foreground {1} on {2} must meet at least {3}:1, "
+                + "and resolved to {4:0.00}:1",
+            variant,
+            foregroundKey,
+            backgroundKey,
+            MinimumTextContrast,
+            ratio);
+    }
 }
