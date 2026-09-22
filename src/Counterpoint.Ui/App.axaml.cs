@@ -5,7 +5,6 @@ using Avalonia.Markup.Xaml;
 using Counterpoint.Application.Settings;
 using Counterpoint.Ui.Styles;
 using Counterpoint.Ui.ViewModels;
-using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Labels;
 using Counterpoint.Ui.ViewModels.Purchasing;
@@ -41,7 +40,6 @@ public partial class App : Avalonia.Application
     private readonly SalesViewModel? _salesViewModel;
     private readonly BackOfficeShellViewModel? _backOfficeShellViewModel;
     private readonly UserAdminViewModel? _userAdminViewModel;
-    private readonly CatalogueViewModel? _catalogueViewModel;
     private readonly PurchaseOrderViewModel? _purchaseOrderViewModel;
     private readonly LabelPrintViewModel? _labelPrintViewModel;
     private readonly PrintQueueViewModel? _printQueueViewModel;
@@ -70,7 +68,6 @@ public partial class App : Avalonia.Application
         SalesViewModel salesViewModel,
         BackOfficeShellViewModel backOfficeShellViewModel,
         UserAdminViewModel userAdminViewModel,
-        CatalogueViewModel catalogueViewModel,
         PurchaseOrderViewModel purchaseOrderViewModel,
         LabelPrintViewModel labelPrintViewModel,
         PrintQueueViewModel printQueueViewModel,
@@ -84,7 +81,6 @@ public partial class App : Avalonia.Application
         ArgumentNullException.ThrowIfNull(salesViewModel);
         ArgumentNullException.ThrowIfNull(backOfficeShellViewModel);
         ArgumentNullException.ThrowIfNull(userAdminViewModel);
-        ArgumentNullException.ThrowIfNull(catalogueViewModel);
         ArgumentNullException.ThrowIfNull(purchaseOrderViewModel);
         ArgumentNullException.ThrowIfNull(labelPrintViewModel);
         ArgumentNullException.ThrowIfNull(printQueueViewModel);
@@ -97,7 +93,6 @@ public partial class App : Avalonia.Application
         _salesViewModel = salesViewModel;
         _backOfficeShellViewModel = backOfficeShellViewModel;
         _userAdminViewModel = userAdminViewModel;
-        _catalogueViewModel = catalogueViewModel;
         _purchaseOrderViewModel = purchaseOrderViewModel;
         _labelPrintViewModel = labelPrintViewModel;
         _printQueueViewModel = printQueueViewModel;
@@ -210,8 +205,10 @@ public partial class App : Avalonia.Application
     }
 
     /// <summary>
-    /// Opens the back office (task P3-T13, SRS UI-11): its own window, its own status bar, its
-    /// own accent, navigating to Catalogue, Settings, Users, Purchasing and Labels - the same
+    /// Opens the back office (tasks P3-T13/P3-T18, SRS UI-11, UI-16): its own window, its own
+    /// status bar, its own accent, its persistent nav rail navigating to Catalogue (folded straight
+    /// into this window's own content pane - see <c>NavRail</c>/<c>CatalogueSectionContent</c>),
+    /// Settings, Users, Purchasing and Labels (still their own windows, unchanged) - the same
     /// single process, single <c>IHost</c>, single database this whole application is (see
     /// <c>BackOfficeShellViewModel</c>'s remarks). Non-modal, like every other screen this class
     /// opens: a back-office window never blocks <c>SalesWindow</c>.
@@ -230,8 +227,6 @@ public partial class App : Avalonia.Application
         // opened, each pointed at whichever window happened to be current at the time.
         _backOfficeShellViewModel.ManageUsersRequested -= OnManageUsersRequested;
         _backOfficeShellViewModel.ManageUsersRequested += OnManageUsersRequested;
-        _backOfficeShellViewModel.CatalogueRequested -= OnCatalogueRequested;
-        _backOfficeShellViewModel.CatalogueRequested += OnCatalogueRequested;
         _backOfficeShellViewModel.PurchaseOrdersRequested -= OnPurchaseOrdersRequested;
         _backOfficeShellViewModel.PurchaseOrdersRequested += OnPurchaseOrdersRequested;
         _backOfficeShellViewModel.LabelPrintRequested -= OnLabelPrintRequested;
@@ -239,10 +234,18 @@ public partial class App : Avalonia.Application
         _backOfficeShellViewModel.SettingsRequested -= OnSettingsRequested;
         _backOfficeShellViewModel.SettingsRequested += OnSettingsRequested;
 
+        // Bugfix (task P3-T18 review): BackOfficeShellViewModel is a singleton that outlives this
+        // window, so closing it must count as leaving Catalogue the same way SelectOverview does -
+        // otherwise a section left selected when the owner closes the back office would still read
+        // as "already there" on the next open, and OnSelectedCatalogueSectionChanged's re-entry
+        // check (oldValue null) would never see the transition, silently skipping the reload that
+        // picking a section again is supposed to trigger. window is a fresh instance per call, so
+        // no -= is needed here the way the singleton VM's own events need it above.
+        window.Closed += (_, _) => _backOfficeShellViewModel.SelectOverview();
+
         window.Show(owner);
 
         void OnManageUsersRequested(object? sender, EventArgs e) => ShowUsers(window);
-        void OnCatalogueRequested(object? sender, EventArgs e) => ShowCatalogue(window);
         void OnPurchaseOrdersRequested(object? sender, EventArgs e) => ShowPurchaseOrders(window);
         void OnLabelPrintRequested(object? sender, EventArgs e) => ShowLabelPrint(window);
         void OnSettingsRequested(object? sender, EventArgs e) => ShowSettings(window);
@@ -257,22 +260,6 @@ public partial class App : Avalonia.Application
 
         var window = new UserAdminWindow { DataContext = _userAdminViewModel };
         _userAdminViewModel.RefreshCommand.Execute(null);
-        window.Show(owner);
-    }
-
-    /// <summary>
-    /// Opens the catalogue reference-data screen: category, brand, unit, tax class, supplier,
-    /// customer (SRS FR-2.20, FR-2.21, FR-6).
-    /// </summary>
-    private void ShowCatalogue(Window owner)
-    {
-        if (_catalogueViewModel is null)
-        {
-            return;
-        }
-
-        var window = new CatalogueWindow { DataContext = _catalogueViewModel };
-        _catalogueViewModel.LoadCommand.Execute(null);
         window.Show(owner);
     }
 

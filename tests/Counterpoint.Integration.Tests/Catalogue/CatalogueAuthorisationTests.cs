@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Counterpoint.Application.Catalogue;
+using Counterpoint.Application.Import;
 using Counterpoint.Application.Security;
 using Counterpoint.Domain.Catalogue;
 using Counterpoint.Domain.Security;
@@ -17,6 +18,46 @@ namespace Counterpoint.Integration.Tests.Catalogue;
 /// </summary>
 public sealed class CatalogueAuthorisationTests
 {
+    /// <summary>
+    /// Task P3-T18's own "Done when" #4: every one of the eight Catalogue nav-rail destinations
+    /// (<see cref="Counterpoint.Ui.ViewModels.BackOfficeShellViewModel.CatalogueSectionNames"/>)
+    /// must still be refused at the Application layer for a cashier, regardless of how it is
+    /// reached. The seven maintenance services above already cover Categories, Brands, Units, Tax
+    /// classes, Suppliers, Customers and Products; this closes the one destination they leave out
+    /// - Import/Export, <see cref="ICatalogueImportService"/> - which carries the exact same
+    /// <c>[RequiresRole(Role.Owner)]</c> (see the interface's own remarks: "a bad import touches
+    /// every product in the shop at once"), but had no test anywhere proving it.
+    /// </summary>
+    [Fact]
+    public async Task AC_17_ACashierIsRefusedByTheCatalogueImportServiceToo()
+    {
+        await using var fixture = await SaleFixture.CreateAsync();
+
+        await fixture.SignInAsSeededOwnerAsync();
+        await fixture.Resolve<IUserAdministration>().CreateAsync(
+            new CreateUserCommand("priya", "Priya", "counter1", Role.Cashier));
+
+        var authentication = fixture.Resolve<IAuthenticationService>();
+        await authentication.LogOutAsync();
+        (await authentication.LogInAsync("priya", "counter1")).Succeeded.Should().BeTrue();
+
+        var import = fixture.Resolve<ICatalogueImportService>();
+
+        var listProfiles = () => import.ListMappingProfilesAsync();
+        var preview = () => import.PreviewAsync("mallory.csv", ImportColumnMapping.Default);
+        var commit = () => import.CommitAsync("mallory.csv", ImportColumnMapping.Default);
+        var export = () => import.ExportCatalogueAsync("mallory.csv");
+
+        await listProfiles.Should().ThrowAsync<NotAuthorisedException>(
+            "the import/export nav-rail destination must refuse a cashier the same as every other "
+            + "Catalogue destination, even for a read-only call");
+        await preview.Should().ThrowAsync<NotAuthorisedException>(
+            "even a dry-run preview - which writes nothing - is owner only, because reading the "
+            + "column mapping is already administration");
+        await commit.Should().ThrowAsync<NotAuthorisedException>();
+        await export.Should().ThrowAsync<NotAuthorisedException>();
+    }
+
     [Fact]
     public async Task AC_17_ACashierIsRefusedByEveryCatalogueMaintenanceServiceItself()
     {
