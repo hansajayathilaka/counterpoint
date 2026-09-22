@@ -234,6 +234,15 @@ public partial class App : Avalonia.Application
         _backOfficeShellViewModel.SettingsRequested -= OnSettingsRequested;
         _backOfficeShellViewModel.SettingsRequested += OnSettingsRequested;
 
+        // Bugfix (task P3-T18 review): BackOfficeShellViewModel is a singleton that outlives this
+        // window, so closing it must count as leaving Catalogue the same way SelectOverview does -
+        // otherwise a section left selected when the owner closes the back office would still read
+        // as "already there" on the next open, and OnSelectedCatalogueSectionChanged's re-entry
+        // check (oldValue null) would never see the transition, silently skipping the reload that
+        // picking a section again is supposed to trigger. window is a fresh instance per call, so
+        // no -= is needed here the way the singleton VM's own events need it above.
+        window.Closed += (_, _) => _backOfficeShellViewModel.SelectOverview();
+
         window.Show(owner);
 
         void OnManageUsersRequested(object? sender, EventArgs e) => ShowUsers(window);

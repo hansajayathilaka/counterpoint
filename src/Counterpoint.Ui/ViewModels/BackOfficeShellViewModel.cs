@@ -63,7 +63,6 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     ];
 
     private readonly ISession _session;
-    private bool _catalogueLoaded;
 
     public BackOfficeShellViewModel(ISession session)
     {
@@ -107,16 +106,32 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Loads the catalogue's reference data the first time a Catalogue section is actually
-    /// selected, not when the shell itself opens - the same "defer loading until navigated to"
-    /// rule <c>ShowCatalogue</c> used to satisfy simply by not existing until the Catalogue tile
-    /// was clicked (SRS NFR-P6, the avalonia-pos-screens skill's cold-start guidance).
+    /// Loads the catalogue's reference data every time a Catalogue section is selected coming
+    /// from Overview - i.e. every genuine re-entry into Catalogue - but not when the selection
+    /// merely moves between Catalogue sections while already there.
     /// </summary>
-    partial void OnSelectedCatalogueSectionChanged(string? value)
+    /// <remarks>
+    /// <para>
+    /// This is the "defer loading until navigated to, then re-read on every real visit" rule
+    /// <c>ShowCatalogue</c> used to satisfy simply by not existing between visits: its window (and
+    /// the <c>CatalogueViewModel</c> singleton it drove) was gone whenever Catalogue wasn't open,
+    /// so every click on the Catalogue tile was, by construction, a transition out of "not open" -
+    /// the same transition <paramref name="oldValue"/> being null captures here now that
+    /// <see cref="Catalogue"/> is a singleton that outlives any one visit (SRS NFR-P6, the
+    /// avalonia-pos-screens skill's cold-start guidance).
+    /// </para>
+    /// <para>
+    /// Closing and reopening the back-office window is a genuine re-entry too, even when the same
+    /// nav-rail item ends up selected again on the way back in - see <c>App.axaml.cs</c>'s
+    /// <c>ShowBackOffice</c>, which calls <see cref="SelectOverview"/> on window close for exactly
+    /// this reason, so the next section picked after reopening always arrives with
+    /// <paramref name="oldValue"/> null.
+    /// </para>
+    /// </remarks>
+    partial void OnSelectedCatalogueSectionChanged(string? oldValue, string? newValue)
     {
-        if (value is not null && !_catalogueLoaded && Catalogue is not null)
+        if (newValue is not null && oldValue is null && Catalogue is not null)
         {
-            _catalogueLoaded = true;
             Catalogue.LoadCommand.Execute(null);
         }
     }

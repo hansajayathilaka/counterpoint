@@ -77,4 +77,83 @@ public sealed class BackOfficeShellCatalogueWiringTests
             + "the one step a broken AttachCatalogue wiring would silently skip, with no "
             + "exception, until an owner actually clicked into Catalogue");
     }
+
+    /// <summary>
+    /// Bugfix regression test for task P3-T18's code review. The guard that used to be a
+    /// once-per-process instance field (<c>_catalogueLoaded</c>) on the
+    /// <see cref="BackOfficeShellViewModel"/> singleton meant a section reload happened once ever
+    /// for the whole process lifetime, not once per genuine Catalogue visit - a row written to the
+    /// database by another screen or an import after the first visit stayed invisible in Catalogue
+    /// for the rest of the session, no matter how many more times the owner navigated back into it.
+    /// This proves two things together, the same way the reviewer asked: (1) navigating BETWEEN
+    /// Catalogue sections within a single visit must not reload - only the data of the section
+    /// actually selected first is fresh; and (2) leaving Catalogue - via <see cref="BackOfficeShellViewModel.SelectOverview"/>,
+    /// the same call <c>App.axaml.cs</c>'s <c>ShowBackOffice</c> makes on the back-office window's
+    /// <c>Closed</c> event, standing in here for a real close/reopen of the shell - and picking a
+    /// section again, even a different one than was showing before, must reload and pick up data
+    /// written in the meantime.
+    /// </summary>
+    [Fact]
+    public async Task P3_T18_ReenteringCatalogueAfterLeavingReloadsButSwitchingSectionsWithinAVisitDoesNotAsync()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync();
+        var categories = fixture.Resolve<ICategoryMaintenance>();
+        await categories.CreateAsync(new SaveCategoryCommand("Fasteners", null));
+
+        var dialogs = new FakeDialogService();
+        var catalogue = new CatalogueViewModel(
+            new CategoryTabViewModel(fixture.Resolve<ICategoryMaintenance>(), dialogs),
+            new BrandTabViewModel(fixture.Resolve<IBrandMaintenance>(), dialogs),
+            new UomTabViewModel(fixture.Resolve<IUomMaintenance>(), dialogs),
+            new TaxClassTabViewModel(fixture.Resolve<ITaxClassMaintenance>(), dialogs),
+            new SupplierTabViewModel(fixture.Resolve<ISupplierMaintenance>(), dialogs),
+            new CustomerTabViewModel(fixture.Resolve<ICustomerMaintenance>(), dialogs),
+            new ProductTabViewModel(
+                fixture.Resolve<IProductMaintenance>(),
+                fixture.Resolve<ICategoryMaintenance>(),
+                fixture.Resolve<IBrandMaintenance>(),
+                fixture.Resolve<IUomMaintenance>(),
+                fixture.Resolve<ITaxClassMaintenance>(),
+                dialogs),
+            new ImportTabViewModel(fixture.Resolve<ICatalogueImportService>(), fixture.Resolve<ISpreadsheetReader>()));
+
+        var shell = new BackOfficeShellViewModel(fixture.Resolve<ISession>());
+        shell.AttachCatalogue(catalogue);
+
+        // First visit: selecting the first section for the first time loads the real data.
+        shell.SelectedCatalogueSection = BackOfficeShellViewModel.CatalogueSectionNames[0];
+        await (catalogue.LoadCommand.ExecutionTask ?? Task.CompletedTask);
+        catalogue.Category.Items.Should().ContainSingle(item => item.Name == "Fasteners");
+
+        // Data changes underneath, as if another screen or an import wrote it directly to the DB.
+        await categories.CreateAsync(new SaveCategoryCommand("Adhesives", null));
+
+        // Still within the same visit: moving to a different section must NOT reload.
+        shell.SelectedCatalogueSection = BackOfficeShellViewModel.CatalogueSectionNames[1];
+        await (catalogue.LoadCommand.ExecutionTask ?? Task.CompletedTask);
+        catalogue.Category.Items.Should().HaveCount(
+            1,
+            "switching between Catalogue sections within one visit must not re-run LoadCommand - "
+            + "that is task P3-T18's own improvement over the old per-tile unconditional reload, "
+            + "and this bugfix must not undo it");
+
+        // Leaving Catalogue (Overview - the same call the back-office window's Closed handler
+        // makes) and genuinely re-entering, picking a different section than was showing before,
+        // must reload and pick up what changed underneath.
+        shell.SelectOverview();
+        shell.SelectedCatalogueSection = BackOfficeShellViewModel.CatalogueSectionNames[4];
+        await (catalogue.LoadCommand.ExecutionTask ?? Task.CompletedTask);
+        catalogue.Category.Items.Should().HaveCount(2)
+            .And.Contain(item => item.Name == "Adhesives");
+
+        // A second round, standing in for closing and reopening the back-office shell itself
+        // (App.axaml.cs's ShowBackOffice wires exactly this SelectOverview() call to the window's
+        // Closed event) - proving the guard resets on every genuine re-entry, not once ever.
+        await categories.CreateAsync(new SaveCategoryCommand("Sealants", null));
+        shell.SelectOverview();
+        shell.SelectedCatalogueSection = BackOfficeShellViewModel.CatalogueSectionNames[0];
+        await (catalogue.LoadCommand.ExecutionTask ?? Task.CompletedTask);
+        catalogue.Category.Items.Should().HaveCount(3)
+            .And.Contain(item => item.Name == "Sealants");
+    }
 }
