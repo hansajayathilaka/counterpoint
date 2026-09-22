@@ -7,10 +7,12 @@ using FluentAssertions;
 namespace Counterpoint.Domain.Tests.Ui;
 
 /// <summary>
-/// Task P3-T13's file-level proofs (SRS UI-11, NFR-S2, AC-17, AC-24): the flat back-office button
-/// row is gone from <c>SalesWindow.axaml</c>, replaced by one entry point, and
+/// Task P3-T13's file-level proofs (SRS UI-11, NFR-S2, AC-17, AC-24), extended by task P3-T18: the
+/// flat back-office button row is gone from <c>SalesWindow.axaml</c>, replaced by one entry point;
 /// <c>BackOfficeShellWindow.axaml</c> is visually distinct from it - its own status bar, its own
-/// accent, drawn from the P3-T10 tokens rather than a raw hex literal - the same file-inspection
+/// accent, drawn from the P3-T10 tokens rather than a raw hex literal; and the shell's own flat
+/// five-tile grid is gone too, replaced by <c>NavRail.axaml</c>'s persistent grouped rail, with
+/// Catalogue folded into the content pane instead of opening a window - the same file-inspection
 /// style <c>NoRawHexColourLiteralsTests</c> and <c>EditDialogFrameworkTests</c> already use to
 /// prove a screen without opening a window (a window cannot be opened in CI).
 /// </summary>
@@ -56,12 +58,51 @@ public sealed class BackOfficeShellTests
         markup.Should().Contain("{DynamicResource PanelBackgroundBrush}");
         markup.Should().Contain("BACK OFFICE");
 
-        // The five destinations this shell, and only this shell, now navigates to.
-        markup.Should().Contain("Command=\"{Binding ManageCatalogueCommand}\"");
+        // Task P3-T18: the persistent nav rail, and Catalogue folded straight into this window's
+        // own content pane rather than a separate window.
+        markup.Should().Contain("<views:NavRail");
+        markup.Should().Contain("<catalogue:CatalogueSectionContent");
+        markup.Should().Contain("SelectedSection=\"{Binding SelectedCatalogueSection}\"");
+    }
+
+    [Fact]
+    public void UI_18_BackOfficeShellWindowNoLongerOpensCatalogueAsASeparateWindow()
+    {
+        var markup = ReadUiFile("Views", "BackOfficeShellWindow.axaml");
+
+        // Catalogue's navigation model changed by task P3-T18: no more ManageCatalogueCommand
+        // (retired - it used to raise CatalogueRequested, which App.axaml.cs used to open
+        // CatalogueWindow with). The nav rail's own ListBox binds SelectedCatalogueSection
+        // instead (asserted by the accent/status-bar test above).
+        markup.Should().NotContain("ManageCatalogueCommand");
+        markup.Should().NotContain("CatalogueRequested");
+    }
+
+    [Fact]
+    public void UI_18_NavRailHoldsTheFiveDestinationsGatedByTheSameCanFlagsAsBefore()
+    {
+        var markup = ReadUiFile("Views", "NavRail.axaml");
+
+        // The five destinations the old flat tile grid gated - the same Can* flag each, per this
+        // task's own risk mitigation (task P3-T18's "Do this" #4, "Done when" #1).
+        markup.Should().Contain("IsVisible=\"{Binding CanManageCatalogue}\"");
         markup.Should().Contain("Command=\"{Binding OpenSettingsCommand}\"");
+        markup.Should().Contain("IsVisible=\"{Binding CanChangeSettings}\"");
         markup.Should().Contain("Command=\"{Binding ManageUsersCommand}\"");
+        markup.Should().Contain("IsVisible=\"{Binding CanManageUsers}\"");
         markup.Should().Contain("Command=\"{Binding ManagePurchaseOrdersCommand}\"");
+        markup.Should().Contain("IsVisible=\"{Binding CanManagePurchasing}\"");
         markup.Should().Contain("Command=\"{Binding PrintLabelsCommand}\"");
+        markup.Should().Contain("IsVisible=\"{Binding CanPrintLabels}\"");
+
+        // Catalogue's eight sections replace TabControl.SelectedIndex with a ListBox bound to
+        // SelectedCatalogueSection - the keyboard-nav risk mitigation task P3-T18 names by name.
+        markup.Should().Contain("SelectedItem=\"{Binding SelectedCatalogueSection, Mode=TwoWay}\"");
+        markup.Should().Contain("{Binding CatalogueSections}");
+
+        // Drawn from the P3-T17 rail sub-palette, not a second theme system.
+        markup.Should().Contain("{DynamicResource RailBackgroundBrush}");
+        markup.Should().Contain("{DynamicResource RailTextBrush}");
     }
 
     [Fact]
