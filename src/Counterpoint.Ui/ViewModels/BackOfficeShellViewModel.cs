@@ -191,21 +191,25 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
         }
 
         if (newValue is not null
-            && TryLeaveSystem(reapply: () => SelectedCatalogueSection = newValue))
+            && TryLeaveSystem(
+                revertNow: () =>
+                {
+                    // Reverting synchronously back to null (there is no other value
+                    // SelectedCatalogueSection can hold while System is active) re-enters this
+                    // very method with newValue null, which satisfies none of the conditions
+                    // below - nothing else to suppress.
+                    _suppressCatalogueGuard = true;
+                    try
+                    {
+                        SelectedCatalogueSection = oldValue;
+                    }
+                    finally
+                    {
+                        _suppressCatalogueGuard = false;
+                    }
+                },
+                reapply: () => SelectedCatalogueSection = newValue))
         {
-            // Reverting synchronously back to null (there is no other value SelectedCatalogueSection
-            // can hold while System is active) re-enters this very method with newValue null, which
-            // satisfies none of the conditions below - nothing else to suppress.
-            _suppressCatalogueGuard = true;
-            try
-            {
-                SelectedCatalogueSection = oldValue;
-            }
-            finally
-            {
-                _suppressCatalogueGuard = false;
-            }
-
             return;
         }
 
@@ -227,14 +231,18 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     [RelayCommand]
     public void SelectOverview()
     {
-        if (TryLeaveSystem(reapply: () =>
+        if (TryLeaveSystem(
+            revertNow: () =>
+            {
+                // Nothing has changed yet - unlike the Catalogue ListBox's two-way binding, this
+                // command runs before either property is touched, so there is nothing to revert.
+            },
+            reapply: () =>
             {
                 SelectedCatalogueSection = null;
                 SelectedSettingsSection = null;
             }))
         {
-            // Nothing has changed yet - unlike the Catalogue ListBox's two-way binding, this
-            // command runs before either property is touched, so there is nothing to revert.
             return;
         }
 
@@ -270,19 +278,39 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     /// <summary>
     /// The one place task P3-T19's navigate-away guard is decided. Returns <see langword="false"/>
     /// immediately - nothing to intercept - when System is not the active group, or when it is but
-    /// <see cref="SettingsViewModel.HasUnsavedChanges"/> is false. Otherwise starts the async
-    /// confirm-then-<paramref name="reapply"/> flow (fire-and-forget: this method itself must stay
-    /// synchronous, because the property setter calling it cannot await) and returns
-    /// <see langword="true"/> so the caller knows to stop - and, for a two-way-bound property that
-    /// has already applied the new value before this runs, to revert it first.
+    /// <see cref="SettingsViewModel.HasUnsavedChanges"/> is false. Otherwise runs
+    /// <paramref name="revertNow"/> synchronously, before anything else - restoring a two-way-bound
+    /// property that has already applied the new value, or doing nothing for a command that has
+    /// not touched anything yet - and only then starts the async confirm-then-<paramref name="reapply"/>
+    /// flow (fire-and-forget: this method itself must stay synchronous, because the property
+    /// setter calling it cannot await), before returning <see langword="true"/> so the caller
+    /// knows to stop.
     /// </summary>
-    private bool TryLeaveSystem(Action reapply)
+    /// <remarks>
+    /// <paramref name="revertNow"/> must run <b>before</b> <see cref="ConfirmDiscardAndNavigateAsync"/>
+    /// is even started, not after - <see cref="IDialogService.ShowConfirmationAsync"/> carries no
+    /// guarantee that it always yields (a real modal dialog does, but nothing stops a future
+    /// implementation, or a test double such as the one <c>FakeDialogService</c> hands every
+    /// non-UI test in this solution, from resolving its <see cref="Task"/> already completed). If
+    /// the confirmation resolves synchronously, its own continuation - <see cref="Settings"/>'
+    /// <see cref="SettingsViewModel.RevertCommand"/> and then <paramref name="reapply"/> - runs to
+    /// completion inside this very call, before this method returns. A caller-side revert written
+    /// to run <i>after</i> calling this method, as this used to be structured, would then stomp
+    /// back over that already-correct, already-confirmed result the instant it got control back -
+    /// discarding a confirmed navigation back to whatever it was before, with no error and no
+    /// visible failure. Running <paramref name="revertNow"/> first, inside this method, before the
+    /// confirmation is ever started, is correct regardless of whether the confirmation resolves
+    /// synchronously or genuinely asynchronously: the real (asynchronous) case is unaffected, since
+    /// nothing observable happens between "revert" and "start the confirmation" either way.
+    /// </remarks>
+    private bool TryLeaveSystem(Action revertNow, Action reapply)
     {
         if (SelectedSettingsSection is null || Settings is null || !Settings.HasUnsavedChanges)
         {
             return false;
         }
 
+        revertNow();
         _ = ConfirmDiscardAndNavigateAsync(reapply);
         return true;
     }
