@@ -112,6 +112,8 @@ internal sealed class CancelSaleHandler : ICancelSale
                 $"Bill {sale.BillNo} is already cancelled."));
         }
 
+        RequireNothingDependsOnTheSale(sale);
+
         var cancelledOn = DateOnly.FromDateTime(command.CancelledAt.Date);
         if (sale.BusinessDate != cancelledOn)
         {
@@ -179,6 +181,28 @@ internal sealed class CancelSaleHandler : ICancelSale
     /// The audit row's after-state. Written by hand, exactly like <c>CompleteSaleHandler</c>'s,
     /// so the text is stable byte for byte - it is about to be hashed into a chain.
     /// </summary>
+    /// <summary>
+    /// A cancellation reverses the whole bill as if it never happened (SRS FR-3.34). That is only
+    /// true while nothing has happened on top of it since - otherwise the correct document is a
+    /// return, which refunds exactly what is still outstanding.
+    /// </summary>
+    private static void RequireNothingDependsOnTheSale(SaleForCancellation sale)
+    {
+        string? refusal =
+            sale.HasReturns ? "has already had goods returned against it, so cancelling it would restock and refund those goods twice"
+            : sale.IsExchangeSale ? "is the replacement half of an exchange, and cancelling it alone would leave the return credit applied to nothing"
+            : sale.PaidByCreditNote ? "was paid partly by credit note, and cancelling it would not give the customer that credit back"
+            : !sale.ShiftOpen ? "belongs to a shift that is already closed and counted, and cancelling it would change that shift's figures after its Z report"
+            : null;
+
+        if (refusal is not null)
+        {
+            throw new InvalidOperationException(string.Create(
+                CultureInfo.InvariantCulture,
+                $"Bill {sale.BillNo} {refusal}. Take a return against it instead."));
+        }
+    }
+
     private static string AuditPayload(string billNo, Money total) => string.Create(
         CultureInfo.InvariantCulture,
         $$"""{"bill_no":"{{billNo}}","total":{{total.ToScaled()}}}""");

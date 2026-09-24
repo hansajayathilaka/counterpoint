@@ -34,7 +34,10 @@ public sealed record XReportFigures(
 
 /// <summary>One <c>sale_line.tax_rate</c> bracket's contribution to this shift's completed sales.</summary>
 /// <param name="Rate">The rate, for example 15% (<c>TaxRate.FromPercent(15)</c>).</param>
-/// <param name="TaxableAmount">The net amount taxed at this rate (<c>line_total - tax</c>, summed).</param>
+/// <param name="TaxableAmount">
+/// The net amount taxed at this rate: <c>line_total</c> (already net of tax in both pricing
+/// modes) less the line's share of its bill's discount, summed.
+/// </param>
 /// <param name="TaxAmount">The tax collected at this rate.</param>
 public sealed record XReportTaxBreakdownLine(TaxRate Rate, Money TaxableAmount, Money TaxAmount);
 

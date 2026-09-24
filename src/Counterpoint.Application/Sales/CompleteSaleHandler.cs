@@ -159,6 +159,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         // order offered, cash allowed to run over into change (SRS FR-3.24-FR-3.26). Computed
         // before the transaction opens, same as the pricing above - it refuses here or it does
         // not run at all.
+        TenderTypes.RequireAccepted((command.Tenders ?? []).Select(tender => tender.TenderType));
+
         var tenderPlan = TenderCalculator.Calculate(
             bill.Total,
             [.. (command.Tenders ?? []).Select(tender => new TenderLine(tender.TenderType, tender.Amount, tender.Reference))]);
@@ -303,7 +305,11 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     {
         var bill = await PriceAsync(lines, billDiscount, DateOnly.MinValue, cancellationToken).ConfigureAwait(false);
 
-        return new SaleQuote(bill.ToQuotedLines(), bill.Subtotal, bill.BillDiscount, bill.Tax, bill.Total, bill.Warnings);
+        // The screen shows what the customer reads on the receipt: each line at what it is charged,
+        // and a sub total of those - gross of tax in an inclusive shop (SaleReceiptFigures).
+        var chargedSubtotal = bill.Lines.Aggregate(Money.Zero, (running, line) => running + line.Charged);
+
+        return new SaleQuote(bill.ToQuotedLines(), chargedSubtotal, bill.BillDiscount, bill.Tax, bill.Total, bill.Warnings);
     }
 
     /// <summary>
@@ -325,11 +331,20 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
     /// by the line errors happening to cancel.
     /// </para>
     /// <para>
-    /// Bill-level discount (SRS FR-3.17) is deliberately not spread across
-    /// <c>sale_line.line_total</c>: it changes the header's <c>bill_discount</c> and
-    /// <c>total</c> alone, so <c>sum(line_total) == subtotal</c> keeps holding over the lines as
-    /// stored. <c>Domain.Services.DiscountAllocator</c> exists for the day a report or a return
-    /// needs to know how much of a bill discount fell on one line; nothing in this phase needs it.
+    /// <b>Tax follows the shop's pricing mode</b> (<c>tax.prices_include_tax</c>, SRS FR-10.3):
+    /// added on top of the charged amount in an exclusive shop, carved out of it in an inclusive
+    /// one - where the shelf price is what the customer pays. <c>sale_line.line_total</c> is the
+    /// charged amount less the line's own tax in the inclusive case, so
+    /// <c>subtotal - bill_discount + tax</c> is exactly what the customer pays in both modes.
+    /// </para>
+    /// <para>
+    /// <b>The bill discount reduces the tax base</b> (SRS FR-3.17, §10.1: "Taxable value" is the
+    /// sub total less the discount). It is split across the lines by
+    /// <see cref="BillDiscountSplit"/> - with weights recomputable from the stored line, so a
+    /// return or a report gets the same split back - and each line is taxed on its charged amount
+    /// less its share. The discount itself stays on the header (<c>bill_discount</c>), so
+    /// <c>sum(line_total) == subtotal</c> keeps holding over the lines as stored, and
+    /// <c>subtotal - bill_discount</c> is the bill's revenue net of tax in either mode.
     /// </para>
     /// </remarks>
     private async Task<PricedBill> PriceAsync(
@@ -343,12 +358,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             throw new InvalidOperationException("A bill must have at least one line.");
         }
 
-        var lines = new List<PricedLine>(requests.Count);
+        var drafts = new List<PricedLine>(requests.Count);
         var warnings = new List<string>();
-        var subtotal = Money.Zero;
-        var lineDiscount = Money.Zero;
-        var tax = Money.Zero;
-        var cogs = Money.Zero;
         var lineNo = 1;
 
         // Two separate lines can name the same product variant within one bill (SRS FR-3.2's
@@ -372,6 +383,42 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                 : await PriceCatalogueLineAsync(request, lineNo, warnings, claimedByVariant, cancellationToken).ConfigureAwait(false);
 
             lineNo++;
+            drafts.Add(line);
+        }
+
+        // The bill discount is a discount off what the customer sees the lines come to - the
+        // "Sub total" row of the receipt - in either pricing mode.
+        var chargedSubtotal = drafts.Aggregate(Money.Zero, (running, line) => running + line.Charged);
+
+        var billDiscountEvaluation = billDiscount is { } requestedBillDiscount
+            ? _discounts.AuthoriseBillDiscount(requestedBillDiscount, chargedSubtotal)
+            : new DiscountEvaluation(Money.Zero, Percentage.Zero, _settings.Policy.MaxBillDiscountRate, ExceedsCap: false);
+
+        var shares = BillDiscountSplit.Allocate(billDiscountEvaluation.Amount, [.. drafts.Select(line => line.Weight)]);
+        var pricesIncludeTax = _settings.Tax.PricesIncludeTax;
+
+        var lines = new List<PricedLine>(drafts.Count);
+        var subtotal = Money.Zero;
+        var lineDiscount = Money.Zero;
+        var tax = Money.Zero;
+        var cogs = Money.Zero;
+
+        for (var i = 0; i < drafts.Count; i++)
+        {
+            var draft = drafts[i];
+            // Never below zero: the split is weighted by the unrounded line value, so on a bill
+            // discounted to nothing one line's share can sit a fraction above its rounded charge.
+            var taxBase = draft.Charged - shares[i];
+            var lineTax = LineTaxCalculator.TaxOnCharged(
+                taxBase.IsNegative ? Money.Zero : taxBase, draft.TaxRate, pricesIncludeTax);
+
+            // Exact scaled subtraction in the inclusive case (LineTaxCalculator's own reasoning):
+            // line_total + tax reconstructs the charged amount bit for bit.
+            var lineTotal = pricesIncludeTax
+                ? Money.FromScaled(draft.Charged.ToScaled() - lineTax.ToScaled())
+                : draft.Charged;
+
+            var line = draft with { Tax = lineTax, LineTotal = lineTotal, BillDiscountShare = shares[i] };
             lines.Add(line);
 
             subtotal += line.LineTotal;
@@ -379,10 +426,6 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             tax += line.Tax;
             cogs += line.UnitCost * line.QuantityBase.Value;
         }
-
-        var billDiscountEvaluation = billDiscount is { } requestedBillDiscount
-            ? _discounts.AuthoriseBillDiscount(requestedBillDiscount, subtotal)
-            : new DiscountEvaluation(Money.Zero, Percentage.Zero, _settings.Policy.MaxBillDiscountRate, ExceedsCap: false);
 
         // Rounding point two. The identity below is the real one, not a special case of it, even
         // when there is no bill discount at all (billDiscountEvaluation.Amount is then zero).
@@ -442,12 +485,9 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             ? _discounts.AuthoriseLineDiscount(discount, grossAmount, item.MaxDiscountRate)
             : new DiscountEvaluation(Money.Zero, Percentage.Zero, item.MaxDiscountRate ?? _settings.Policy.MaxLineDiscountRate, ExceedsCap: false);
 
-        // Rounding point one.
-        var lineTotal = _rounding.Round(grossAmount - discountEvaluation.Amount);
-
-        // Quantised to the storage scale here, once, so the value this line carries is the
-        // value sale_line.tax will hold - and the bill's tax is the sum of exactly those.
-        var lineTax = Money.FromScaled(item.TaxRate.TaxOnNet(lineTotal).ToScaled());
+        // Rounding point one. Tax is taken from this in PriceAsync, once the line's share of any
+        // bill discount is known.
+        var charged = _rounding.Round(grossAmount - discountEvaluation.Amount);
 
         var postsStock = !ProductTypes.PostsNoStockMovement(item.ProductType);
 
@@ -481,12 +521,15 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             unitPrice,
             discountEvaluation.Amount,
             item.TaxRate,
-            lineTax,
-            lineTotal,
+            Money.Zero,
+            charged,
             item.UnitCost,
             postsStock,
             IsOpenItem: false,
-            wentNegative);
+            wentNegative,
+            charged,
+            BillDiscountSplit.Weight(unitPrice, quantitySold, discountEvaluation.Amount),
+            Money.Zero);
     }
 
     /// <summary>
@@ -507,9 +550,8 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             ? _discounts.AuthoriseLineDiscount(discount, grossAmount, productMaxDiscountRate: null)
             : new DiscountEvaluation(Money.Zero, Percentage.Zero, _settings.Policy.MaxLineDiscountRate, ExceedsCap: false);
 
-        var lineTotal = _rounding.Round(grossAmount - discountEvaluation.Amount);
+        var charged = _rounding.Round(grossAmount - discountEvaluation.Amount);
         var taxRate = _settings.Tax.DefaultTaxRate;
-        var lineTax = Money.FromScaled(taxRate.TaxOnNet(lineTotal).ToScaled());
 
         return Task.FromResult(new PricedLine(
             lineNo,
@@ -521,12 +563,15 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             unitPrice,
             discountEvaluation.Amount,
             taxRate,
-            lineTax,
-            lineTotal,
+            Money.Zero,
+            charged,
             Money.Zero,
             PostsStock: false,
             IsOpenItem: true,
-            WentNegative: false));
+            WentNegative: false,
+            charged,
+            BillDiscountSplit.Weight(unitPrice, quantity, discountEvaluation.Amount),
+            Money.Zero));
     }
 
     /// <summary>
@@ -674,45 +719,32 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
             CustomerRecord? customer,
             string taxLabel)
         {
-            var discount = LineDiscount + BillDiscount;
-
-            return new SaleReceipt(
+            // One derivation for the original and every reprint (SaleReceiptFigures) - open items
+            // are taxed at the shop's default rate and fall into that same tax row when it matches.
+            return SaleReceiptFigures.Build(
                 billNo,
                 soldAt,
-                [.. Lines.Select(line => new SaleReceiptLine(
+                [.. Lines.Select(line => new SaleReceiptLineFigures(
                     line.Description,
                     line.Quantity,
                     line.UomSymbol,
                     line.UnitPrice,
-                    line.LineTotal))],
+                    line.Charged,
+                    line.LineTotal,
+                    line.Tax,
+                    line.TaxRate,
+                    line.BillDiscountShare))],
                 Subtotal,
-                discount,
-                Subtotal - discount,
+                BillDiscount,
                 Tax,
                 Total,
                 [.. tenders.Select(tender => new SaleReceiptTender(tender.TenderType, tender.Amount))],
                 change,
-                TaxBreakdown(taxLabel),
+                taxLabel,
                 cashierName,
                 customer?.Name ?? "Walk-in",
                 string.Equals(customer?.Type, CustomerPriceTiers.TradeToken, StringComparison.Ordinal));
         }
-
-        /// <summary>
-        /// One row per distinct tax rate the bill's catalogue lines actually used (SRS §10.1's
-        /// "Tax @ n%" row) - open items are taxed at the shop's default rate and fall into that
-        /// same group when it matches.
-        /// </summary>
-        private IReadOnlyList<SaleReceiptTaxLine> TaxBreakdown(string taxLabel) =>
-            [.. Lines
-                .GroupBy(line => line.TaxRate)
-                .OrderByDescending(group => group.Key.Rate)
-                .Select(group => new SaleReceiptTaxLine(
-                    string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"{taxLabel} @ {group.Key.AsPercent:0.##}%"),
-                    Money.FromScaled(group.Sum(line => line.LineTotal.ToScaled())),
-                    Money.FromScaled(group.Sum(line => line.Tax.ToScaled()))))];
 
         internal IReadOnlyList<QuotedLine> ToQuotedLines() =>
             [.. Lines.Select(line => new QuotedLine(
@@ -722,7 +754,7 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
                 line.UomSymbol,
                 line.UnitPrice,
                 line.Discount,
-                line.LineTotal,
+                line.Charged,
                 line.IsOpenItem))];
     }
 
@@ -742,7 +774,10 @@ public sealed class CompleteSaleHandler : ICompleteSale, IQuoteSale
         Money UnitCost,
         bool PostsStock,
         bool IsOpenItem,
-        bool WentNegative)
+        bool WentNegative,
+        Money Charged,
+        Money Weight,
+        Money BillDiscountShare)
     {
         internal NewSaleLine ToNewSaleLine() => new(
             LineNo,

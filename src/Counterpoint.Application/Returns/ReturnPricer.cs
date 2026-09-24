@@ -85,15 +85,34 @@ internal static class ReturnPricer
             // one sails through untouched.
             policy.AuthoriseNonReturnable(original.NonReturnable, original.CategoryId, nonReturnableOverride);
 
-            var ratio = requestedQuantity.Value / original.QtySoldBase.Value;
+            // What the customer actually paid for this line, net of tax: its line total less its
+            // share of any bill discount. Refunding the pre-discount line total instead would pay
+            // back more than was ever taken for a discounted bill (AC-03: "at the price paid").
+            var paidNet = original.LineTotal - original.BillDiscountShare;
+            if (paidNet.IsNegative)
+            {
+                // A line on a bill discounted to nothing (see CompleteSaleHandler's clamp).
+                paidNet = Money.Zero;
+            }
+
+            // Priced cumulatively: this return refunds the value of everything returned so far,
+            // including it, less the value of what earlier returns already refunded. Each return
+            // on its own would otherwise round up independently, and three separate returns of a
+            // third each could pay back more than the line ever came to; this way the refunds of
+            // a line fully returned in any number of steps sum to exactly the line.
+            var soldBefore = original.QtySoldBase.Value;
+            var returnedBefore = original.QtyReturnedBase.Value;
+            var returnedAfter = returnedBefore + requestedQuantity.Value;
 
             // Rounding point one, for this document: the line's own refund (mirrors
             // sale_line.line_total's own rounding when the bill was completed).
-            var lineRefund = rounding.Round(original.LineTotal * ratio);
+            var lineRefund = rounding.Round(paidNet * (returnedAfter / soldBefore))
+                - rounding.Round(paidNet * (returnedBefore / soldBefore));
 
             // Quantised to the storage scale only, exactly as CompleteSaleHandler leaves a line's
             // tax - not an independent rounding point (CLAUDE.md invariant 2).
-            var lineTax = Money.FromScaled((original.Tax * ratio).ToScaled());
+            var lineTax = Money.FromScaled((original.Tax * (returnedAfter / soldBefore)).ToScaled())
+                - Money.FromScaled((original.Tax * (returnedBefore / soldBefore)).ToScaled());
 
             subtotal += lineRefund;
             tax += lineTax;

@@ -678,6 +678,14 @@ CREATE TABLE held_bill (
 
 **Why `sale_line` snapshots `description`, `unit_price` and `unit_cost`:** a return six months later must refund at the price originally paid (AC-03) and profit reports must use the cost at the time of sale. Neither can be recovered from the catalogue, because the catalogue moves.
 
+**How the money columns relate, in both pricing modes (`tax.prices_include_tax`, FR-10.3):**
+
+- A line is *charged* `round(unit_price × qty − discount)` — rounding point one. That is the receipt's "Amount" column: gross of tax in an inclusive shop, net in an exclusive one.
+- The bill discount is split across the lines by `BillDiscountSplit`, weighted by `unit_price × qty − discount` (unrounded), so a return, a reprint or a report recomputes the same split from these columns without anything extra stored. An exchange's replacement sale is the exception: its `bill_discount` holds the exchange credit, which is settlement rather than a discount and is never split.
+- `tax` is taken on *charged − share of bill discount* — the bill discount reduces the tax base (SRS §10.1: "Taxable value" is sub total less discount). Added on top in an exclusive shop; carved out in an inclusive one.
+- `line_total` is the charged amount, less `tax` in an inclusive shop. So `sum(line_total) = subtotal`, `subtotal − bill_discount + tax + rounding = total` holds in both modes, and `subtotal − bill_discount` is the bill's revenue net of tax.
+- A linked return refunds `(line_total − share) × fraction + tax × fraction`, priced cumulatively against `qty_returned` so a line returned in several steps never refunds more than it was paid.
+
 ---
 
 ## 6. Area D — Returns and credit

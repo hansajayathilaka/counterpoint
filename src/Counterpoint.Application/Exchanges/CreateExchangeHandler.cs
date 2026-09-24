@@ -140,6 +140,7 @@ public sealed class CreateExchangeHandler : ICreateExchange
     private readonly IDiscountAuthorisationService _discounts;
     private readonly ISettings _settings;
     private readonly ICategoryStore _categories;
+    private readonly ICreditNoteRedeemer _creditNotes;
 
     public CreateExchangeHandler(
         IUnitOfWork unitOfWork,
@@ -157,7 +158,8 @@ public sealed class CreateExchangeHandler : ICreateExchange
         IReturnPolicyAuthorisationService returnPolicy,
         IDiscountAuthorisationService discounts,
         ISettings settings,
-        ICategoryStore categories)
+        ICategoryStore categories,
+        ICreditNoteRedeemer creditNotes)
     {
         ArgumentNullException.ThrowIfNull(unitOfWork);
         ArgumentNullException.ThrowIfNull(numbers);
@@ -175,6 +177,7 @@ public sealed class CreateExchangeHandler : ICreateExchange
         ArgumentNullException.ThrowIfNull(discounts);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(categories);
+        ArgumentNullException.ThrowIfNull(creditNotes);
 
         _unitOfWork = unitOfWork;
         _numbers = numbers;
@@ -192,6 +195,7 @@ public sealed class CreateExchangeHandler : ICreateExchange
         _discounts = discounts;
         _settings = settings;
         _categories = categories;
+        _creditNotes = creditNotes;
     }
 
     /// <inheritdoc />
@@ -266,6 +270,8 @@ public sealed class CreateExchangeHandler : ICreateExchange
                 [.. command.DifferenceTenders.Select(t => new TenderLine(t.TenderType, t.Amount, t.Reference))])
             : new TenderPlan([], Money.Zero);
 
+        TenderTypes.RequireAccepted(tenderPlan.Applied.Select(tender => tender.TenderType));
+
         var policyText = await ReturnPolicyTextBuilder.BuildAsync(_settings, _categories, cancellationToken)
             .ConfigureAwait(false);
 
@@ -306,6 +312,22 @@ public sealed class CreateExchangeHandler : ICreateExchange
                         saleId,
                         new NewTender(tender.TenderType, tender.Amount, tender.Reference, command.ExchangedAt),
                         token).ConfigureAwait(false);
+
+                    // Spent inside this transaction exactly as CompleteSaleHandler spends one -
+                    // a CREDIT_NOTE payment row with no redemption behind it would leave the note's
+                    // balance untouched and spendable again.
+                    if (string.Equals(tender.TenderType, TenderTypes.CreditNote, StringComparison.Ordinal))
+                    {
+                        if (string.IsNullOrWhiteSpace(tender.Reference))
+                        {
+                            throw new InvalidOperationException(
+                                "A CREDIT_NOTE tender must carry the credit note's own number in its reference.");
+                        }
+
+                        await _creditNotes.RedeemAsync(
+                            tender.Reference, tender.Amount, saleId, command.ExchangedAt, businessDate, token)
+                            .ConfigureAwait(false);
+                    }
                 }
 
                 foreach (var line in pricedReplacement.Lines)
@@ -341,7 +363,9 @@ public sealed class CreateExchangeHandler : ICreateExchange
                     }
                 }
 
-                var returnNo = await _numbers.AllocateAsync(ReturnDocumentType, sale.BusinessDate, token)
+                // Dated like the replacement sale above - the exchange's own day, never the original
+                // bill's (see CreateReturnHandler for why).
+                var returnNo = await _numbers.AllocateAsync(ReturnDocumentType, businessDate, token)
                     .ConfigureAwait(false);
 
                 var saleReturnId = await _returns.InsertSaleReturnAsync(
@@ -349,7 +373,7 @@ public sealed class CreateExchangeHandler : ICreateExchange
                         returnNo,
                         sale.SaleId,
                         command.ExchangedAt,
-                        sale.BusinessDate,
+                        businessDate,
                         sale.CustomerId,
                         command.UserId,
                         command.ShiftId,
@@ -537,8 +561,15 @@ public sealed class CreateExchangeHandler : ICreateExchange
             ? _discounts.AuthoriseLineDiscount(discount, grossAmount, item.MaxDiscountRate)
             : new DiscountEvaluation(Money.Zero, Percentage.Zero, item.MaxDiscountRate ?? _settings.Policy.MaxLineDiscountRate, ExceedsCap: false);
 
-        var lineTotal = _rounding.Round(grossAmount - discountEvaluation.Amount);
-        var lineTax = Money.FromScaled(item.TaxRate.TaxOnNet(lineTotal).ToScaled());
+        // The same pricing-mode rule a plain sale follows (SRS FR-10.3, CompleteSaleHandler):
+        // tax on top in an exclusive shop, carved out of the shelf price in an inclusive one.
+        // No bill discount is split across these lines - the exchange credit is settlement, not
+        // a discount, so it does not reduce the replacement goods' tax base.
+        var charged = _rounding.Round(grossAmount - discountEvaluation.Amount);
+        var lineTax = LineTaxCalculator.TaxOnCharged(charged, item.TaxRate, _settings.Tax.PricesIncludeTax);
+        var lineTotal = _settings.Tax.PricesIncludeTax
+            ? Money.FromScaled(charged.ToScaled() - lineTax.ToScaled())
+            : charged;
 
         var postsStock = !ProductTypes.PostsNoStockMovement(item.ProductType);
 
@@ -589,9 +620,12 @@ public sealed class CreateExchangeHandler : ICreateExchange
             ? _discounts.AuthoriseLineDiscount(discount, grossAmount, productMaxDiscountRate: null)
             : new DiscountEvaluation(Money.Zero, Percentage.Zero, _settings.Policy.MaxLineDiscountRate, ExceedsCap: false);
 
-        var lineTotal = _rounding.Round(grossAmount - discountEvaluation.Amount);
+        var charged = _rounding.Round(grossAmount - discountEvaluation.Amount);
         var taxRate = _settings.Tax.DefaultTaxRate;
-        var lineTax = Money.FromScaled(taxRate.TaxOnNet(lineTotal).ToScaled());
+        var lineTax = LineTaxCalculator.TaxOnCharged(charged, taxRate, _settings.Tax.PricesIncludeTax);
+        var lineTotal = _settings.Tax.PricesIncludeTax
+            ? Money.FromScaled(charged.ToScaled() - lineTax.ToScaled())
+            : charged;
 
         return new PricedReplacementLine(
             lineNo,
@@ -767,6 +801,9 @@ public sealed class CreateExchangeHandler : ICreateExchange
         internal NewSaleLine ToNewSaleLine() => new(
             LineNo, ProductVariantId, Description, Quantity, QuantityBase, UnitPrice, Discount, TaxRate, Tax, LineTotal, UnitCost);
 
-        internal SaleReceiptLine ToReceiptLine() => new(Description, Quantity, UomSymbol, UnitPrice, LineTotal);
+        // What the line was charged at - line_total + tax is that amount in both pricing modes
+        // (it is exactly the rounded charged figure in an inclusive shop, and net plus tax in an
+        // exclusive one, matching the pre-credit total the exchange receipt prints).
+        internal SaleReceiptLine ToReceiptLine() => new(Description, Quantity, UomSymbol, UnitPrice, LineTotal + Tax);
     }
 }

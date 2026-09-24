@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+
 namespace Counterpoint.Application.Sales;
 
 /// <summary>
@@ -35,4 +39,30 @@ public static class TenderTypes
     /// tender of this type is spending.
     /// </summary>
     public const string CreditNote = "CREDIT_NOTE";
+
+    private static readonly HashSet<string> Accepted = new(StringComparer.Ordinal)
+    {
+        Cash, Card, BankTransfer, Cheque, CreditNote,
+    };
+
+    /// <summary>
+    /// Refuses any tender this build cannot actually settle. <c>ON_ACCOUNT</c> in particular: the
+    /// database accepts it, but with no customer account to charge (P5-T02) a payment row of that
+    /// type would record goods leaving the shop against a balance nobody owes.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A tender type is not one of the accepted ones.</exception>
+    public static void RequireAccepted(IEnumerable<string> tenderTypes)
+    {
+        ArgumentNullException.ThrowIfNull(tenderTypes);
+
+        foreach (var tenderType in tenderTypes)
+        {
+            if (!Accepted.Contains(tenderType))
+            {
+                throw new InvalidOperationException(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"'{tenderType}' is not a tender this till can take. Use cash, card, bank transfer, cheque or a credit note."));
+            }
+        }
+    }
 }

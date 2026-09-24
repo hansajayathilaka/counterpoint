@@ -189,11 +189,17 @@ public sealed class CreateReturnHandler : ICreateReturn
 
         var policyText = await BuildPolicyTextAsync(cancellationToken).ConfigureAwait(false);
 
+        // The return's own business date, never the original bill's. A return is a new document
+        // in the period it happens in (SRS FR-8.8: corrections go into the current period); filing
+        // it under the sale's date would land it in a day whose rollup was already closed and is
+        // never rebuilt, and would number it in the sale's year rather than its own.
+        var businessDate = DateOnly.FromDateTime(command.ReturnedAt.Date);
+
         return await _unitOfWork.ExecuteInTransactionAsync(
             async token =>
             {
                 var returnNo = await _numbers
-                    .AllocateAsync(ReturnDocumentType, sale.BusinessDate, token)
+                    .AllocateAsync(ReturnDocumentType, businessDate, token)
                     .ConfigureAwait(false);
 
                 var saleReturnId = await _returns.InsertSaleReturnAsync(
@@ -201,7 +207,7 @@ public sealed class CreateReturnHandler : ICreateReturn
                         returnNo,
                         sale.SaleId,
                         command.ReturnedAt,
-                        sale.BusinessDate,
+                        businessDate,
                         sale.CustomerId,
                         command.UserId,
                         command.ShiftId,
@@ -250,7 +256,7 @@ public sealed class CreateReturnHandler : ICreateReturn
                 // convention this establishes: the credit note number travels in
                 // payment.reference / TenderRequest.Reference, never anywhere else.
                 (long CreditNoteId, string Number, Money Amount)? creditNote = command.RefundMethod == RefundMethod.CreditNote
-                    ? await IssueCreditNoteAsync(sale.BusinessDate, saleReturnId, sale.CustomerId, priced.TotalRefund, command, token)
+                    ? await IssueCreditNoteAsync(businessDate, saleReturnId, sale.CustomerId, priced.TotalRefund, command, token)
                         .ConfigureAwait(false)
                     : null;
 

@@ -12,9 +12,12 @@ namespace Counterpoint.Application.Sales;
 /// is not saved yet.
 /// </remarks>
 /// <param name="Lines">The priced lines, in order.</param>
-/// <param name="Subtotal">Sum of the line totals, before <see cref="BillDiscount"/>.</param>
+/// <param name="Subtotal">
+/// Sum of the quoted line totals, before <see cref="BillDiscount"/> - the receipt's "Sub total".
+/// Gross of tax in a tax-inclusive shop (SRS FR-10.3), where <see cref="Tax"/> is already inside it.
+/// </param>
 /// <param name="BillDiscount">The whole-bill discount, if the cashier asked for one (SRS FR-3.17).</param>
-/// <param name="Tax">Tax on the bill.</param>
+/// <param name="Tax">Tax on the bill - added on top in an exclusive shop, contained in the prices in an inclusive one.</param>
 /// <param name="Total">What the customer will pay.</param>
 /// <param name="Warnings">
 /// Plain-language warnings about the bill as quoted - today, only a negative-stock warning

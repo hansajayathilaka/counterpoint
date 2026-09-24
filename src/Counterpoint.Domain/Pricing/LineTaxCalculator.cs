@@ -78,6 +78,20 @@ public static class LineTaxCalculator
 
         return new LinePricing(lineTotal, tax, reportedChargedTotal);
     }
+
+    /// <summary>
+    /// The tax on an amount already charged for a line - after its own line discount and its
+    /// share of any bill discount (<see cref="BillDiscountSplit"/>) - quantised to the storage
+    /// scale exactly as <see cref="Calculate"/> quantises it. Not a rounding point: the amount
+    /// passed in is already the rounded line total less an exact share.
+    /// </summary>
+    /// <param name="taxedAmount">What the customer pays for the line: gross of tax in an inclusive shop, net in an exclusive one.</param>
+    /// <param name="taxRate">The line's rate.</param>
+    /// <param name="pricesIncludeTax"><c>tax.prices_include_tax</c> (SRS FR-10.3).</param>
+    public static Money TaxOnCharged(Money taxedAmount, TaxRate taxRate, bool pricesIncludeTax) =>
+        Money.FromScaled((pricesIncludeTax
+            ? taxRate.TaxWithinGross(taxedAmount)
+            : taxRate.TaxOnNet(taxedAmount)).ToScaled());
 }
 
 /// <summary>One priced line's tax figures (SRS FR-10.3, task P1-T08 step 4).</summary>

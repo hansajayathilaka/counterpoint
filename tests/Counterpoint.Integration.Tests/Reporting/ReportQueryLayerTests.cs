@@ -336,10 +336,10 @@ public sealed class ReportQueryLayerTests
     }
 
     /// <summary>
-    /// A completed bill cancelled <em>after</em> its shift closed leaves a stale rollup row behind:
-    /// <c>CancelSaleHandler</c> only requires the cancellation to fall on the sale's own business
-    /// date, never that a shift is still open, and nothing rebuilds <c>daily_sales_summary</c> on
-    /// cancellation. The rollup for that date would keep counting the cancelled bill while the raw
+    /// A completed bill cancelled <em>after</em> its shift closed leaves a stale rollup row behind,
+    /// because nothing rebuilds <c>daily_sales_summary</c> on cancellation. <c>CancelSaleHandler</c>
+    /// now refuses that cancellation outright, but a database written before it did can still hold
+    /// such a row, so the report layer keeps defending against it. The rollup for that date would keep counting the cancelled bill while the raw
     /// tables do not, so the report layer reads a date holding any non-<c>COMPLETED</c> sale from raw.
     /// </summary>
     [Fact]
@@ -363,8 +363,7 @@ public sealed class ReportQueryLayerTests
 
         // Cancel the bill on its own business date with no shift open - the owner's end-of-day
         // correction: close the shift, then notice a wrong bill. The rollup row is now stale.
-        await fixture.Resolve<ICancelSale>().CancelAsync(
-            new CancelSaleCommand(sale.SaleId, "Rang the wrong item", DayOneCancelledAt));
+        await CancelAfterItsShiftClosedAsync(fixture, sale.SaleId, DayOneCancelledAt);
 
         (await fixture.CountAsync(
             "SELECT COUNT(*) FROM daily_sales_summary WHERE business_date = '2026-09-06';"))
@@ -408,7 +407,8 @@ public sealed class ReportQueryLayerTests
         var variantId = await SeedTaxedVariantAsync(fixture);
 
         // 2026-09-06: 2 @ 100.00 with a line discount of 20.00 and a bill discount of 20.00.
-        // subtotal 180.00 (net of the line discount), tax 18.00, total 178.00, cogs 120.00.
+        // subtotal 180.00 (net of the line discount); the bill discount comes off the tax base too,
+        // so tax is 10% of 160.00 = 16.00; total 176.00, cogs 120.00.
         // Close -> a rollup carrying both discount terms.
         var discounted = await CompleteAsync(
             fixture,
@@ -417,7 +417,7 @@ public sealed class ReportQueryLayerTests
             DayOneSoldAt,
             lineDiscount: DiscountInput.OfAmount(Money.FromDecimal(20.00m)),
             billDiscount: DiscountInput.OfAmount(Money.FromDecimal(20.00m)));
-        discounted.Total.Should().Be(Money.FromDecimal(178.00m), "the hand-worked figures below depend on it");
+        discounted.Total.Should().Be(Money.FromDecimal(176.00m), "the hand-worked figures below depend on it");
 
         await fixture.Resolve<ICloseShift>().CloseAsync(
             new CloseShiftCommand(fixture.Resolve<ISession>().ShiftId!.Value, user.Id, Money.Zero, DayOneClosedAt));
@@ -442,8 +442,7 @@ public sealed class ReportQueryLayerTests
             "SELECT COUNT(*) FROM daily_sales_summary WHERE business_date = '2026-09-10';"))
             .Should().Be(1, "the close rolled up both of the day's bills");
 
-        await fixture.Resolve<ICancelSale>().CancelAsync(
-            new CancelSaleCommand(misRing.SaleId, "Rang the wrong quantity", DayTwoCancelledAt));
+        await CancelAfterItsShiftClosedAsync(fixture, misRing.SaleId, DayTwoCancelledAt);
 
         var range = ReportDateRange.Custom(DayOne, DayTwo);
 
@@ -455,15 +454,15 @@ public sealed class ReportQueryLayerTests
             raw,
             "discounts and a cancelled bill must reconcile across the rollup/raw boundary");
 
-        // 2026-09-06 from its rollup: gross 200.00, discounts 40.00, tax 18.00, net 160.00, tender 178.00.
+        // 2026-09-06 from its rollup: gross 200.00, discounts 40.00, tax 16.00, net 160.00, tender 176.00.
         // 2026-09-10 from raw: the keeper only - gross 200.00, tax 20.00, net 200.00, tender 220.00.
         routed.BillCount.Should().Be(2, "the cancelled 2026-09-10 bill is not counted");
         routed.GrossSales.Should().Be(Money.FromDecimal(400.00m), "200.00 + 200.00, gross before any discount");
         routed.Discounts.Should().Be(Money.FromDecimal(40.00m), "20.00 line + 20.00 bill on 2026-09-06");
-        routed.Tax.Should().Be(Money.FromDecimal(38.00m));
+        routed.Tax.Should().Be(Money.FromDecimal(36.00m));
         routed.NetSales.Should().Be(Money.FromDecimal(360.00m), "160.00 + 200.00");
         routed.ReturnsValue.Should().Be(Money.Zero);
-        routed.TenderTotal.Should().Be(Money.FromDecimal(398.00m), "178.00 + 220.00");
+        routed.TenderTotal.Should().Be(Money.FromDecimal(396.00m), "176.00 + 220.00");
 
         var profit = fixture.Resolve<IProfitPeriodSummaryQuery>();
         var routedProfit = await profit.GetProfitSummaryAsync(range);
@@ -590,12 +589,28 @@ public sealed class ReportQueryLayerTests
     /// <c>XReportServiceTests</c> use, with round numbers so the hand-worked figures have no
     /// rounding step.
     /// </summary>
-    private static Task<long> SeedTaxedVariantAsync(SaleFixture fixture)
+    /// <summary>
+    /// Produces a bill cancelled after its shift closed - a state <c>CancelSaleHandler</c> now
+    /// refuses to create, so it is written here the only way it can still exist: the one
+    /// column-scoped update <c>trg_sale_restricted_update</c> permits, as an older build made it.
+    /// </summary>
+    private static Task CancelAfterItsShiftClosedAsync(SaleFixture fixture, long saleId, DateTimeOffset cancelledAt) =>
+        fixture.ExecuteAsync(
+            "UPDATE sale SET status = 'CANCELLED', cancelled_by = user_id, cancelled_at = '"
+            + cancelledAt.ToString(Iso8601TimestampConverter.Format, CultureInfo.InvariantCulture)
+            + "' WHERE id = " + saleId + ";");
+
+    private static async Task<long> SeedTaxedVariantAsync(SaleFixture fixture)
     {
         var unitOfWork = fixture.Resolve<SqliteUnitOfWork>();
         var ledger = fixture.Resolve<IStockLedger>();
 
-        return unitOfWork.ExecuteInTransactionAsync(async token =>
+        // Every figure this class hand-works adds tax on top of the price, so it pins the shop to
+        // exclusive pricing - the shipped default is inclusive (tax.prices_include_tax, FR-10.3),
+        // which PricingModeAndBillDiscountTests covers in its own right.
+        await PricedVariantSeeder.UsePricingModeAsync(fixture, pricesIncludeTax: false);
+
+        return await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
             using var context = unitOfWork.CreateDbContext();
 
