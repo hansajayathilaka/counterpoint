@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:Counterpoint.Ui.Views.Settings"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Settings.SettingsSectionContent"
+             x:Name="Root">
+
+  <!--
+    Task P3-T19 (SRS FR-10.1-10.9, UI-05, UI-11, UI-13, UI-16, NFR-S2, AC-24). Exactly the nine
+    groups SettingsWindow's old TabControl hosted, plus its own Save/Undo/status bar (moved here so
+    it stays visible whenever any one of the nine is showing, not per group) - only how a group is
+    chosen has moved, from TabControl.SelectedIndex to the nav rail's own
+    BackOfficeShellViewModel.SelectedSettingsSection, mirrored here 1:1 by SelectedSection. Every
+    binding below is "#Root."-qualified (an explicit ElementName reference to this control itself),
+    never the ambient DataContext, so setting each group's own DataContext to its sub-viewmodel on
+    the same element cannot shadow it - the same discipline CatalogueSectionContent (task P3-T18)
+    established.
+
+    Ctrl+S/Ctrl+R and the old Escape-closes-the-window keybindings do NOT live here: task P3-T19
+    re-scopes Save/Undo to BackOfficeShellViewModel.SaveSystemSectionCommand/RevertSystemSectionCommand,
+    bound at the window level (see BackOfficeShellWindow.axaml) so they fire only while a System
+    sub-item is selected, never leaking to whichever nav group happens to be showing; Escape's old
+    "close, asking first if there are unsaved changes" semantics are replaced entirely by the
+    navigate-away guard on BackOfficeShellViewModel itself (see its own remarks) - there is no
+    window left for Escape to close.
+  -->
+  <DockPanel Margin="12">
+
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="6">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="_Save (Ctrl+S)" Command="{Binding #Root.Settings.SaveCommand}" IsEnabled="{Binding !#Root.Settings.Busy}" />
+        <Button Content="_Undo my changes" Command="{Binding #Root.Settings.RevertCommand}" IsEnabled="{Binding !#Root.Settings.Busy}" />
+        <TextBlock VerticalAlignment="Center"
+                   IsVisible="{Binding #Root.Settings.HasUnsavedChanges}"
+                   Text="Not saved yet" />
+      </StackPanel>
+      <TextBlock TextWrapping="Wrap" Text="{Binding #Root.Settings.Status}" />
+    </StackPanel>
+
+    <Grid>
+      <views:ShopProfileSettingsView DataContext="{Binding #Root.Settings.Shop}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Shop profile'}" />
+      <views:FinancialSettingsView DataContext="{Binding #Root.Settings.Financial}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Financial}" />
+      <views:TaxSettingsView DataContext="{Binding #Root.Settings.Tax}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Tax}" />
+      <views:NumberingSettingsView DataContext="{Binding #Root.Settings.Numbering}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Numbering}" />
+      <views:PolicySettingsView DataContext="{Binding #Root.Settings.Policy}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Policy}" />
+      <views:PeripheralSettingsView DataContext="{Binding #Root.Settings.Peripherals}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Peripherals}" />
+      <views:BackupSettingsView DataContext="{Binding #Root.Settings.Backup}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Backup}" />
+      <views:ReceiptSettingsView DataContext="{Binding #Root.Settings.Receipt}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Receipt}" />
+      <views:DisplaySettingsView DataContext="{Binding #Root.Settings.Display}"
+          IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Display}" />
+    </Grid>
+
+  </DockPanel>
+
+</UserControl>

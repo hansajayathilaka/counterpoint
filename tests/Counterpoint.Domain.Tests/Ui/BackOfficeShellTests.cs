@@ -7,14 +7,15 @@ using FluentAssertions;
 namespace Counterpoint.Domain.Tests.Ui;
 
 /// <summary>
-/// Task P3-T13's file-level proofs (SRS UI-11, NFR-S2, AC-17, AC-24), extended by task P3-T18: the
-/// flat back-office button row is gone from <c>SalesWindow.axaml</c>, replaced by one entry point;
-/// <c>BackOfficeShellWindow.axaml</c> is visually distinct from it - its own status bar, its own
-/// accent, drawn from the P3-T10 tokens rather than a raw hex literal; and the shell's own flat
-/// five-tile grid is gone too, replaced by <c>NavRail.axaml</c>'s persistent grouped rail, with
-/// Catalogue folded into the content pane instead of opening a window - the same file-inspection
-/// style <c>NoRawHexColourLiteralsTests</c> and <c>EditDialogFrameworkTests</c> already use to
-/// prove a screen without opening a window (a window cannot be opened in CI).
+/// Task P3-T13's file-level proofs (SRS UI-11, NFR-S2, AC-17, AC-24), extended by task P3-T18 and
+/// task P3-T19: the flat back-office button row is gone from <c>SalesWindow.axaml</c>, replaced by
+/// one entry point; <c>BackOfficeShellWindow.axaml</c> is visually distinct from it - its own
+/// status bar, its own accent, drawn from the P3-T10 tokens rather than a raw hex literal; and the
+/// shell's own flat five-tile grid is gone too, replaced by <c>NavRail.axaml</c>'s persistent
+/// grouped rail, with Catalogue (task P3-T18) and System/Settings (task P3-T19) both folded into
+/// the content pane instead of opening a window - the same file-inspection style
+/// <c>NoRawHexColourLiteralsTests</c> and <c>EditDialogFrameworkTests</c> already use to prove a
+/// screen without opening a window (a window cannot be opened in CI).
 /// </summary>
 public sealed class BackOfficeShellTests
 {
@@ -63,6 +64,11 @@ public sealed class BackOfficeShellTests
         markup.Should().Contain("<views:NavRail");
         markup.Should().Contain("<catalogue:CatalogueSectionContent");
         markup.Should().Contain("SelectedSection=\"{Binding SelectedCatalogueSection}\"");
+
+        // Task P3-T19: System/Settings folded straight into this window's own content pane too,
+        // the same way Catalogue was - SettingsWindow no longer exists to open separately.
+        markup.Should().Contain("<settings:SettingsSectionContent");
+        markup.Should().Contain("SelectedSection=\"{Binding SelectedSettingsSection}\"");
     }
 
     [Fact]
@@ -79,14 +85,29 @@ public sealed class BackOfficeShellTests
     }
 
     [Fact]
+    public void UI_19_BackOfficeShellWindowNoLongerOpensSettingsAsASeparateWindow()
+    {
+        var markup = ReadUiFile("Views", "BackOfficeShellWindow.axaml");
+
+        // Settings' navigation model changed by task P3-T19: no more OpenSettingsCommand
+        // (retired - it used to raise SettingsRequested, which App.axaml.cs used to open
+        // SettingsWindow with). The nav rail's own System buttons bind SelectedSettingsSection
+        // instead (asserted by the accent/status-bar test above).
+        markup.Should().NotContain("OpenSettingsCommand");
+        markup.Should().NotContain("SettingsRequested");
+    }
+
+    [Fact]
     public void UI_18_NavRailHoldsTheFiveDestinationsGatedByTheSameCanFlagsAsBefore()
     {
         var markup = ReadUiFile("Views", "NavRail.axaml");
 
         // The five destinations the old flat tile grid gated - the same Can* flag each, per this
-        // task's own risk mitigation (task P3-T18's "Do this" #4, "Done when" #1).
+        // task's own risk mitigation (task P3-T18's "Do this" #4, "Done when" #1). Settings'
+        // own entry point changed shape again under task P3-T19 (OpenSettingsCommand retired,
+        // replaced by SelectSettingsSectionCommand - see UI_19_NavRailHoldsTheNineSystemSubItems
+        // below), but the same CanChangeSettings flag still gates the whole System group.
         markup.Should().Contain("IsVisible=\"{Binding CanManageCatalogue}\"");
-        markup.Should().Contain("Command=\"{Binding OpenSettingsCommand}\"");
         markup.Should().Contain("IsVisible=\"{Binding CanChangeSettings}\"");
         markup.Should().Contain("Command=\"{Binding ManageUsersCommand}\"");
         markup.Should().Contain("IsVisible=\"{Binding CanManageUsers}\"");
@@ -103,6 +124,27 @@ public sealed class BackOfficeShellTests
         // Drawn from the P3-T17 rail sub-palette, not a second theme system.
         markup.Should().Contain("{DynamicResource RailBackgroundBrush}");
         markup.Should().Contain("{DynamicResource RailTextBrush}");
+    }
+
+    [Fact]
+    public void UI_19_NavRailHoldsTheNineSystemSubItems()
+    {
+        var markup = ReadUiFile("Views", "NavRail.axaml");
+
+        // The nine settings groups SettingsWindow's old TabControl hosted, each wired through
+        // SelectSettingsSectionCommand/CommandParameter (task P3-T19's own replacement for the
+        // single OpenSettingsCommand button P3-T13/P3-T18 left behind).
+        markup.Should().NotContain("OpenSettingsCommand");
+        markup.Should().Contain("Command=\"{Binding SelectSettingsSectionCommand}\"");
+        markup.Should().Contain("CommandParameter=\"Shop profile\"");
+        markup.Should().Contain("CommandParameter=\"Financial\"");
+        markup.Should().Contain("CommandParameter=\"Tax\"");
+        markup.Should().Contain("CommandParameter=\"Numbering\"");
+        markup.Should().Contain("CommandParameter=\"Policy\"");
+        markup.Should().Contain("CommandParameter=\"Peripherals\"");
+        markup.Should().Contain("CommandParameter=\"Backup\"");
+        markup.Should().Contain("CommandParameter=\"Receipt\"");
+        markup.Should().Contain("CommandParameter=\"Display\"");
     }
 
     [Fact]

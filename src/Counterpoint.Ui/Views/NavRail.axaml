@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Counterpoint.Ui.ViewModels"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="220" d:DesignHeight="640"
@@ -9,19 +10,23 @@
              Width="220">
 
   <!--
-    Task P3-T18 (SRS UI-11, UI-16, NFR-S2, AC-24). Replaces BackOfficeShellWindow's old flat
-    UniformGrid of five tiles with a persistent, grouped rail, drawn from the P3-T17 rail
-    sub-palette (RailBackgroundBrush et al.) - never a raw hex literal. Every group below is
-    gated by exactly the Can* flag the equivalent tile used before this task (see
-    BackOfficeShellViewModel's own remarks for the full mapping).
+    Task P3-T18 (SRS UI-11, UI-16, NFR-S2, AC-24), extended by task P3-T19. Replaces
+    BackOfficeShellWindow's old flat UniformGrid of five tiles with a persistent, grouped rail,
+    drawn from the P3-T17 rail sub-palette (RailBackgroundBrush et al.) - never a raw hex literal.
+    Every group below is gated by exactly the Can* flag the equivalent tile used before task
+    P3-T18 (see BackOfficeShellViewModel's own remarks for the full mapping).
 
-    Keyboard-first (UI-01, task P3-T18's own named risk): Trading/People/System stay plain
-    Buttons, exactly as keyboard-operable via Tab+Enter/Space as the tile buttons they replace
-    always were. Catalogue's eight destinations are a ListBox instead of the eight Buttons a
-    literal per-tile replacement would have used, because a ListBox's native Up/Down-arrow
-    selection is what actually replicates the TabControl keyboard behaviour CatalogueWindow's
-    TabControl used to provide (arrowing between tabs swaps content immediately) - a row of plain
-    Buttons would only have offered Tab, one keystroke per item, never an equivalent to that.
+    Keyboard-first (UI-01, task P3-T18's own named risk): Trading/People stay plain Buttons, and
+    System's own nine sub-items (since task P3-T19) are ToggleButtons - both exactly as
+    keyboard-operable via Tab+Enter/Space as the tile buttons they replace always were. Catalogue's
+    eight destinations are a ListBox instead - the only group that is - because a ListBox's native
+    Up/Down-arrow
+    selection is what actually replicates the TabControl keyboard behaviour CatalogueWindow's own
+    TabControl used to provide (arrowing between tabs swaps content immediately); System's nine
+    stay plain ToggleButtons rather than a second ListBox deliberately, so this rail keeps exactly
+    one ListBox (NavRailKeyboardNavigationTests' own `.Single()` lookup) and System's own keyboard
+    reach (Tab+Enter/Space) matches what Trading/People already offered before this task, with no
+    regression either way.
   -->
   <Border Background="{DynamicResource RailBackgroundBrush}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -33,7 +38,7 @@
                      Foreground="{DynamicResource RailMutedTextBrush}" />
           <ToggleButton Content="Overview"
                         Command="{Binding SelectOverviewCommand}"
-                        IsChecked="{Binding !IsCatalogueSectionActive}"
+                        IsChecked="{Binding IsOverviewActive}"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         Padding="16,10" Background="Transparent" BorderThickness="0"
                         Foreground="{DynamicResource RailTextBrush}" />
@@ -78,17 +83,61 @@
         </StackPanel>
 
         <!--
-          System: today, only Settings - unchanged from task P3-T13, still opening SettingsWindow
-          outright. Folding Settings' own nine sub-groups into the rail's content pane is P3-T19,
-          not this task; SettingsWindow itself is untouched.
+          System: the nine settings groups SettingsWindow's old TabControl hosted, folded straight
+          into the content pane by task P3-T19 (SRS FR-10.1-10.9, UI-13) - SettingsWindow itself is
+          retired. Each button sets BackOfficeShellViewModel.SelectedSettingsSection through
+          SelectSettingsSectionCommand/CommandParameter; the navigate-AWAY-from-System guard lives
+          entirely on the viewmodel (see its own remarks), not here - nothing below needs to know
+          about it.
         -->
         <StackPanel Spacing="4" IsVisible="{Binding CanChangeSettings}">
           <TextBlock Text="SYSTEM" Margin="16,0" FontSize="11" FontWeight="Bold"
                      Foreground="{DynamicResource RailMutedTextBrush}" />
-          <Button Content="Settings" Command="{Binding OpenSettingsCommand}"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                  Padding="16,10" Background="Transparent" BorderThickness="0"
-                  Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Shop profile" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Shop profile"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Shop profile'}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Financial" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Financial"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Financial}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Tax" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Tax"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Tax}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Numbering" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Numbering"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Numbering}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Policy" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Policy"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Policy}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Peripherals" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Peripherals"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Peripherals}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Backup" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Backup"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Backup}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Receipt" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Receipt"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Receipt}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Display" Command="{Binding SelectSettingsSectionCommand}" CommandParameter="Display"
+                        IsChecked="{Binding SelectedSettingsSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Display}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
         </StackPanel>
 
       </StackPanel>
