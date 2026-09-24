@@ -30,11 +30,10 @@ public static class MovingAverageCost
     /// <param name="inQtyBase">What just arrived. Must be positive - this is the inbound case.</param>
     /// <param name="inUnitCost">What it cost, per base unit.</param>
     /// <returns>
-    /// The new moving-average cost. Guarded against division by zero and a non-positive resulting
-    /// quantity (P1-T07): when <c>oldQty + inQty</c> is not positive - a shop trading deep enough
-    /// into negative stock (Q-11 allows it) that one receipt does not bring it back above zero -
-    /// there is no meaningful weighted average of a non-positive prior balance, so the average
-    /// simply becomes the cost of what just arrived.
+    /// The new moving-average cost. When <paramref name="oldQtyBase"/> is zero or negative - a shop
+    /// trading into negative stock, which Q-11 allows - there is no meaningful weighted average of
+    /// a non-positive prior balance, so the average simply becomes the cost of what just arrived,
+    /// whether or not this receipt brings the shelf back above zero.
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="inQtyBase"/> is not positive.</exception>
     public static Money Recompute(Quantity oldQtyBase, Money oldAvgCost, Quantity inQtyBase, Money inUnitCost)
@@ -48,13 +47,17 @@ public static class MovingAverageCost
                 + "An outbound movement snapshots the cost already on the shelf instead.");
         }
 
-        var totalQty = oldQtyBase.Value + inQtyBase.Value;
-
-        if (totalQty <= 0m)
+        // Nothing (or less than nothing) on the shelf before this receipt: there is no prior
+        // stock for the new cost to average against. The negative units were already sold, and
+        // costed, at the old average when they went out - weighting them in again here would
+        // pull the new average away from the only real cost on the shelf (-5 @ 10 then +10 @ 20
+        // would read 30, and -5 @ 30 then +6 @ 10 would read -90).
+        if (!oldQtyBase.IsPositive)
         {
             return inUnitCost;
         }
 
+        var totalQty = oldQtyBase.Value + inQtyBase.Value;
         var totalCost = (oldAvgCost * oldQtyBase.Value) + (inUnitCost * inQtyBase.Value);
         return totalCost / totalQty;
     }
