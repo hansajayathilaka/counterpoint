@@ -41,6 +41,16 @@ internal sealed class AvaloniaDialogService : IDialogService
         return ShowAsync(viewModel, cancellationToken);
     }
 
+    public Task<DialogOutcome> ShowConfirmationAsync(
+        string headerText,
+        string message,
+        string confirmButtonText,
+        CancellationToken cancellationToken = default)
+    {
+        var viewModel = EditDialogWindowViewModel.ForConfirmation(headerText, message, confirmButtonText);
+        return ShowAsync(viewModel, cancellationToken);
+    }
+
     /// <summary>
     /// Shows <paramref name="viewModel"/> in an <see cref="EditDialogWindow"/>, modal only to
     /// whichever window is currently active in this application's one desktop lifetime - never to

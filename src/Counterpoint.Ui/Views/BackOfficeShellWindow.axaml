@@ -4,6 +4,7 @@
         xmlns:views="using:Counterpoint.Ui.Views"
         xmlns:catalogue="using:Counterpoint.Ui.Views.Catalogue"
         xmlns:dashboard="using:Counterpoint.Ui.Views.Dashboard"
+        xmlns:settings="using:Counterpoint.Ui.Views.Settings"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
@@ -16,16 +17,32 @@
         Title="Counterpoint - Back office">
 
   <!--
-    Task P3-T18 (SRS UI-11, UI-16, NFR-S2, AC-24), continuing task P3-T13. A persistent left
-    NavRail (task P3-T18) plus a right content pane that swaps in place, replacing the old flat
-    UniformGrid of five tiles. Catalogue is folded straight into this content pane rather than
-    opening CatalogueWindow (retired by this task); Trading, People and System still open their
-    own windows outright, exactly as before (P3-T13's own tile behaviour, unchanged). Same
-    process, same IHost, same database, same ISession as the sales screen - only the window and
-    what it shows differ (see BackOfficeShellViewModel's remarks). Every nav item is a courtesy:
-    the screen or section it leads to re-checks the session's role at the Application layer
-    regardless of whether this window ever rendered it.
+    Task P3-T18 (SRS UI-11, UI-16, NFR-S2, AC-24), continuing task P3-T13, extended by task P3-T19.
+    A persistent left NavRail (task P3-T18) plus a right content pane that swaps in place,
+    replacing the old flat UniformGrid of five tiles. Catalogue (task P3-T18) and System/Settings
+    (task P3-T19) are both folded straight into this content pane rather than opening a separate
+    window (CatalogueWindow/SettingsWindow, both retired); Trading and People still open their own
+    windows outright, exactly as before (P3-T13's own tile behaviour, unchanged). Same process,
+    same IHost, same database, same ISession as the sales screen - only the window and what it
+    shows differ (see BackOfficeShellViewModel's remarks). Every nav item is a courtesy: the
+    screen or section it leads to re-checks the session's role at the Application layer regardless
+    of whether this window ever rendered it.
+
+    Task P3-T19's own re-scoped Ctrl+S/Ctrl+R (SRS UI-01): window-level, like SettingsWindow's own
+    used to be, but routed through BackOfficeShellViewModel.SaveSystemSectionCommand/
+    RevertSystemSectionCommand rather than straight at SettingsViewModel.SaveCommand/RevertCommand
+    directly - each one is a no-op whenever a System sub-item is not the active nav selection, so
+    the shortcut cannot leak into whichever other nav group (Catalogue, Overview) happens to be
+    showing. There is no Escape KeyBinding here: SettingsWindow's old "Escape closes, asking first
+    if there are unsaved changes" is replaced entirely by the navigate-away guard on
+    BackOfficeShellViewModel itself (see its own remarks) - there is no window left for Escape to
+    close.
   -->
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveSystemSectionCommand}" />
+    <KeyBinding Gesture="Ctrl+R" Command="{Binding RevertSystemSectionCommand}" />
+  </Window.KeyBindings>
+
   <DockPanel>
 
     <!-- The distinct colour accent UI-11 asks for - drawn from the same P3-T10 tokens the sales
@@ -50,13 +67,15 @@
 
         <!--
           Overview (task P3-T20, SRS FR-9.7, UI-16): the real dashboard content, replacing task
-          P3-T18's placeholder. Quick actions stay here, against this shell's own viewmodel,
-          rather than inside DashboardView - "New sale"/"Open shift" are shell-level navigation
-          (ReturnToSalesCommand, App.axaml.cs's ShowBackOffice closes this window on the event),
-          not figures DashboardViewModel owns; "Refresh" is the one action that is, and binds
-          straight to Dashboard.LoadCommand.
+          P3-T18's placeholder. Gated on IsOverviewActive (task P3-T19's three-way flag - neither
+          Catalogue nor System active), not just !IsCatalogueSectionActive, so the dashboard does
+          not show through behind the System section below. Quick actions stay here, against this
+          shell's own viewmodel, rather than inside DashboardView - "New sale"/"Open shift" are
+          shell-level navigation (ReturnToSalesCommand, App.axaml.cs's ShowBackOffice closes this
+          window on the event), not figures DashboardViewModel owns; "Refresh" is the one action
+          that is, and binds straight to Dashboard.LoadCommand.
         -->
-        <DockPanel IsVisible="{Binding !IsCatalogueSectionActive}">
+        <DockPanel IsVisible="{Binding IsOverviewActive}">
           <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
             <TextBlock Grid.Column="0" Text="Overview" FontSize="24" FontWeight="Bold"
                        Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center" />
@@ -70,11 +89,17 @@
           <dashboard:DashboardView DataContext="{Binding Dashboard}" />
         </DockPanel>
 
-        <!-- Catalogue: folded into the content pane by this task (SRS FR-2.20, FR-2.21, FR-6). -->
+        <!-- Catalogue: folded into the content pane by task P3-T18 (SRS FR-2.20, FR-2.21, FR-6). -->
         <catalogue:CatalogueSectionContent
             Catalogue="{Binding Catalogue}"
             SelectedSection="{Binding SelectedCatalogueSection}"
             IsVisible="{Binding IsCatalogueSectionActive}" />
+
+        <!-- System/Settings: folded into the content pane by this task (SRS FR-10.1-10.9, UI-13). -->
+        <settings:SettingsSectionContent
+            Settings="{Binding Settings}"
+            SelectedSection="{Binding SelectedSettingsSection}"
+            IsVisible="{Binding IsSettingsSectionActive}" />
 
       </Grid>
 

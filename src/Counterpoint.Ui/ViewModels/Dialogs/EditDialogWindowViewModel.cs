@@ -58,19 +58,25 @@ public sealed partial class EditDialogWindowViewModel : ViewModelBase
     public string CancelButtonText { get; }
 
     /// <summary>
-    /// The record-naming sentence a delete confirmation shows (SRS UI-05); <see langword="null"/>
-    /// for a create/edit dialog, which shows <see cref="Content"/> instead.
+    /// The plain sentence a delete confirmation or a generic <see cref="ForConfirmation"/> dialog
+    /// shows (SRS UI-05); <see langword="null"/> for a create/edit dialog, which shows
+    /// <see cref="Content"/> instead.
     /// </summary>
     public string? Message { get; }
 
     /// <summary>
     /// The caller's own content viewmodel for a create/edit dialog, resolved to a view through the
-    /// application's existing <see cref="ViewLocator"/>; <see langword="null"/> for a delete
-    /// confirmation, which shows <see cref="Message"/> instead.
+    /// application's existing <see cref="ViewLocator"/>; <see langword="null"/> for a delete or
+    /// generic confirmation, which shows <see cref="Message"/> instead.
     /// </summary>
     public object? Content { get; }
 
-    /// <summary>True for a delete confirmation - the footer/body renders <see cref="Message"/> rather than <see cref="Content"/>.</summary>
+    /// <summary>
+    /// True for a delete confirmation or a generic <see cref="ForConfirmation"/> dialog - the
+    /// footer/body renders <see cref="Message"/> rather than <see cref="Content"/>. The name
+    /// predates task P3-T19's generic confirmation and is kept unchanged (every existing binding
+    /// and test already reads it) rather than renamed for a cosmetic-only reason.
+    /// </summary>
     public bool IsDeleteConfirmation => Message is not null;
 
     /// <summary>
@@ -120,6 +126,29 @@ public sealed partial class EditDialogWindowViewModel : ViewModelBase
         return new EditDialogWindowViewModel(
             headerText: "Delete " + entityName,
             primaryButtonText: "_Delete",
+            cancelButtonText: "_Cancel",
+            message: message,
+            content: null,
+            primaryAction: static _ => Task.FromResult(true));
+    }
+
+    /// <summary>
+    /// A generic Confirm/Cancel dialog reusing the same shell (task P3-T19, SRS UI-05): footer is
+    /// <paramref name="confirmButtonText"/>/Cancel, and the body names what confirming will do -
+    /// the same "name it before anything happens" shape <see cref="ForDelete"/> already uses,
+    /// generalised past deletion (the back-office shell's navigate-away-from-System guard names a
+    /// discarded settings edit, not a deleted record).
+    /// </summary>
+    public static EditDialogWindowViewModel ForConfirmation(
+        string headerText, string message, string confirmButtonText)
+    {
+        ArgumentNullException.ThrowIfNull(headerText);
+        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(confirmButtonText);
+
+        return new EditDialogWindowViewModel(
+            headerText,
+            primaryButtonText: confirmButtonText,
             cancelButtonText: "_Cancel",
             message: message,
             content: null,

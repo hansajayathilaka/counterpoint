@@ -348,5 +348,14 @@ public sealed partial class UserAdminViewModel : ViewModelBase
             throw new InvalidOperationException(
                 "UserAdminViewModel was constructed without an IDialogService and a delete "
                 + "confirmation was invoked. Resolve this screen through dependency injection.");
+
+        public Task<DialogOutcome> ShowConfirmationAsync(
+            string headerText,
+            string message,
+            string confirmButtonText,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException(
+                "UserAdminViewModel was constructed without an IDialogService and a confirmation "
+                + "was invoked. Resolve this screen through dependency injection.");
     }
 }
