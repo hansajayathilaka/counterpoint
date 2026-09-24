@@ -233,6 +233,12 @@ public partial class App : Avalonia.Application
         _backOfficeShellViewModel.LabelPrintRequested -= OnLabelPrintRequested;
         _backOfficeShellViewModel.LabelPrintRequested += OnLabelPrintRequested;
 
+        // Task P3-T20: the Overview's "New sale" and "Open shift" quick actions both just want
+        // this window gone, so SalesWindow (already sitting behind it as owner) is back in front
+        // with its own F2/"Open shift" already there to press.
+        _backOfficeShellViewModel.ReturnToSalesRequested -= OnReturnToSalesRequested;
+        _backOfficeShellViewModel.ReturnToSalesRequested += OnReturnToSalesRequested;
+
         // Task P3-T19: Settings no longer opens its own window (SettingsWindow is retired), so
         // there is no longer a SettingsRequested event to relay here - only the restore wizard
         // RestoreWizardCommand still opens beneath, wired directly to the same SettingsViewModel
@@ -255,11 +261,19 @@ public partial class App : Avalonia.Application
         // needed here the way the singleton VM's own events need it above.
         window.Closed += (_, _) => _backOfficeShellViewModel.ResetNavigation();
 
+        // Task P3-T20: Overview is the section the shell opens on, so its dashboard is loaded
+        // unconditionally on every open - the same "refresh on open" ShowUsers/ShowPurchaseOrders/
+        // ShowPrintQueue already do for their own screens below, not something
+        // OnSelectedCatalogueSectionChanged's re-entry check would otherwise catch when the shell
+        // was already showing Overview the last time it closed.
+        _backOfficeShellViewModel.Dashboard?.LoadCommand.Execute(null);
+
         window.Show(owner);
 
         void OnManageUsersRequested(object? sender, EventArgs e) => ShowUsers(window);
         void OnPurchaseOrdersRequested(object? sender, EventArgs e) => ShowPurchaseOrders(window);
         void OnLabelPrintRequested(object? sender, EventArgs e) => ShowLabelPrint(window);
+        void OnReturnToSalesRequested(object? sender, EventArgs e) => window.Close();
         void OnRestoreWizardRequested(object? sender, EventArgs e) => ShowRestoreWizard(window);
     }
 

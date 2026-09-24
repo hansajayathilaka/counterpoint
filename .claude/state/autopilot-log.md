@@ -418,3 +418,7 @@ it stopped.
 - `2026-09-24T11:33:03Z` **P3-T19** start — Back-office shell: System group folds Settings' 9 sub-groups into the rail
 - `2026-09-24T11:59:13Z` **P3-T19** note — task-implementer marked done prematurely without test-engineer/code-reviewer passes; reverted to in-progress by orchestrator
 - `2026-09-24T12:26:51Z` **P3-T19** done — 2 files, 12 new guard tests + bug fix, review clean (0 must-fix), PR #51
+- `2026-09-24T12:27:52Z` **P3-T20** start — Dashboard landing content (Overview)
+- `2026-09-24T13:35:27Z` **P3-T20** done — 7 files (feat) + 3 files (test), 14 new tests, review clean (0 must-fix/should-fix), PR #52
+
+**Run ended 2026-09-24T13:35:43Z** — 2 completed, 0 halted

@@ -3,6 +3,7 @@
         xmlns:vm="using:Counterpoint.Ui.ViewModels"
         xmlns:views="using:Counterpoint.Ui.Views"
         xmlns:catalogue="using:Counterpoint.Ui.Views.Catalogue"
+        xmlns:dashboard="using:Counterpoint.Ui.Views.Dashboard"
         xmlns:settings="using:Counterpoint.Ui.Views.Settings"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -64,13 +65,29 @@
 
       <Grid Grid.Column="1" Margin="28">
 
-        <!-- Overview: a placeholder pending P3-T20's real dashboard content (SRS UI-16). -->
-        <StackPanel Spacing="8" IsVisible="{Binding IsOverviewActive}">
-          <TextBlock Text="Overview" FontSize="24" FontWeight="Bold"
-                     Foreground="{DynamicResource PrimaryTextBrush}" />
-          <TextBlock Text="The back-office dashboard lands here in a later task (P3-T20)."
-                     Foreground="{DynamicResource SecondaryTextBrush}" />
-        </StackPanel>
+        <!--
+          Overview (task P3-T20, SRS FR-9.7, UI-16): the real dashboard content, replacing task
+          P3-T18's placeholder. Gated on IsOverviewActive (task P3-T19's three-way flag - neither
+          Catalogue nor System active), not just !IsCatalogueSectionActive, so the dashboard does
+          not show through behind the System section below. Quick actions stay here, against this
+          shell's own viewmodel, rather than inside DashboardView - "New sale"/"Open shift" are
+          shell-level navigation (ReturnToSalesCommand, App.axaml.cs's ShowBackOffice closes this
+          window on the event), not figures DashboardViewModel owns; "Refresh" is the one action
+          that is, and binds straight to Dashboard.LoadCommand.
+        -->
+        <DockPanel IsVisible="{Binding IsOverviewActive}">
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+            <TextBlock Grid.Column="0" Text="Overview" FontSize="24" FontWeight="Bold"
+                       Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+              <Button Content="Open shift" Command="{Binding ReturnToSalesCommand}"
+                      IsVisible="{Binding CanOpenShift}" />
+              <Button Content="New sale" Command="{Binding ReturnToSalesCommand}" />
+              <Button Content="Refresh" Command="{Binding Dashboard.LoadCommand}" />
+            </StackPanel>
+          </Grid>
+          <dashboard:DashboardView DataContext="{Binding Dashboard}" />
+        </DockPanel>
 
         <!-- Catalogue: folded into the content pane by task P3-T18 (SRS FR-2.20, FR-2.21, FR-6). -->
         <catalogue:CatalogueSectionContent

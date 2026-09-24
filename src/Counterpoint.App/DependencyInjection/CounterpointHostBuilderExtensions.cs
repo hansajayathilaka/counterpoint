@@ -30,6 +30,7 @@ using Counterpoint.Reporting.DependencyInjection;
 using Counterpoint.Ui.Services;
 using Counterpoint.Ui.ViewModels;
 using Counterpoint.Ui.ViewModels.Catalogue;
+using Counterpoint.Ui.ViewModels.Dashboard;
 using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Labels;
 using Counterpoint.Ui.ViewModels.Purchasing;
@@ -222,6 +223,12 @@ internal static class CounterpointHostBuilderExtensions
         builder.Services.AddSingleton<LoginViewModel>();
         builder.Services.AddSingleton<SalesViewModel>();
 
+        // Task P3-T20: the Overview nav item's own viewmodel (SRS FR-9.7, UI-16) - a thin
+        // pass-through of the three existing queries below (IDashboardQueries, IReorderListQuery,
+        // IRecentSalesQuery, all already registered elsewhere in this method), attached to the
+        // shell the same way CatalogueViewModel is, immediately below.
+        builder.Services.AddSingleton<DashboardViewModel>();
+
         // P3-T13: the back office's own navigation shell (SRS UI-11, NFR-S2, AC-17, AC-24) -
         // the same single ISession singleton the sales screen reads, not a second session or a
         // second connection of any kind (see BackOfficeShellViewModel's own remarks). A factory,
@@ -229,13 +236,15 @@ internal static class CounterpointHostBuilderExtensions
         // singleton (registered further below) and task P3-T19 can attach the one SettingsViewModel
         // singleton plus the shared IDialogService, once, right after all resolve - the composition
         // root's own job, not something BackOfficeShellViewModel's constructor needs to know
-        // about (see AttachCatalogue's/AttachSettings' own remarks for why that stays out of the
-        // constructor).
+        // about (see AttachCatalogue's/AttachSettings'/AttachDashboard's own remarks for why that
+        // stays out of the constructor). Task P3-T20 attaches the one DashboardViewModel singleton
+        // the same way.
         builder.Services.AddSingleton(p =>
         {
             var shell = new BackOfficeShellViewModel(p.GetRequiredService<ISession>());
             shell.AttachCatalogue(p.GetRequiredService<CatalogueViewModel>());
             shell.AttachSettings(p.GetRequiredService<SettingsViewModel>(), p.GetRequiredService<IDialogService>());
+            shell.AttachDashboard(p.GetRequiredService<DashboardViewModel>());
             return shell;
         });
 
