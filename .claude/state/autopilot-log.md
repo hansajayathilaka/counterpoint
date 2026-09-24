@@ -416,3 +416,4 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-24T11:33:03Z` **P3-T19** start — Back-office shell: System group folds Settings' 9 sub-groups into the rail
+- `2026-09-24T11:59:13Z` **P3-T19** note — task-implementer marked done prematurely without test-engineer/code-reviewer passes; reverted to in-progress by orchestrator
