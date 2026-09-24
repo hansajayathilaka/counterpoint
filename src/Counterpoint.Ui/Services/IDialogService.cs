@@ -81,4 +81,27 @@ public interface IDialogService
         string entityName,
         string subjectDescription,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Shows the same shell as a generic Confirm/Cancel dialog naming, in plain language, what a
+    /// caller-supplied action will do before it happens (SRS UI-05) - task P3-T19's own use is the
+    /// back-office shell's navigate-away-from-System-with-unsaved-settings-changes guard, which
+    /// names what will be discarded the same way <see cref="ShowDeleteConfirmationAsync"/> already
+    /// names what will be deleted. Not specific to deletion or to settings - any caller needing a
+    /// plain confirm-before-acting dialog uses this rather than inventing a new one.
+    /// </summary>
+    /// <param name="headerText">The dialog's own header, e.g. <c>"Discard unsaved settings changes?"</c>.</param>
+    /// <param name="message">The plain sentence naming what will happen if confirmed.</param>
+    /// <param name="confirmButtonText">
+    /// The primary button's own label, e.g. <c>"_Discard and leave"</c> - never a bare "OK", so the
+    /// operator always reads what pressing it does.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// Requesting cancellation closes the dialog as though Cancel had been pressed.
+    /// </param>
+    public Task<DialogOutcome> ShowConfirmationAsync(
+        string headerText,
+        string message,
+        string confirmButtonText,
+        CancellationToken cancellationToken = default);
 }

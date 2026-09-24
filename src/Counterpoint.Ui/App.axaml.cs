@@ -205,11 +205,12 @@ public partial class App : Avalonia.Application
     }
 
     /// <summary>
-    /// Opens the back office (tasks P3-T13/P3-T18, SRS UI-11, UI-16): its own window, its own
-    /// status bar, its own accent, its persistent nav rail navigating to Catalogue (folded straight
-    /// into this window's own content pane - see <c>NavRail</c>/<c>CatalogueSectionContent</c>),
-    /// Settings, Users, Purchasing and Labels (still their own windows, unchanged) - the same
-    /// single process, single <c>IHost</c>, single database this whole application is (see
+    /// Opens the back office (tasks P3-T13/P3-T18/P3-T19, SRS UI-11, UI-13, UI-16): its own
+    /// window, its own status bar, its own accent, its persistent nav rail navigating to Catalogue
+    /// and System/Settings (both folded straight into this window's own content pane - see
+    /// <c>NavRail</c>/<c>CatalogueSectionContent</c>/<c>SettingsSectionContent</c>), Users,
+    /// Purchasing and Labels (still their own windows, unchanged) - the same single process,
+    /// single <c>IHost</c>, single database this whole application is (see
     /// <c>BackOfficeShellViewModel</c>'s remarks). Non-modal, like every other screen this class
     /// opens: a back-office window never blocks <c>SalesWindow</c>.
     /// </summary>
@@ -231,24 +232,35 @@ public partial class App : Avalonia.Application
         _backOfficeShellViewModel.PurchaseOrdersRequested += OnPurchaseOrdersRequested;
         _backOfficeShellViewModel.LabelPrintRequested -= OnLabelPrintRequested;
         _backOfficeShellViewModel.LabelPrintRequested += OnLabelPrintRequested;
-        _backOfficeShellViewModel.SettingsRequested -= OnSettingsRequested;
-        _backOfficeShellViewModel.SettingsRequested += OnSettingsRequested;
 
-        // Bugfix (task P3-T18 review): BackOfficeShellViewModel is a singleton that outlives this
-        // window, so closing it must count as leaving Catalogue the same way SelectOverview does -
-        // otherwise a section left selected when the owner closes the back office would still read
-        // as "already there" on the next open, and OnSelectedCatalogueSectionChanged's re-entry
-        // check (oldValue null) would never see the transition, silently skipping the reload that
-        // picking a section again is supposed to trigger. window is a fresh instance per call, so
-        // no -= is needed here the way the singleton VM's own events need it above.
-        window.Closed += (_, _) => _backOfficeShellViewModel.SelectOverview();
+        // Task P3-T19: Settings no longer opens its own window (SettingsWindow is retired), so
+        // there is no longer a SettingsRequested event to relay here - only the restore wizard
+        // RestoreWizardCommand still opens beneath, wired directly to the same SettingsViewModel
+        // singleton this window's own content pane now hosts.
+        if (_settingsViewModel is not null)
+        {
+            _settingsViewModel.RestoreWizardRequested -= OnRestoreWizardRequested;
+            _settingsViewModel.RestoreWizardRequested += OnRestoreWizardRequested;
+        }
+
+        // Bugfix (task P3-T18 review), extended by task P3-T19: BackOfficeShellViewModel is a
+        // singleton that outlives this window, so closing it must count as leaving Catalogue/
+        // System the same way ResetNavigation does - otherwise a section left selected when the
+        // owner closes the back office would still read as "already there" on the next open, and
+        // OnSelectedCatalogueSectionChanged's/OnSelectedSettingsSectionChanged's re-entry check
+        // (oldValue null) would never see the transition, silently skipping the reload that
+        // picking a section again is supposed to trigger. ResetNavigation (not SelectOverview)
+        // deliberately bypasses task P3-T19's navigate-away guard: there is no window left here to
+        // show a confirmation dialog against. window is a fresh instance per call, so no -= is
+        // needed here the way the singleton VM's own events need it above.
+        window.Closed += (_, _) => _backOfficeShellViewModel.ResetNavigation();
 
         window.Show(owner);
 
         void OnManageUsersRequested(object? sender, EventArgs e) => ShowUsers(window);
         void OnPurchaseOrdersRequested(object? sender, EventArgs e) => ShowPurchaseOrders(window);
         void OnLabelPrintRequested(object? sender, EventArgs e) => ShowLabelPrint(window);
-        void OnSettingsRequested(object? sender, EventArgs e) => ShowSettings(window);
+        void OnRestoreWizardRequested(object? sender, EventArgs e) => ShowRestoreWizard(window);
     }
 
     private void ShowUsers(Window owner)
@@ -308,28 +320,9 @@ public partial class App : Avalonia.Application
     }
 
     /// <summary>
-    /// Opens the settings screen, re-reading the settings in force as it does. Re-read on open,
-    /// never cached from start-up - that is the risk P1-T03 names by name.
-    /// </summary>
-    private void ShowSettings(Window owner)
-    {
-        if (_settingsViewModel is null)
-        {
-            return;
-        }
-
-        var window = new SettingsWindow { DataContext = _settingsViewModel };
-        _settingsViewModel.RestoreWizardRequested -= OnRestoreWizardRequested;
-        _settingsViewModel.RestoreWizardRequested += OnRestoreWizardRequested;
-        _settingsViewModel.LoadCommand.Execute(null);
-        window.Show(owner);
-
-        void OnRestoreWizardRequested(object? sender, EventArgs e) => ShowRestoreWizard(window);
-    }
-
-    /// <summary>
-    /// Opens the guided restore wizard (SRS FR-11.12), owned by the settings window it was asked
-    /// for from.
+    /// Opens the guided restore wizard (SRS FR-11.12), owned by the back-office window Settings'
+    /// own Backup group is showing in (task P3-T19 - <c>SettingsWindow</c> is retired, so this is
+    /// always <c>BackOfficeShellWindow</c> now, wired in <see cref="ShowBackOffice"/>).
     /// </summary>
     private void ShowRestoreWizard(Window owner)
     {

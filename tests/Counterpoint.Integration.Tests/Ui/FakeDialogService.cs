@@ -20,11 +20,17 @@ internal sealed class FakeDialogService : IDialogService
     /// <summary>Every delete confirmation this fake received, in order, naming the record asked about.</summary>
     internal System.Collections.Generic.List<(string EntityName, string SubjectDescription)> DeleteRequests { get; } = [];
 
+    /// <summary>Every generic confirmation (task P3-T19) this fake received, in order.</summary>
+    internal System.Collections.Generic.List<(string HeaderText, string Message, string ConfirmButtonText)> ConfirmationRequests { get; } = [];
+
     /// <summary>When true (the default), <see cref="ShowEditDialogAsync{TViewModel}"/> calls the content's Save as though the operator pressed Save.</summary>
     internal bool ConfirmEdits { get; set; } = true;
 
     /// <summary>When true (the default), <see cref="ShowDeleteConfirmationAsync"/> answers as though the operator pressed Confirm.</summary>
     internal bool ConfirmDeletes { get; set; } = true;
+
+    /// <summary>When true (the default), <see cref="ShowConfirmationAsync"/> answers as though the operator pressed the confirm button.</summary>
+    internal bool ConfirmConfirmations { get; set; } = true;
 
     /// <summary>
     /// Stands in for whatever an operator would type into the dialog's fields before pressing
@@ -61,5 +67,15 @@ internal sealed class FakeDialogService : IDialogService
     {
         DeleteRequests.Add((entityName, subjectDescription));
         return Task.FromResult(ConfirmDeletes ? DialogOutcome.Confirmed : DialogOutcome.Cancelled);
+    }
+
+    public Task<DialogOutcome> ShowConfirmationAsync(
+        string headerText,
+        string message,
+        string confirmButtonText,
+        CancellationToken cancellationToken = default)
+    {
+        ConfirmationRequests.Add((headerText, message, confirmButtonText));
+        return Task.FromResult(ConfirmConfirmations ? DialogOutcome.Confirmed : DialogOutcome.Cancelled);
     }
 }

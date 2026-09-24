@@ -226,13 +226,16 @@ internal static class CounterpointHostBuilderExtensions
         // the same single ISession singleton the sales screen reads, not a second session or a
         // second connection of any kind (see BackOfficeShellViewModel's own remarks). A factory,
         // not a plain AddSingleton<T>, so task P3-T18 can attach the one CatalogueViewModel
-        // singleton (registered further below) once, right after both resolve - the composition
+        // singleton (registered further below) and task P3-T19 can attach the one SettingsViewModel
+        // singleton plus the shared IDialogService, once, right after all resolve - the composition
         // root's own job, not something BackOfficeShellViewModel's constructor needs to know
-        // about (see AttachCatalogue's own remarks for why that stays out of the constructor).
+        // about (see AttachCatalogue's/AttachSettings' own remarks for why that stays out of the
+        // constructor).
         builder.Services.AddSingleton(p =>
         {
             var shell = new BackOfficeShellViewModel(p.GetRequiredService<ISession>());
             shell.AttachCatalogue(p.GetRequiredService<CatalogueViewModel>());
+            shell.AttachSettings(p.GetRequiredService<SettingsViewModel>(), p.GetRequiredService<IDialogService>());
             return shell;
         });
 
