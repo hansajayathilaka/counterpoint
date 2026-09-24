@@ -120,7 +120,7 @@ SRS pending owner sign-off, the same way UI-13–UI-15/AC-21–AC-24 were for th
 | P3-T17 | Design tokens v2: extended palette and bundled fonts | done | 2026-09-19 | b68ac7c feat(P3-T17): design tokens v2 - extended semantic palette and bundled fonts (UI-13, NFR-U4, NFR-M1, NFR-U5) - all 4 Done-when proven by test (ThemeTokenContrastTests, FontResourceTests, DesignTokenResourceResolutionTests); code-reviewer clean, no must-fix/should-fix; verify.sh green |
 | P3-T18 | Back-office shell: nav rail, Trading/People, Catalogue folded in | done | 2026-09-22 | ac196c1 back-office shell nav rail with Catalogue folded in (PR #49) |
 | P3-T19 | Back-office shell: System group folds Settings in | todo | | |
-| P3-T20 | Dashboard landing content (Overview) | todo | | |
+| P3-T20 | Dashboard landing content (Overview) | in-progress | | |
 | P3-T21 | Sales screen visual refresh | done | 2026-09-22 | 6c40d0c sales screen visual refresh (PR #50) |
 | P3-T22 | Recent-sales list query (read-only) | done | 2026-09-19 | 814eb06 feat(P3-T22): recent-sales list query (FR-9.7) - all 4 Done-when proven by test (RecentSalesQueryTests, 7 cases); code-reviewer clean, no must-fix/should-fix; deviated from task doc's stale business_date/created_at wording to sold_at/ix_sale_soldat, justified and documented |
 | P3-T23 | UI redesign v2 acceptance gate | todo | | |
