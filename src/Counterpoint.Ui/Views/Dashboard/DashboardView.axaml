@@ -1,0 +1,163 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Dashboard"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Dashboard.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+
+  <!--
+    Task P3-T20 (SRS FR-9.7, UI-16). Every figure below is a direct binding against
+    DashboardViewModel, which is itself a plain pass-through of three existing queries
+    (IDashboardQueries, IReorderListQuery, IRecentSalesQuery) - no figure here is computed,
+    approximated or hard-coded by this view or its viewmodel (task P3-T20's own named risk). Built
+    entirely from the P3-T17 token set - no raw hex literal anywhere in this file
+    (NoRawHexColourLiteralsTests).
+
+    DisplayFontFamily/BodyFontFamily are deliberately NOT applied anywhere in this file, the same
+    restriction SalesWindow.axaml and SalesSidePanelView.axaml already document and observe: doing
+    so throws "Could not create glyphTypeface" from Avalonia's real (non-headless-stub) FontManager
+    for both bundled P3-T17 fonts, at every FontWeight - a pre-existing defect in that task's
+    embedded variable-font bundling, not something this task introduces or is in scope to fix.
+  -->
+  <UserControl.Styles>
+    <Style Selector="Border.KpiCard">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <!-- The low-stock card's own danger tint (task P3-T20 "Do this" #5): a dynamic Classes
+         binding, not a converter, toggled straight off DashboardViewModel.HasLowStockAlerts. -->
+    <Style Selector="Border.KpiCard.Danger">
+      <Setter Property="Background" Value="{DynamicResource DangerTintBrush}" />
+    </Style>
+    <Style Selector="Border.KpiCard TextBlock.KpiLabel">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+    <Style Selector="Border.KpiCard TextBlock.KpiValue">
+      <Setter Property="FontSize" Value="28" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    </Style>
+    <Style Selector="Border.Panel">
+      <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="TextBlock.PanelHeader">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+  </UserControl.Styles>
+
+  <ScrollViewer>
+    <StackPanel Spacing="20">
+
+      <!-- KPI cards: DashboardSummary.TodaysSales/BillCount/LowStockCount/CashInDrawer -
+           IDashboardQueries.GetSummaryAsync(), untouched by this task (task P3-T20 "Do this" #1). -->
+      <UniformGrid Columns="4" Rows="1">
+        <Border Classes="KpiCard" Margin="0,0,8,0">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="KpiLabel" Text="Today's sales" />
+            <TextBlock Classes="KpiValue" Text="{Binding TodaysSalesText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="KpiCard" Margin="8,0">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="KpiLabel" Text="Bills today" />
+            <TextBlock Classes="KpiValue" Text="{Binding BillCountText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="KpiCard" Classes.Danger="{Binding HasLowStockAlerts}" Margin="8,0">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="KpiLabel" Text="Low stock" />
+            <TextBlock Classes="KpiValue" Text="{Binding LowStockCountText}" />
+          </StackPanel>
+        </Border>
+        <Border Classes="KpiCard" Margin="8,0,0,0">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="KpiLabel" Text="Cash in drawer" />
+            <TextBlock Classes="KpiValue" Text="{Binding CashInDrawerText}" />
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <Grid ColumnDefinitions="*,*" RowDefinitions="Auto">
+
+        <!-- Reorder alerts: IReorderListQuery.GetReorderListAsync() (task P2-T11), the raw list
+             only - no reorder screen exists yet to link out to (task P3-T20 "Do this" #2). -->
+        <Border Grid.Column="0" Classes="Panel" Margin="0,0,10,0" VerticalAlignment="Top">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="PanelHeader" Text="Reorder alerts" />
+            <TextBlock Text="Nothing is at or below its reorder level."
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       IsVisible="{Binding !HasReorderAlerts}" />
+            <ItemsControl ItemsSource="{Binding ReorderAlerts}" IsVisible="{Binding HasReorderAlerts}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ReorderAlertRow">
+                  <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,6">
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="{Binding ProductDescription}" Foreground="{DynamicResource PrimaryTextBrush}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding ProductCode}" FontSize="12"
+                                 Foreground="{DynamicResource TertiaryTextBrush}" />
+                      <TextBlock Text="{Binding SupplierText}" FontSize="12"
+                                 Foreground="{DynamicResource TertiaryTextBrush}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="10,0" HorizontalAlignment="Right">
+                      <TextBlock Text="On hand" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Right" />
+                      <TextBlock Text="{Binding OnHandText}" Foreground="{DynamicResource WarningBrush}" HorizontalAlignment="Right" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                      <TextBlock Text="Reorder qty" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Right" />
+                      <TextBlock Text="{Binding SuggestedQtyText}" Foreground="{DynamicResource PrimaryTextBrush}" HorizontalAlignment="Right" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <!-- Recent sales: IRecentSalesQuery.GetRecentAsync() (task P3-T22). -->
+        <Border Grid.Column="1" Classes="Panel" Margin="10,0,0,0" VerticalAlignment="Top">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="PanelHeader" Text="Recent sales" />
+            <TextBlock Text="No completed sales yet."
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       IsVisible="{Binding !HasRecentSales}" />
+            <ItemsControl ItemsSource="{Binding RecentSales}" IsVisible="{Binding HasRecentSales}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:RecentSaleRow">
+                  <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,6">
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="{Binding BillNo}" Foreground="{DynamicResource PrimaryTextBrush}" FontWeight="Bold" />
+                      <TextBlock Text="{Binding CompletedAtText}" FontSize="12" Foreground="{DynamicResource TertiaryTextBrush}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Margin="10,0" Text="{Binding CustomerName}"
+                               Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="2" Text="{Binding TotalText}" Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontWeight="Bold" VerticalAlignment="Center" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+      </Grid>
+
+      <TextBlock Text="{Binding Status}" Foreground="{DynamicResource WarningBrush}"
+                 IsVisible="{Binding HasStatus}" />
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

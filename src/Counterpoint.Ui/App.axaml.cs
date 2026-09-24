@@ -234,6 +234,12 @@ public partial class App : Avalonia.Application
         _backOfficeShellViewModel.SettingsRequested -= OnSettingsRequested;
         _backOfficeShellViewModel.SettingsRequested += OnSettingsRequested;
 
+        // Task P3-T20: the Overview's "New sale" and "Open shift" quick actions both just want
+        // this window gone, so SalesWindow (already sitting behind it as owner) is back in front
+        // with its own F2/"Open shift" already there to press.
+        _backOfficeShellViewModel.ReturnToSalesRequested -= OnReturnToSalesRequested;
+        _backOfficeShellViewModel.ReturnToSalesRequested += OnReturnToSalesRequested;
+
         // Bugfix (task P3-T18 review): BackOfficeShellViewModel is a singleton that outlives this
         // window, so closing it must count as leaving Catalogue the same way SelectOverview does -
         // otherwise a section left selected when the owner closes the back office would still read
@@ -243,12 +249,20 @@ public partial class App : Avalonia.Application
         // no -= is needed here the way the singleton VM's own events need it above.
         window.Closed += (_, _) => _backOfficeShellViewModel.SelectOverview();
 
+        // Task P3-T20: Overview is the section the shell opens on, so its dashboard is loaded
+        // unconditionally on every open - the same "refresh on open" ShowUsers/ShowPurchaseOrders/
+        // ShowPrintQueue already do for their own screens below, not something
+        // OnSelectedCatalogueSectionChanged's re-entry check would otherwise catch when the shell
+        // was already showing Overview the last time it closed.
+        _backOfficeShellViewModel.Dashboard?.LoadCommand.Execute(null);
+
         window.Show(owner);
 
         void OnManageUsersRequested(object? sender, EventArgs e) => ShowUsers(window);
         void OnPurchaseOrdersRequested(object? sender, EventArgs e) => ShowPurchaseOrders(window);
         void OnLabelPrintRequested(object? sender, EventArgs e) => ShowLabelPrint(window);
         void OnSettingsRequested(object? sender, EventArgs e) => ShowSettings(window);
+        void OnReturnToSalesRequested(object? sender, EventArgs e) => window.Close();
     }
 
     private void ShowUsers(Window owner)

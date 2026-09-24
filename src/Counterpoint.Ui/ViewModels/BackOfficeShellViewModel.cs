@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Counterpoint.Application.Security;
 using Counterpoint.Domain.Security;
 using Counterpoint.Ui.ViewModels.Catalogue;
+using Counterpoint.Ui.ViewModels.Dashboard;
 
 namespace Counterpoint.Ui.ViewModels;
 
@@ -105,6 +106,23 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
         Catalogue = catalogue;
     }
 
+    // ---- Overview: the real dashboard content (task P3-T20) -------------------------------------
+
+    /// <summary>
+    /// The Overview nav item's own viewmodel (task P3-T20, replacing task P3-T18's placeholder) -
+    /// attached the same way <see cref="Catalogue"/> is (see <see cref="AttachDashboard"/>'s own
+    /// remarks), for the same reason: every test that builds this viewmodel directly from just an
+    /// <see cref="ISession"/> keeps working unmodified.
+    /// </summary>
+    public DashboardViewModel? Dashboard { get; private set; }
+
+    /// <summary>Wired once by the composition root, immediately after both singletons resolve.</summary>
+    public void AttachDashboard(DashboardViewModel dashboard)
+    {
+        ArgumentNullException.ThrowIfNull(dashboard);
+        Dashboard = dashboard;
+    }
+
     /// <summary>
     /// Loads the catalogue's reference data every time a Catalogue section is selected coming
     /// from Overview - i.e. every genuine re-entry into Catalogue - but not when the selection
@@ -127,6 +145,13 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     /// this reason, so the next section picked after reopening always arrives with
     /// <paramref name="oldValue"/> null.
     /// </para>
+    /// <para>
+    /// Task P3-T20 extends this with the reverse transition: leaving Catalogue for Overview
+    /// (<paramref name="newValue"/> null, <paramref name="oldValue"/> not) re-reads
+    /// <see cref="Dashboard"/>'s three queries, the same "reload on every real visit" rule the
+    /// Catalogue half already follows - a stock edit made while in Catalogue should not leave a
+    /// stale low-stock count showing on the way back out.
+    /// </para>
     /// </remarks>
     partial void OnSelectedCatalogueSectionChanged(string? oldValue, string? newValue)
     {
@@ -134,9 +159,13 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
         {
             Catalogue.LoadCommand.Execute(null);
         }
+        else if (newValue is null && oldValue is not null && Dashboard is not null)
+        {
+            Dashboard.LoadCommand.Execute(null);
+        }
     }
 
-    /// <summary>Returns the content pane to Overview (SRS UI-16 - pending real content, P3-T20).</summary>
+    /// <summary>Returns the content pane to Overview (SRS UI-16, task P3-T20).</summary>
     [RelayCommand]
     public void SelectOverview() => SelectedCatalogueSection = null;
 
@@ -149,6 +178,16 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     public string StatusShiftText => _session.ShiftId is { } shiftId
         ? "Shift #" + shiftId.ToString(CultureInfo.InvariantCulture)
         : "No shift open";
+
+    /// <summary>
+    /// Whether the Overview's "Open shift" quick action has anything to do (task P3-T20 "Do this"
+    /// #4: "Open shift where none is open") - the exact same <see cref="ISession.ShiftId"/> check
+    /// <see cref="SalesViewModel.CanOpenShift"/> already makes, read from the one session
+    /// singleton both viewmodels share (see this class's own remarks). Opening a shift itself
+    /// still only happens on the sales screen, where the opening-float entry panel lives - this
+    /// flag only decides whether the Overview button that leads there is worth showing.
+    /// </summary>
+    public bool CanOpenShift => _session.ShiftId is null;
 
     // ---- Tile visibility (a courtesy - see remarks above) ----------------------------------------
 
@@ -184,6 +223,17 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     /// <summary>Raised when the owner asks for the purchase-order screen (SRS FR-4.5, FR-4.6, FR-4.10).</summary>
     public event EventHandler? PurchaseOrdersRequested;
 
+    /// <summary>
+    /// Raised by the Overview's "New sale" and "Open shift" quick actions (task P3-T20 "Do this"
+    /// #4). Neither invents a new business action: both simply close this window and hand focus
+    /// back to the one <c>SalesWindow</c> this back office was opened from, exactly the way it
+    /// already sat there the whole time (see <c>App.axaml.cs</c>'s <c>ShowBackOffice</c>) - "New
+    /// sale" leads to <c>SalesViewModel.NewSaleCommand</c> (its own F2), "Open shift" leads to
+    /// <c>SalesViewModel.OpenShiftCommand</c> (its own opening-float panel), each already reachable
+    /// from the sales screen the moment it is back in front.
+    /// </summary>
+    public event EventHandler? ReturnToSalesRequested;
+
     [RelayCommand]
     public void ManageUsers() => ManageUsersRequested?.Invoke(this, EventArgs.Empty);
 
@@ -195,4 +245,7 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
 
     [RelayCommand]
     public void ManagePurchaseOrders() => PurchaseOrdersRequested?.Invoke(this, EventArgs.Empty);
+
+    [RelayCommand]
+    public void ReturnToSales() => ReturnToSalesRequested?.Invoke(this, EventArgs.Empty);
 }
