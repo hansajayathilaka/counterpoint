@@ -39,7 +39,7 @@ internal sealed class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         {
             table.HasCheckConstraint(
                 "ck_payment_tender_type",
-                "tender_type IN ('CASH','CARD','BANK_TRANSFER','CREDIT_NOTE','ON_ACCOUNT','CHEQUE')");
+                "tender_type IN ('CASH','CARD','BANK_TRANSFER','CREDIT_NOTE','ON_ACCOUNT','CHEQUE','EXCHANGE')");
 
             // Exactly one of the two documents, never both and never neither.
             table.HasCheckConstraint(

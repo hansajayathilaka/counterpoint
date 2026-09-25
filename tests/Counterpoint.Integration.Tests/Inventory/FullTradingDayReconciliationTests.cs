@@ -210,21 +210,30 @@ public sealed class FullTradingDayReconciliationTests
             + "not a rounding artefact (this scenario is deliberately built to carry none)");
 
         // Cash reconciliation: net sales (every COMPLETED sale row's own total, including the
-        // exchange's own net-of-credit sale) must equal sum(payment) on the sale side, and the
-        // refund payments must net out to exactly what was paid back.
+        // exchange's own sale at its full replacement value - ExchangeTenderType0010, never netted
+        // by the credit) must equal sum(payment) on the sale side, and the refund payments must net
+        // out to exactly what was paid back.
         var netSalesTotal = Money.FromScaled(await fixture.CountAsync("SELECT SUM(total) FROM sale WHERE status = 'COMPLETED';"));
         netSalesTotal.Should().Be(
-            Money.FromDecimal(375.00m),
-            "275.00 (sale 1) + 100.00 (sale 2) + 0 (the exchange's own sale, fully covered by credit)");
+            Money.FromDecimal(420.00m),
+            "275.00 (sale 1) + 100.00 (sale 2) + 45.00 (the exchange's own sale, its full replacement value)");
 
         var tenderedOnSales = Money.FromScaled(
             await fixture.CountAsync("SELECT COALESCE(SUM(amount), 0) FROM payment WHERE sale_id IS NOT NULL;"));
-        tenderedOnSales.Should().Be(netSalesTotal, "sum(payment) on the sale side equals sum(sale.total) exactly");
+        tenderedOnSales.Should().Be(netSalesTotal, "sum(payment) on the sale side equals sum(sale.total) exactly - including the exchange sale's own 45.00 EXCHANGE tender");
 
+        // The exchange's own return now also carries its EXCHANGE credit payment, the exact
+        // negative of the sale's own EXCHANGE tender above - not a real refund, but still part of
+        // sum(payment) for that document (CreateExchangeHandler's own remarks).
         var refundPayments = Money.FromScaled(
             await fixture.CountAsync("SELECT COALESCE(SUM(amount), 0) FROM payment WHERE sale_return_id IS NOT NULL;"));
-        refundPayments.Should().Be(Money.FromDecimal(-50.00m), "-45.00 (standalone return) + -5.00 (exchange surplus)");
+        refundPayments.Should().Be(
+            Money.FromDecimal(-95.00m),
+            "-45.00 (standalone return) + -45.00 (the exchange's EXCHANGE credit, mirroring its sale) + -5.00 (exchange surplus)");
 
+        // Real cash movement only, once the EXCHANGE bucket's equal-and-opposite entries on the two
+        // sides above are added together - unchanged by ExchangeTenderType0010, since it only moved
+        // where the credit is recorded, never what actually left or stayed in the till.
         var netCashRetained = tenderedOnSales + refundPayments;
         netCashRetained.Should().Be(
             Money.FromDecimal(325.00m),

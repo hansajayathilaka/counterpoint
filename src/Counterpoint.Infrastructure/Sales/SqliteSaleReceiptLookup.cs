@@ -97,9 +97,9 @@ internal sealed class SqliteSaleReceiptLookup : ISaleReceiptLookup
 
     private SaleReceipt ToReceipt(SaleRow sale, IReadOnlyList<LineRow> lines, IReadOnlyList<PaymentRow> payments)
     {
-        // An exchange's replacement sale carries its return credit in bill_discount
-        // (CreateExchangeHandler) - settlement, not a discount, and never split into the lines'
-        // tax base - so it has nothing to allocate.
+        // An exchange's replacement sale keeps bill_discount at zero unconditionally
+        // (ExchangeTenderType0010, CreateExchangeHandler) - its credit settles as an EXCHANGE
+        // payment, never a discount - so IsExchangeSale is defensive here, not load-bearing.
         var billDiscount = Money.FromScaled(sale.BillDiscount);
         var shares = BillDiscountSplit.Allocate(
             sale.IsExchangeSale ? Money.Zero : billDiscount,

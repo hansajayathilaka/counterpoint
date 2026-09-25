@@ -37,11 +37,15 @@ namespace Counterpoint.Infrastructure.Sales;
 /// <para>
 /// <b>P1-T10:</b> <see cref="CatalogueItem.UnitCost"/> - the figure a sale snapshots onto
 /// <c>sale_line.unit_cost</c> as its COGS - comes from <c>stock_balance.cost_avg</c>, not
-/// <c>product.cost_avg</c>. The two are different columns: <c>stock_balance.cost_avg</c> is the
-/// one the moving-average formula in <c>StockLedgerMath</c> actually maintains, on every posting
-/// (P1-T07); <c>product.cost_avg</c> is set once, by the product editor, and nothing keeps it in
-/// step with a receipt or a sale afterwards. Reading the wrong one would snapshot a COGS the
-/// ledger has already moved past.
+/// <c>product.cost_avg</c>. The two are different columns, kept for different readers:
+/// <c>stock_balance.cost_avg</c> is per variant, the one the moving-average formula in
+/// <c>StockLedgerMath</c> actually maintains, on every posting (P1-T07) - the only figure a sale
+/// may snapshot as COGS. <c>product.cost_avg</c> is per product (<c>SqliteStockLedger.PostAsync</c>'s
+/// own remarks) - a rough, product-wide guide the catalogue's below-cost pricing guard reads for a
+/// brand-new variant with no stock history of its own; for a product with several variants it is
+/// whichever one posted an inbound movement most recently, never a true blend across them, which
+/// is exactly why the sale path never touches it. Reading the wrong one here would snapshot a COGS
+/// that belongs to a different variant entirely, not merely one the ledger has moved past.
 /// </para>
 /// <para>
 /// <b>P1-T09:</b> a second, small query on the same connection fetches the product's

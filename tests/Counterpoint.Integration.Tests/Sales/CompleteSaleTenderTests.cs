@@ -179,16 +179,18 @@ public sealed class CompleteSaleTenderTests
     {
         // Regression for the bug SqliteProductLookup's remarks describe: unit_cost must come from
         // stock_balance.cost_avg (what the moving-average formula actually maintains), never from
-        // product.cost_avg (set once by the product editor and never kept in step afterwards).
+        // product.cost_avg - which SqliteStockLedger.PostAsync now also keeps live on an inbound
+        // movement, but only as a rough per-product guide for the below-cost check on a brand-new
+        // variant with no stock history of its own (ProductMaintenanceService.RequireCostAvgAsync);
+        // it is never authoritative for a variant, like this one, that already has its own
+        // stock_balance row.
         await using var fixture = await SaleFixture.CreateSignedInAsync();
 
         var variantId = await SeededVariantIdAsync(fixture);
         var userId = await SeededUserIdAsync(fixture);
 
-        // The seeder leaves the shelf at 100 pieces, cost 9.0000, and product.cost_avg also at
-        // 9.0000. A GRN-shaped receipt of 50 more at 15.0000 moves stock_balance.cost_avg to
-        // (100*9 + 50*15) / 150 = 11.0000 - but nothing in this system ever touches
-        // product.cost_avg again, so the two columns now disagree on purpose.
+        // The seeder leaves the shelf at 100 pieces, cost 9.0000. A GRN-shaped receipt of 50 more
+        // at 15.0000 moves stock_balance.cost_avg to (100*9 + 50*15) / 150 = 11.0000.
         await fixture.Resolve<IStockLedger>().PostAsync(new StockPosting(
             variantId,
             "GRN",
@@ -202,9 +204,13 @@ public sealed class CompleteSaleTenderTests
         (await fixture.ScalarAsync("SELECT cost_avg FROM stock_balance WHERE product_variant_id = " + variantId + ";"))
             .Should().Be("110000", "the ledger's own moving-average formula");
 
-        var productCostAvg = await fixture.ScalarAsync(
-            "SELECT cost_avg FROM product WHERE id = (SELECT product_id FROM product_variant WHERE id = " + variantId + ");");
-        productCostAvg.Should().Be("90000", "product.cost_avg is set once at seed time and never moves");
+        // Poked directly, bypassing the live posting path - standing in for the one case that
+        // still leaves the two columns disagreeing on purpose: a second variant of the same
+        // product posting its own, different cost afterwards (product.cost_avg has room for only
+        // one number, so it is always whichever variant posted last). Whatever sits here, a sale
+        // of THIS variant must never read it.
+        await fixture.ExecuteAsync(
+            "UPDATE product SET cost_avg = 90000 WHERE id = (SELECT product_id FROM product_variant WHERE id = " + variantId + ");");
 
         var lines = new List<SaleLineRequest> { new(variantId, 5m) };
         var quote = await fixture.Resolve<IQuoteSale>().QuoteAsync(lines);
@@ -222,8 +228,8 @@ public sealed class CompleteSaleTenderTests
         snapshottedCost.Should().Be(
             "110000",
             "sale_line.unit_cost must be the ledger's stock_balance.cost_avg at the moment of "
-            + "sale, not the stale product.cost_avg column - the exact bug SqliteProductLookup's "
-            + "P1-T10 remarks describe fixing");
+            + "sale, not product.cost_avg - the exact bug SqliteProductLookup's P1-T10 remarks "
+            + "describe fixing, still true now that product.cost_avg is itself kept live");
     }
 
     /// <summary>ESC p 0 25 250 - the drawer-kick byte sequence.</summary>
