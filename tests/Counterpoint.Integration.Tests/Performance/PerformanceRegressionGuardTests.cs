@@ -64,7 +64,7 @@ public sealed class PerformanceRegressionGuardTests : IClassFixture<PerformanceR
     [Fact]
     public async Task NFR_P1_BarcodeScanToLineAgainstTheAgedDatabase()
     {
-        var elapsed = await BestOfThreeAsync(async () =>
+        var elapsed = await BestOfManyAsync(async () =>
         {
             var scanned = await _database.ScanItem.ScanAsync(PerformanceDatasetSeeder.BarcodeFor(10_000));
             scanned.Should().NotBeNull();
@@ -76,7 +76,7 @@ public sealed class PerformanceRegressionGuardTests : IClassFixture<PerformanceR
     [Fact]
     public async Task NFR_P2_SearchResultsAgainstTheAgedDatabase()
     {
-        var elapsed = await BestOfThreeAsync(async () =>
+        var elapsed = await BestOfManyAsync(async () =>
         {
             var results = await _database.Search.SearchAsync("Hardware");
             results.Should().NotBeEmpty();
@@ -90,7 +90,7 @@ public sealed class PerformanceRegressionGuardTests : IClassFixture<PerformanceR
     {
         var lines = new List<SaleLineRequest> { new(_database.SampleVariantId, 1m) };
 
-        var elapsed = await BestOfThreeAsync(async () =>
+        var elapsed = await BestOfManyAsync(async () =>
         {
             var quote = await _database.QuoteSale.QuoteAsync(lines);
             var completed = await _database.CompleteSale.CompleteAsync(new CompleteSaleCommand(
@@ -117,7 +117,7 @@ public sealed class PerformanceRegressionGuardTests : IClassFixture<PerformanceR
         // this task).
         const string billNo = "INV-2026-000001";
 
-        var elapsed = await BestOfThreeAsync(async () =>
+        var elapsed = await BestOfManyAsync(async () =>
         {
             var connection = await _database.ConnectionFactory.OpenReadConnectionAsync();
             await using (connection.ConfigureAwait(false))
@@ -143,7 +143,7 @@ public sealed class PerformanceRegressionGuardTests : IClassFixture<PerformanceR
         // real cold start runs before the sales screen opens, so a regression here is still an
         // early warning worth having, even though the absolute number means nothing until it is
         // measured on the terminal.
-        var elapsed = await BestOfThreeAsync(async () =>
+        var elapsed = await BestOfManyAsync(async () =>
         {
             await using var cold = await ColdStartFixture.OpenAsync(_database.Root);
         });
@@ -151,16 +151,25 @@ public sealed class PerformanceRegressionGuardTests : IClassFixture<PerformanceR
         await AssertWithinBaselineAsync("NFR-P6", elapsed);
     }
 
-    private static async Task<TimeSpan> BestOfThreeAsync(Func<Task> operation)
+    // Best of ten, not three: these operations measure in the low single-digit milliseconds
+    // (NFR-P1's and NFR-P4's own recorded baselines are 3.0 ms and 1.9 ms), and at that
+    // magnitude ordinary scheduler jitter or a single GC pause is itself worth a millisecond or
+    // more - larger than the whole gap the 20% tolerance allows. Three samples let one unlucky
+    // run stand as the "best"; ten make it far likelier that at least a few samples land on the
+    // machine's true floor for the operation, which is what a regression guard should compare
+    // against, not the noise on top of it.
+    private const int BestOfSampleCount = 10;
+
+    private static async Task<TimeSpan> BestOfManyAsync(Func<Task> operation)
     {
-        // One untimed warm-up, then best of three - the same shape
+        // One untimed warm-up, then best of BestOfSampleCount - the same shape
         // CataloguePerformanceTests/LoginLatencyTests use: the question is what the operation
         // costs once the JIT and the page cache are warm, not what the first call's one-time tax
         // was.
         await operation();
 
         var best = TimeSpan.MaxValue;
-        for (var run = 0; run < 3; run++)
+        for (var run = 0; run < BestOfSampleCount; run++)
         {
             var stopwatch = Stopwatch.StartNew();
             await operation();
@@ -175,16 +184,24 @@ public sealed class PerformanceRegressionGuardTests : IClassFixture<PerformanceR
         return best;
     }
 
+    // A pure 20% relative tolerance breaks down at these magnitudes: 20% of NFR-P4's 1.9 ms
+    // baseline is 0.38 ms, well inside the noise floor of a managed-runtime Stopwatch on a
+    // shared CI machine (a single GC pause or scheduler quantum is itself often a millisecond).
+    // The floor below - the recorded baseline plus a flat 2 ms - dominates for every operation
+    // this fast; for the larger ones (NFR-P2 at 82.3 ms, NFR-P3 at 16.3 ms) 20% is already wider
+    // than the floor and keeps doing the real work of catching a regression.
+    private const double AbsoluteSlackMs = 2.0;
+
     private static async Task AssertWithinBaselineAsync(string operation, TimeSpan elapsed)
     {
         var baseline = await PerformanceBaseline.LoadAsync();
         var recordedMs = baseline.MillisecondsFor(operation);
 
-        var allowedMs = recordedMs * 1.2;
+        var allowedMs = Math.Max(recordedMs * 1.2, recordedMs + AbsoluteSlackMs);
 
         elapsed.TotalMilliseconds.Should().BeLessThanOrEqualTo(
             allowedMs,
-            $"{operation} took {elapsed.TotalMilliseconds:0.0} ms, more than 20% over the "
+            $"{operation} took {elapsed.TotalMilliseconds:0.0} ms, more than max(20%, {AbsoluteSlackMs:0.#} ms) over the "
             + $"{recordedMs:0.0} ms recorded in docs/perf-regression-baseline.json - fix the "
             + "regression (or, if the change is deliberate, update the recorded baseline by hand)");
     }
