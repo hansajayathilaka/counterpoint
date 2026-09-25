@@ -101,7 +101,8 @@ public sealed class XReportServiceTests
         report.TaxBreakdown.Should().ContainSingle();
         var bracket = report.TaxBreakdown[0];
         bracket.Rate.Should().Be(TaxRate.FromPercent(TaxPercent));
-        bracket.TaxableAmount.Should().Be(Money.FromDecimal(270.00m), "180.00 + 90.00 net of tax");
+        bracket.TaxableAmount.Should().Be(
+            Money.FromDecimal(300.00m), "200.00 + 100.00 - line_total is already net of tax, so it is never reduced by it again");
         bracket.TaxAmount.Should().Be(Money.FromDecimal(30.00m));
 
         report.Tenders.Should().HaveCount(2);
@@ -147,10 +148,11 @@ public sealed class XReportServiceTests
         var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
         var variantId = await SeedTaxedVariantAsync(fixture);
 
-        // 3 pieces @ 100.00 = 300.00 gross, less a 10% line discount (30.00) -> line total 270.00,
-        // 10% tax on that net figure = 27.00. Less a further 5.00 flat bill discount -> total
-        // 270.00 - 5.00 + 27.00 = 292.00. Every figure below is chosen to land on a whole cent, so
-        // there is no rounding step to obscure whether the sum is right.
+        // 3 pieces @ 100.00 = 300.00 gross, less a 10% line discount (30.00) -> line total 270.00.
+        // Less a further 5.00 flat bill discount, which comes off the tax base too (SRS §10.1:
+        // taxable value = sub total less discount) -> 265.00 taxed at 10% = 26.50, total
+        // 270.00 - 5.00 + 26.50 = 291.50. Every figure below lands on a whole cent, so there is no
+        // rounding step to obscure whether the sum is right.
         var lines = new List<SaleLineRequest>
         {
             new(variantId, 3m, Discount: DiscountInput.OfRate(Percentage.FromPercent(10m))),
@@ -158,7 +160,7 @@ public sealed class XReportServiceTests
 
         var quote = await fixture.Resolve<IQuoteSale>().QuoteAsync(
             lines, billDiscount: DiscountInput.OfAmount(Money.FromDecimal(5.00m)));
-        quote.Total.Should().Be(Money.FromDecimal(292.00m), "the hand-worked example depends on this exact figure");
+        quote.Total.Should().Be(Money.FromDecimal(291.50m), "the hand-worked example depends on this exact figure");
 
         var completed = await fixture.Resolve<ICompleteSale>().CompleteAsync(new CompleteSaleCommand(
             user.Id,
@@ -168,7 +170,7 @@ public sealed class XReportServiceTests
             [new TenderRequest(TenderTypes.Cash, quote.Total)],
             BillDiscount: DiscountInput.OfAmount(Money.FromDecimal(5.00m))));
 
-        completed.Total.Should().Be(Money.FromDecimal(292.00m));
+        completed.Total.Should().Be(Money.FromDecimal(291.50m));
 
         var lineDiscountStored = await fixture.ScalarAsync(
             "SELECT line_discount FROM sale WHERE id = " + completed.SaleId + ";");
@@ -181,14 +183,15 @@ public sealed class XReportServiceTests
         var report = await fixture.Resolve<IXReportService>().GenerateAsync(shiftId);
 
         report.SalesCount.Should().Be(1);
-        report.SalesValue.Should().Be(Money.FromDecimal(292.00m));
+        report.SalesValue.Should().Be(Money.FromDecimal(291.50m));
         report.DiscountTotal.Should().Be(
             Money.FromDecimal(35.00m), "30.00 line discount + 5.00 bill discount - both addends, not just one");
-        report.SalesTaxTotal.Should().Be(Money.FromDecimal(27.00m));
+        report.SalesTaxTotal.Should().Be(Money.FromDecimal(26.50m));
 
         report.TaxBreakdown.Should().ContainSingle();
-        report.TaxBreakdown[0].TaxableAmount.Should().Be(Money.FromDecimal(243.00m), "270.00 - 27.00 tax");
-        report.TaxBreakdown[0].TaxAmount.Should().Be(Money.FromDecimal(27.00m));
+        report.TaxBreakdown[0].TaxableAmount.Should().Be(
+            Money.FromDecimal(265.00m), "270.00 net less the 5.00 bill discount - the base the 26.50 was actually charged on");
+        report.TaxBreakdown[0].TaxAmount.Should().Be(Money.FromDecimal(26.50m));
     }
 
     [Fact]
@@ -461,12 +464,17 @@ public sealed class XReportServiceTests
     /// same technique <c>TaxedSaleTests.SeedTaxedVariantAsync</c> uses, with round numbers so the
     /// hand-worked figures above have no rounding step to trip over.
     /// </summary>
-    private static Task<long> SeedTaxedVariantAsync(SaleFixture fixture)
+    private static async Task<long> SeedTaxedVariantAsync(SaleFixture fixture)
     {
         var unitOfWork = fixture.Resolve<SqliteUnitOfWork>();
         var ledger = fixture.Resolve<IStockLedger>();
 
-        return unitOfWork.ExecuteInTransactionAsync(async token =>
+        // Every figure this class hand-works adds tax on top of the price, so it pins the shop to
+        // exclusive pricing - the shipped default is inclusive (tax.prices_include_tax, FR-10.3),
+        // which PricingModeAndBillDiscountTests covers in its own right.
+        await PricedVariantSeeder.UsePricingModeAsync(fixture, pricesIncludeTax: false);
+
+        return await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
             using var context = unitOfWork.CreateDbContext();
 

@@ -24,10 +24,15 @@ internal sealed class SqliteSaleLookup : ISaleLookup
 {
     private const string SaleSql =
         """
-        SELECT id AS Id, bill_no AS BillNo, status AS Status, business_date AS BusinessDate,
-               sold_at AS SoldAt, total AS Total
-          FROM sale
-         WHERE id = @SaleId
+        SELECT s.id AS Id, s.bill_no AS BillNo, s.status AS Status, s.business_date AS BusinessDate,
+               s.sold_at AS SoldAt, s.total AS Total,
+               EXISTS (SELECT 1 FROM sale_return r WHERE r.original_sale_id = s.id) AS HasReturns,
+               EXISTS (SELECT 1 FROM sale_return r WHERE r.exchange_sale_id = s.id) AS IsExchangeSale,
+               EXISTS (SELECT 1 FROM payment p WHERE p.sale_id = s.id AND p.tender_type = 'CREDIT_NOTE') AS PaidByCreditNote,
+               (sh.status = 'OPEN') AS ShiftOpen
+          FROM sale s
+          JOIN shift sh ON sh.id = s.shift_id
+         WHERE s.id = @SaleId
          LIMIT 1;
         """;
 
@@ -80,7 +85,11 @@ internal sealed class SqliteSaleLookup : ISaleLookup
         DateOnly.ParseExact(sale.BusinessDate, "yyyy-MM-dd", CultureInfo.InvariantCulture),
         DateTimeOffset.Parse(sale.SoldAt, CultureInfo.InvariantCulture),
         Money.FromScaled(sale.Total),
-        [.. movements.Select(ToReversal)]);
+        [.. movements.Select(ToReversal)],
+        sale.HasReturns,
+        sale.IsExchangeSale,
+        sale.PaidByCreditNote,
+        sale.ShiftOpen);
 
     /// <summary>
     /// The original outbound movement, flipped to what the reversal needs: a positive quantity
@@ -110,6 +119,14 @@ internal sealed class SqliteSaleLookup : ISaleLookup
         public string SoldAt { get; set; } = string.Empty;
 
         public long Total { get; set; }
+
+        public bool HasReturns { get; set; }
+
+        public bool IsExchangeSale { get; set; }
+
+        public bool PaidByCreditNote { get; set; }
+
+        public bool ShiftOpen { get; set; }
     }
 
     /// <summary>The flat shape Dapper maps a row of <see cref="MovementsSql"/> onto.</summary>

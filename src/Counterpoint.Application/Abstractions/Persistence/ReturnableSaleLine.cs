@@ -29,6 +29,13 @@ namespace Counterpoint.Application.Abstractions.Persistence;
 /// <param name="Tax">Tax on the line as sold.</param>
 /// <param name="NonReturnable"><c>product.non_returnable</c> for the item on this line (SRS FR-5.10, AC-05).</param>
 /// <param name="CategoryId">The item's <c>category_id</c>, or null - the other half of FR-5.10's check.</param>
+/// <param name="BillDiscountShare">
+/// This line's share of the original bill's discount (<c>BillDiscountSplit</c>), recomputed from
+/// the stored lines exactly as the sale split it. What the customer actually paid for the line
+/// is <c>LineTotal - BillDiscountShare + Tax</c>, and that - never the pre-discount price - is
+/// what a return refunds (AC-03). Zero on a bill with no discount, and on an exchange's
+/// replacement sale, whose bill_discount is the exchange credit rather than a discount.
+/// </param>
 public sealed record ReturnableSaleLine(
     long SaleLineId,
     long? ProductVariantId,
@@ -41,7 +48,8 @@ public sealed record ReturnableSaleLine(
     Money LineTotal,
     Money Tax,
     bool NonReturnable,
-    long? CategoryId)
+    long? CategoryId,
+    Money BillDiscountShare)
 {
     /// <summary>What is still returnable on this line - <see cref="QtySoldBase"/> less what has already come back.</summary>
     public Quantity QtyAvailableBase => QtySoldBase - QtyReturnedBase;

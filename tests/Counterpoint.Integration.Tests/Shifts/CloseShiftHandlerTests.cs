@@ -713,7 +713,7 @@ public sealed class CloseShiftHandlerTests
     /// The variant's average cost, both on the product row and on the opening stock posting.
     /// Defaults to 60.00, matching every existing hand-worked figure in this file.
     /// </param>
-    private static Task<long> SeedTaxedVariantAsync(
+    private static async Task<long> SeedTaxedVariantAsync(
         SaleFixture fixture, string codeSuffix = "001", decimal? unitPrice = null, decimal? unitCost = null)
     {
         var unitOfWork = fixture.Resolve<SqliteUnitOfWork>();
@@ -721,7 +721,12 @@ public sealed class CloseShiftHandlerTests
         var price = unitPrice ?? UnitPrice;
         var cost = unitCost ?? 60.00m;
 
-        return unitOfWork.ExecuteInTransactionAsync(async token =>
+        // Every figure this class hand-works adds tax on top of the price, so it pins the shop to
+        // exclusive pricing - the shipped default is inclusive (tax.prices_include_tax, FR-10.3),
+        // which PricingModeAndBillDiscountTests covers in its own right.
+        await PricedVariantSeeder.UsePricingModeAsync(fixture, pricesIncludeTax: false);
+
+        return await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
             using var context = unitOfWork.CreateDbContext();
 

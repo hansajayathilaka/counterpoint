@@ -44,6 +44,23 @@ public sealed record SaleStockReversal(long ProductVariantId, Quantity QuantityB
 /// Every <c>stock_movement</c> row the sale posted (<c>ref_doc_type = 'SALE'</c>,
 /// <c>ref_doc_id</c> = this sale). Empty for a bill of open items and services alone.
 /// </param>
+/// <param name="HasReturns">
+/// Some of the bill has already come back through a return or an exchange. Cancelling it would
+/// restock and refund those goods a second time.
+/// </param>
+/// <param name="IsExchangeSale">
+/// The bill is the replacement half of an exchange (<c>sale_return.exchange_sale_id</c>). Voiding
+/// it alone would leave the return half's credit applied to goods that were never sold.
+/// </param>
+/// <param name="PaidByCreditNote">
+/// Some of the bill was paid by redeeming a credit note. A cancellation does not restore the
+/// note's balance, so the customer would lose that credit.
+/// </param>
+/// <param name="ShiftOpen">
+/// The shift the bill was sold on is still open. Once it is closed its drawer has been counted and
+/// its Z report printed; a cancellation writes no refund row of its own, so voiding the bill then
+/// would rewrite a counted shift's figures and leave today's drawer short by whatever was handed back.
+/// </param>
 public sealed record SaleForCancellation(
     long Id,
     string BillNo,
@@ -51,4 +68,8 @@ public sealed record SaleForCancellation(
     DateOnly BusinessDate,
     DateTimeOffset SoldAt,
     Money Total,
-    IReadOnlyList<SaleStockReversal> StockMovements);
+    IReadOnlyList<SaleStockReversal> StockMovements,
+    bool HasReturns,
+    bool IsExchangeSale,
+    bool PaidByCreditNote,
+    bool ShiftOpen);

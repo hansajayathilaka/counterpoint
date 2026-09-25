@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Domain.Pricing;
 using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data;
 using Dapper;
@@ -27,7 +28,9 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
     private const string SaleByIdSql =
         """
         SELECT id AS Id, bill_no AS BillNo, sold_at AS SoldAt, business_date AS BusinessDate,
-               status AS Status, customer_id AS CustomerId, total AS Total
+               status AS Status, customer_id AS CustomerId, total AS Total,
+               bill_discount AS BillDiscount,
+               EXISTS (SELECT 1 FROM sale_return r WHERE r.exchange_sale_id = sale.id) AS IsExchangeSale
           FROM sale
          WHERE id = @SaleId
          LIMIT 1;
@@ -36,7 +39,9 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
     private const string SaleByBillNoSql =
         """
         SELECT id AS Id, bill_no AS BillNo, sold_at AS SoldAt, business_date AS BusinessDate,
-               status AS Status, customer_id AS CustomerId, total AS Total
+               status AS Status, customer_id AS CustomerId, total AS Total,
+               bill_discount AS BillDiscount,
+               EXISTS (SELECT 1 FROM sale_return r WHERE r.exchange_sale_id = sale.id) AS IsExchangeSale
           FROM sale
          WHERE bill_no = @BillNo
          LIMIT 1;
@@ -47,6 +52,7 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
         SELECT sl.id AS SaleLineId, sl.product_variant_id AS ProductVariantId,
                sl.description AS Description, u.symbol AS UomSymbol,
                sl.qty_base AS QtySoldBase, sl.qty_returned AS QtyReturnedBase,
+               sl.qty AS Qty, sl.uom_id AS UomId, sl.discount AS Discount,
                sl.unit_price AS UnitPrice, sl.unit_cost AS UnitCost,
                sl.line_total AS LineTotal, sl.tax AS Tax,
                COALESCE(p.non_returnable, 0) AS NonReturnable, p.category_id AS CategoryId
@@ -142,10 +148,10 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
         var linesCommand = new CommandDefinition(LinesSql, new { SaleId = sale.Id }, cancellationToken: cancellationToken);
         var lines = await connection.QueryAsync<LineRow>(linesCommand).ConfigureAwait(false);
 
-        return ToReturnableSale(sale, lines);
+        return ToReturnableSale(sale, [.. lines]);
     }
 
-    private static ReturnableSale ToReturnableSale(SaleRow sale, IEnumerable<LineRow> lines) => new(
+    private static ReturnableSale ToReturnableSale(SaleRow sale, IReadOnlyList<LineRow> lines) => new(
         sale.Id,
         sale.BillNo,
         DateTimeOffset.Parse(sale.SoldAt, CultureInfo.InvariantCulture),
@@ -153,9 +159,26 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
         sale.Status,
         sale.CustomerId,
         Money.FromScaled(sale.Total),
-        [.. lines.Select(ToReturnableSaleLine)]);
+        ToReturnableSaleLines(sale, lines));
 
-    private static ReturnableSaleLine ToReturnableSaleLine(LineRow line)
+    /// <summary>
+    /// Every line, each with its share of the bill discount split exactly as the sale split it
+    /// (BillDiscountSplit over the stored snapshot columns). An exchange's replacement sale carries
+    /// its return credit in bill_discount - settlement, not a discount - so it splits nothing.
+    /// </summary>
+    private static IReadOnlyList<ReturnableSaleLine> ToReturnableSaleLines(SaleRow sale, IReadOnlyList<LineRow> lines)
+    {
+        var shares = BillDiscountSplit.Allocate(
+            sale.IsExchangeSale ? Money.Zero : Money.FromScaled(sale.BillDiscount),
+            [.. lines.Select(line => BillDiscountSplit.Weight(
+                Money.FromScaled(line.UnitPrice),
+                Quantity.FromScaled(line.Qty, line.UomId),
+                Money.FromScaled(line.Discount)))]);
+
+        return [.. lines.Select((line, i) => ToReturnableSaleLine(line, shares[i]))];
+    }
+
+    private static ReturnableSaleLine ToReturnableSaleLine(LineRow line, Money billDiscountShare)
     {
         // The same bookkeeping tag SqliteSaleLookup uses for a reversal quantity: StockLedgerMath
         // and this line's own arithmetic only need the two quantities on one line to agree with
@@ -176,7 +199,8 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
             Money.FromScaled(line.LineTotal),
             Money.FromScaled(line.Tax),
             line.NonReturnable != 0,
-            line.CategoryId);
+            line.CategoryId,
+            billDiscountShare);
     }
 
     private static ReturnSaleSearchResult ToSearchResult(SearchRow row) => new(
@@ -202,6 +226,10 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
         public long? CustomerId { get; set; }
 
         public long Total { get; set; }
+
+        public long BillDiscount { get; set; }
+
+        public bool IsExchangeSale { get; set; }
     }
 
     /// <summary>The flat shape Dapper maps a row of <see cref="LinesSql"/> onto.</summary>
@@ -218,6 +246,12 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
         public long QtySoldBase { get; set; }
 
         public long QtyReturnedBase { get; set; }
+
+        public long Qty { get; set; }
+
+        public long UomId { get; set; }
+
+        public long Discount { get; set; }
 
         public long UnitPrice { get; set; }
 

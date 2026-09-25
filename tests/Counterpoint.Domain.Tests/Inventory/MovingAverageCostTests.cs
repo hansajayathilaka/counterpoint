@@ -70,6 +70,25 @@ public sealed class MovingAverageCostTests
         newAvg.Should().Be(Money.FromDecimal(11m));
     }
 
+    [Theory]
+    [InlineData(-5, 10, 10, 20, 20)]
+    [InlineData(-5, 30, 6, 10, 10)]
+    [InlineData(-1, 100, 1000, 7, 7)]
+    public void FR_4_AReceiptThatPullsNegativeStockBackAboveZeroTakesTheArrivingCost(
+        int oldQty, int oldAvg, int inQty, int inCost, int expected)
+    {
+        // Selling ahead of a goods receipt is routine under Q-11. The weighted formula over a
+        // negative prior balance would give 30 for the first row and -90 for the second - an
+        // inflated or even negative cost that every later sale would snapshot as its COGS.
+        var newAvg = MovingAverageCost.Recompute(
+            Quantity.FromDecimal(oldQty, BaseUomId),
+            Money.FromDecimal(oldAvg),
+            Quantity.FromDecimal(inQty, BaseUomId),
+            Money.FromDecimal(inCost));
+
+        newAvg.Should().Be(Money.FromDecimal(expected));
+    }
+
     [Fact]
     public void FR_4_OnlyAPositiveMovementRecomputesTheAverage()
     {

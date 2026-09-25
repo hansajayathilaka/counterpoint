@@ -155,12 +155,17 @@ public sealed class TaxedSaleTests
     /// Adds a second product to the seeded catalogue, taxed at <see cref="TaxPercent"/> and
     /// priced at <see cref="UnitPrice"/>, with an opening count posted through the ledger.
     /// </summary>
-    private static Task<long> SeedTaxedVariantAsync(SaleFixture fixture)
+    private static async Task<long> SeedTaxedVariantAsync(SaleFixture fixture)
     {
         var unitOfWork = fixture.Resolve<SqliteUnitOfWork>();
         var ledger = fixture.Resolve<IStockLedger>();
 
-        return unitOfWork.ExecuteInTransactionAsync(async token =>
+        // Every figure this class hand-works adds tax on top of the price, so it pins the shop to
+        // exclusive pricing - the shipped default is inclusive (tax.prices_include_tax, FR-10.3),
+        // which PricingModeAndBillDiscountTests covers in its own right.
+        await PricedVariantSeeder.UsePricingModeAsync(fixture, pricesIncludeTax: false);
+
+        return await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
             using var context = unitOfWork.CreateDbContext();
 

@@ -6,7 +6,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Devices;
 using Counterpoint.Application.Abstractions.Persistence;
+using Counterpoint.Application.Sales;
 using Counterpoint.Domain.Pricing;
+using Counterpoint.Domain.Services;
 using Counterpoint.Domain.ValueObjects;
 using Counterpoint.Infrastructure.Data;
 using Dapper;
@@ -30,7 +32,8 @@ internal sealed class SqliteSaleReceiptLookup : ISaleReceiptLookup
                s.line_discount AS LineDiscount, s.bill_discount AS BillDiscount,
                s.tax AS Tax, s.total AS Total,
                u.display_name AS CashierName,
-               c.name AS CustomerName, c.type AS CustomerType
+               c.name AS CustomerName, c.type AS CustomerType,
+               EXISTS (SELECT 1 FROM sale_return r WHERE r.exchange_sale_id = s.id) AS IsExchangeSale
           FROM sale s
           JOIN app_user u ON u.id = s.user_id
           LEFT JOIN customer c ON c.id = s.customer_id
@@ -41,8 +44,8 @@ internal sealed class SqliteSaleReceiptLookup : ISaleReceiptLookup
     private const string LinesSql =
         """
         SELECT sl.description AS Description, sl.qty AS Qty, sl.uom_id AS UomId,
-               uo.symbol AS UomSymbol, sl.unit_price AS UnitPrice, sl.line_total AS LineTotal,
-               sl.tax_rate AS TaxRate, sl.tax AS Tax
+               uo.symbol AS UomSymbol, sl.unit_price AS UnitPrice, sl.discount AS Discount,
+               sl.line_total AS LineTotal, sl.tax_rate AS TaxRate, sl.tax AS Tax
           FROM sale_line sl
           JOIN uom uo ON uo.id = sl.uom_id
          WHERE sl.sale_id = @SaleId
@@ -58,11 +61,14 @@ internal sealed class SqliteSaleReceiptLookup : ISaleReceiptLookup
         """;
 
     private readonly IPosConnectionFactory _connectionFactory;
+    private readonly IRoundingPolicy _rounding;
 
-    public SqliteSaleReceiptLookup(IPosConnectionFactory connectionFactory)
+    public SqliteSaleReceiptLookup(IPosConnectionFactory connectionFactory, IRoundingPolicy rounding)
     {
         ArgumentNullException.ThrowIfNull(connectionFactory);
+        ArgumentNullException.ThrowIfNull(rounding);
         _connectionFactory = connectionFactory;
+        _rounding = rounding;
     }
 
     /// <inheritdoc />
@@ -89,49 +95,58 @@ internal sealed class SqliteSaleReceiptLookup : ISaleReceiptLookup
         }
     }
 
-    private static SaleReceipt ToReceipt(SaleRow sale, IReadOnlyList<LineRow> lines, IReadOnlyList<PaymentRow> payments)
+    private SaleReceipt ToReceipt(SaleRow sale, IReadOnlyList<LineRow> lines, IReadOnlyList<PaymentRow> payments)
     {
-        var discount = Money.FromScaled(sale.LineDiscount + sale.BillDiscount);
+        // An exchange's replacement sale carries its return credit in bill_discount
+        // (CreateExchangeHandler) - settlement, not a discount, and never split into the lines'
+        // tax base - so it has nothing to allocate.
+        var billDiscount = Money.FromScaled(sale.BillDiscount);
+        var shares = BillDiscountSplit.Allocate(
+            sale.IsExchangeSale ? Money.Zero : billDiscount,
+            [.. lines.Select(line => BillDiscountSplit.Weight(
+                Money.FromScaled(line.UnitPrice),
+                Quantity.FromScaled(line.Qty, line.UomId),
+                Money.FromScaled(line.Discount)))]);
 
-        return new SaleReceipt(
+        return SaleReceiptFigures.Build(
             sale.BillNo,
             DateTimeOffset.Parse(sale.SoldAt, CultureInfo.InvariantCulture),
-            [.. lines.Select(ToLine)],
+            [.. lines.Select((line, i) => ToLine(line, shares[i]))],
             Money.FromScaled(sale.Subtotal),
-            discount,
-            Money.FromScaled(sale.Subtotal - sale.LineDiscount - sale.BillDiscount),
+            billDiscount,
             Money.FromScaled(sale.Tax),
             Money.FromScaled(sale.Total),
             [.. payments.Select(payment => new SaleReceiptTender(payment.TenderType, Money.FromScaled(payment.Amount)))],
-
             // Never recoverable from stored rows (SRS FR-3.26) - see the interface's remarks.
             Money.Zero,
-            TaxBreakdown(lines),
+            "Tax",
             sale.CashierName,
             sale.CustomerName ?? "Walk-in",
             string.Equals(sale.CustomerType, CustomerPriceTiers.TradeToken, StringComparison.Ordinal));
     }
 
-    private static SaleReceiptLine ToLine(LineRow row) => new(
-        row.Description,
-        Quantity.FromScaled(row.Qty, row.UomId),
-        row.UomSymbol,
-        Money.FromScaled(row.UnitPrice),
-        Money.FromScaled(row.LineTotal));
+    /// <summary>
+    /// The line as the original receipt printed it. Its "Amount" is recomputed exactly as the sale
+    /// path computed it - rounding point one over the three snapshot columns - because the stored
+    /// <c>line_total</c> is net of tax in a tax-inclusive shop and so is not what was charged.
+    /// </summary>
+    private SaleReceiptLineFigures ToLine(LineRow row, Money billDiscountShare)
+    {
+        var quantity = Quantity.FromScaled(row.Qty, row.UomId);
+        var unitPrice = Money.FromScaled(row.UnitPrice);
 
-    /// <summary>One row per distinct tax rate the bill's lines actually used (SRS §10.1).</summary>
-    private static IReadOnlyList<SaleReceiptTaxLine> TaxBreakdown(IReadOnlyList<LineRow> lines) =>
-        [.. lines
-            .GroupBy(line => line.TaxRate)
-            .OrderByDescending(group => group.Key)
-            .Select(group => new SaleReceiptTaxLine(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Tax @ {TaxRate.FromScaled(group.Key).AsPercent:0.##}%"),
-                Money.FromScaled(group.Sum(line => line.LineTotal)),
-                Money.FromScaled(group.Sum(line => line.Tax))))];
+        return new SaleReceiptLineFigures(
+            row.Description,
+            quantity,
+            row.UomSymbol,
+            unitPrice,
+            _rounding.Round((unitPrice * quantity.Value) - Money.FromScaled(row.Discount)),
+            Money.FromScaled(row.LineTotal),
+            Money.FromScaled(row.Tax),
+            TaxRate.FromScaled(row.TaxRate),
+            billDiscountShare);
+    }
 
-    /// <summary>The flat shape Dapper maps a row of <see cref="SaleSql"/> onto.</summary>
     private sealed class SaleRow
     {
         public long Id { get; set; }
@@ -155,6 +170,8 @@ internal sealed class SqliteSaleReceiptLookup : ISaleReceiptLookup
         public string? CustomerName { get; set; }
 
         public string? CustomerType { get; set; }
+
+        public bool IsExchangeSale { get; set; }
     }
 
     /// <summary>The flat shape Dapper maps a row of <see cref="LinesSql"/> onto.</summary>
@@ -169,6 +186,8 @@ internal sealed class SqliteSaleReceiptLookup : ISaleReceiptLookup
         public string UomSymbol { get; set; } = string.Empty;
 
         public long UnitPrice { get; set; }
+
+        public long Discount { get; set; }
 
         public long LineTotal { get; set; }
 
