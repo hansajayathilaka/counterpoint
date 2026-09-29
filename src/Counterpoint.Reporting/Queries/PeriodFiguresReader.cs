@@ -170,12 +170,18 @@ internal sealed class PeriodFiguresReader
                               AND stale.status <> 'COMPLETED'));
         """;
 
+    // Only a SELLABLE line goes back onto the shelf (CreateReturnHandler posts a RETURN_IN stock
+    // movement for that disposition alone), so only its cost is genuinely recovered and its
+    // sale's own COGS rightly reversed. A DAMAGED line never re-enters stock and no write-off
+    // movement is posted for it either - the shop has both refunded the money and lost the
+    // goods - so it is excluded here entirely (DailyRollupCalculator.ComputeAsync mirrors this).
     private const string RawReturnCogsSql =
         """
         SELECT srl.unit_cost AS UnitCostScaled, srl.qty_base AS QtyBaseScaled
           FROM sale_return_line srl
           JOIN sale_return sr ON sr.id = srl.sale_return_id
          WHERE sr.business_date >= @From AND sr.business_date <= @To
+           AND srl.disposition = 'SELLABLE'
            AND (@IncludeRolledUpDates = 1
                 OR sr.business_date >= @SplitKey
                 OR NOT EXISTS (SELECT 1 FROM daily_sales_summary r WHERE r.business_date = sr.business_date)

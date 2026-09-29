@@ -31,6 +31,7 @@ public sealed class MigrationRunnerTests
         "20260914005508_CreditNoteConstraints0008",
         "20260914121222_BulkBreak0009",
         "20260914140143_StockTakeNumber0008",
+        "20260925020216_ExchangeTenderType0010",
     ];
 
     [Fact]
@@ -164,7 +165,7 @@ public sealed class MigrationRunnerTests
         var result = await runner.ApplyPendingMigrationsAsync();
 
         result.AppliedMigrations.Should().Equal(
-            Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7], Chain[8], Chain[9]);
+            Chain[1], Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7], Chain[8], Chain[9], Chain[10]);
         result.BackupFilePath.Should().NotBeNull();
         File.Exists(result.BackupFilePath!).Should().BeTrue();
         Path.GetFileName(result.BackupFilePath!).Should().StartWith("counterpoint-pre-");
@@ -239,7 +240,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7], Chain[8], Chain[9]);
+        result.AppliedMigrations.Should().Equal(Chain[2], Chain[3], Chain[4], Chain[5], Chain[6], Chain[7], Chain[8], Chain[9], Chain[10]);
 
         await using (var check = factory.OpenConfiguredConnection())
         {
@@ -292,7 +293,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6], Chain[7], Chain[8], Chain[9]);
+        result.AppliedMigrations.Should().Equal(Chain[4], Chain[5], Chain[6], Chain[7], Chain[8], Chain[9], Chain[10]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -347,7 +348,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6], Chain[7], Chain[8], Chain[9]);
+        result.AppliedMigrations.Should().Equal(Chain[5], Chain[6], Chain[7], Chain[8], Chain[9], Chain[10]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -437,7 +438,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[6], Chain[7], Chain[8], Chain[9]);
+        result.AppliedMigrations.Should().Equal(Chain[6], Chain[7], Chain[8], Chain[9], Chain[10]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -503,7 +504,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[7], Chain[8], Chain[9]);
+        result.AppliedMigrations.Should().Equal(Chain[7], Chain[8], Chain[9], Chain[10]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -622,7 +623,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[8], Chain[9]);
+        result.AppliedMigrations.Should().Equal(Chain[8], Chain[9], Chain[10]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -724,7 +725,7 @@ public sealed class MigrationRunnerTests
         var runner = new MigrationRunner(factory, fixture.DataDirectory);
         var result = await runner.ApplyPendingMigrationsAsync();
 
-        result.AppliedMigrations.Should().Equal(Chain[9]);
+        result.AppliedMigrations.Should().Equal(Chain[9], Chain[10]);
 
         await using var check = factory.OpenConfiguredConnection();
         await using var command = check.CreateCommand();
@@ -771,6 +772,81 @@ public sealed class MigrationRunnerTests
             "INSERT INTO stock_take (id, stock_take_no, scope, started_at, status, user_id) " +
             "VALUES (4, 'ST-2026-000002', 'BRAND:5', '2026-09-06T08:00:00.000+05:30', 'OPEN', 1);";
         await command.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>
+    /// <c>ExchangeTenderType0010</c> (docs/01_DATA_MODEL.md §5, §13): widens
+    /// <c>ck_payment_tender_type</c> to accept <c>'EXCHANGE'</c> - the token an exchange's credit
+    /// now settles as (2026-09-25 review pass, retiring the interim <c>sale.bill_discount</c> use
+    /// <c>CreateExchangeHandler</c>'s own remarks documented). Migrated forward from a database
+    /// already carrying <c>TradingDaySeed</c>'s seeded payment row, exactly the same rebuild
+    /// <c>PaymentSaleReturnForeignKey0007</c>'s own test proves - the seeded row, the foreign
+    /// keys and the append-only triggers all have to survive a second rebuild of the same table
+    /// just as they survived the first.
+    /// </summary>
+    [Fact]
+    public async Task ExchangeTenderType0010WidensThePaymentCheckAndKeepsItsTriggers()
+    {
+        using var fixture = new TemporaryDataDirectory();
+        await using var factory = fixture.CreateConnectionFactory();
+
+        await MigratedDatabase.MigrateToAsync(factory, "StockTakeNumber0008");
+
+        await using (var connection = factory.OpenConfiguredConnection())
+        {
+            await TradingDaySeed.ApplyAsync(connection);
+        }
+
+        var runner = new MigrationRunner(factory, fixture.DataDirectory);
+        var result = await runner.ApplyPendingMigrationsAsync();
+
+        result.AppliedMigrations.Should().Equal(Chain[10]);
+
+        await using var check = factory.OpenConfiguredConnection();
+        await using var command = check.CreateCommand();
+
+        command.CommandText = "PRAGMA integrity_check;";
+        (await command.ExecuteScalarAsync()).Should().Be("ok");
+
+        command.CommandText = "PRAGMA foreign_key_check;";
+        (await command.ExecuteScalarAsync()).Should().BeNull();
+
+        // The seeded payment row - inserted before this migration ran - came through the second
+        // rebuild unchanged, in the documented column order.
+        command.CommandText = "SELECT tender_type || ' ' || amount FROM payment WHERE id = 1;";
+        (await command.ExecuteScalarAsync()).Should().Be("CASH 2875000");
+
+        // The foreign key to sale_return - added by the previous rebuild - is still there.
+        command.CommandText =
+            "SELECT count(*) FROM pragma_foreign_key_list('payment') WHERE \"table\" = 'sale_return';";
+        (await command.ExecuteScalarAsync()).Should().Be(1L);
+
+        // The whole point: an EXCHANGE tender is now accepted.
+        command.CommandText =
+            "INSERT INTO payment (id, sale_id, sale_return_id, tender_type, amount, reference, paid_at) " +
+            "VALUES (2, 1, NULL, 'EXCHANGE', 500000, 'RTN-2026-000001', '2026-09-04T10:00:00.000+05:30');";
+        await command.ExecuteNonQueryAsync();
+
+        command.CommandText = "SELECT tender_type || ' ' || amount || ' ' || reference FROM payment WHERE id = 2;";
+        (await command.ExecuteScalarAsync()).Should().Be("EXCHANGE 500000 RTN-2026-000001");
+
+        // The CHECK still rejects a token that is not one of the seven.
+        var rejected = await ExecuteExpectingSqliteExceptionAsync(check,
+            "INSERT INTO payment (id, sale_id, sale_return_id, tender_type, amount, reference, paid_at) " +
+            "VALUES (3, 1, NULL, 'BITCOIN', 100000, NULL, '2026-09-04T10:00:00.000+05:30');");
+        rejected.SqliteExtendedErrorCode.Should().Be(SqliteConstraintCheck);
+
+        // The rebuild did not leave the temporary table behind.
+        command.CommandText = "SELECT count(*) FROM sqlite_schema WHERE name = 'ef_temp_payment';";
+        (await command.ExecuteScalarAsync()).Should().Be(0L);
+
+        // Still append-only - the whole reason for re-creating the triggers after this second
+        // rebuild rather than before it.
+        var updateBlocked = await ExecuteExpectingSqliteExceptionAsync(check, "UPDATE payment SET amount = 1 WHERE id = 1;");
+        updateBlocked.Message.Should().Contain("payment is append-only");
+
+        var deleteBlocked = await ExecuteExpectingSqliteExceptionAsync(check, "DELETE FROM payment WHERE id = 1;");
+        deleteBlocked.Message.Should().Contain("payment is append-only");
     }
 
     private const int SqliteConstraintUnique = 2067;

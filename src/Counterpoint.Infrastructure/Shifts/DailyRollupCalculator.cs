@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Counterpoint.Domain.Returns;
 using Counterpoint.Domain.ValueObjects;
 using Dapper;
 
@@ -79,7 +80,8 @@ internal static class DailyRollupCalculator
         SELECT srl.product_variant_id AS ProductVariantId,
                srl.qty_base           AS QtyBaseScaled,
                srl.unit_cost          AS UnitCostScaled,
-               srl.line_refund        AS LineRefundScaled
+               srl.line_refund        AS LineRefundScaled,
+               srl.disposition        AS Disposition
           FROM sale_return_line srl
           JOIN sale_return sr ON sr.id = srl.sale_return_id
          WHERE sr.business_date = @BusinessDate;
@@ -156,7 +158,14 @@ internal static class DailyRollupCalculator
 
         foreach (var line in returnLines)
         {
-            var lineCogs = LineCogs(line.UnitCostScaled, line.QtyBaseScaled);
+            // Only a SELLABLE line goes back onto the shelf (CreateReturnHandler posts a
+            // RETURN_IN stock movement for that disposition alone) - only then is the cost
+            // genuinely recovered and the sale's own COGS rightly reversed. A DAMAGED line never
+            // re-enters stock and no write-off movement is posted for it either, so the shop has
+            // both refunded the money and lost the goods; reversing its COGS here would erase
+            // that loss and overstate the day's margin.
+            var costRecovered = string.Equals(line.Disposition, ReturnDispositions.SellableToken, StringComparison.Ordinal);
+            var lineCogs = costRecovered ? LineCogs(line.UnitCostScaled, line.QtyBaseScaled) : Money.Zero;
             returnCogsTotal += lineCogs;
 
             if (line.ProductVariantId is not { } variantId)
@@ -164,7 +173,11 @@ internal static class DailyRollupCalculator
                 continue;
             }
 
-            Accumulate(returnCogsByVariant, variantId, lineCogs);
+            if (costRecovered)
+            {
+                Accumulate(returnCogsByVariant, variantId, lineCogs);
+            }
+
             AccumulateScaled(returnQtyByVariant, variantId, line.QtyBaseScaled);
             Accumulate(returnNetByVariant, variantId, Money.FromScaled(line.LineRefundScaled));
         }
@@ -301,6 +314,8 @@ internal static class DailyRollupCalculator
         public long UnitCostScaled { get; set; }
 
         public long LineRefundScaled { get; set; }
+
+        public string Disposition { get; set; } = string.Empty;
     }
 
     /// <summary>The flat shape Dapper maps a row of <see cref="TenderBucketsSql"/> onto.</summary>

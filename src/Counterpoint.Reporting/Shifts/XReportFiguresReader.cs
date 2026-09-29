@@ -60,8 +60,9 @@ internal sealed class XReportFiguresReader : IXReportFiguresReader
     // Line level, not a GROUP BY: a line's taxable amount is line_total less its share of the
     // bill discount (SaleReceiptFigures, BillDiscountSplit), and that share is a per-bill
     // allocation SQL cannot reproduce exactly. line_total is already net of tax in both pricing
-    // modes, so it is never reduced by sl.tax. An exchange's replacement sale carries its return
-    // credit in bill_discount - settlement, not a discount - so it has nothing to allocate; the
+    // modes, so it is never reduced by sl.tax. An exchange's replacement sale keeps
+    // bill_discount at zero unconditionally (ExchangeTenderType0010) - its credit settles as an
+    // EXCHANGE payment, never a discount - so the CASE below is defensive, not load-bearing; the
     // derived table finds those sales in one pass over sale_return rather than once per row.
     private const string TaxLinesSql =
         """

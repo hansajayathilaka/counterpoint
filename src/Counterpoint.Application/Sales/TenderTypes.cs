@@ -40,15 +40,29 @@ public static class TenderTypes
     /// </summary>
     public const string CreditNote = "CREDIT_NOTE";
 
+    /// <summary>
+    /// An exchange's return credit, settled as a real tender on both documents
+    /// (<c>ExchangeTenderType0010</c>): a positive payment on the replacement sale, its exact
+    /// negative on the return (<c>Counterpoint.Application.Exchanges.CreateExchangeHandler</c>'s
+    /// own remarks). Deliberately excluded from <see cref="Accepted"/>/<see cref="RequireAccepted"/>:
+    /// nobody offers this tender - <c>CreateExchangeHandler</c> alone ever writes it, computed
+    /// from the return's own value, never taken as user input the way a cashier's cash, card or
+    /// credit note tender is.
+    /// </summary>
+    public const string Exchange = "EXCHANGE";
+
     private static readonly HashSet<string> Accepted = new(StringComparer.Ordinal)
     {
         Cash, Card, BankTransfer, Cheque, CreditNote,
     };
 
     /// <summary>
-    /// Refuses any tender this build cannot actually settle. <c>ON_ACCOUNT</c> in particular: the
-    /// database accepts it, but with no customer account to charge (P5-T02) a payment row of that
-    /// type would record goods leaving the shop against a balance nobody owes.
+    /// Refuses any tender this build cannot actually settle, or that nobody may offer directly.
+    /// <c>ON_ACCOUNT</c> in particular: the database accepts it, but with no customer account to
+    /// charge (P5-T02) a payment row of that type would record goods leaving the shop against a
+    /// balance nobody owes. <see cref="Exchange"/> likewise: a caller offering it as an ordinary
+    /// tender would be minting store credit out of nothing, rather than the real credit
+    /// <c>CreateExchangeHandler</c> computes from an actual return.
     /// </summary>
     /// <exception cref="InvalidOperationException">A tender type is not one of the accepted ones.</exception>
     public static void RequireAccepted(IEnumerable<string> tenderTypes)

@@ -270,6 +270,78 @@ public sealed class CloseShiftHandlerTests
     }
 
     /// <summary>
+    /// A DAMAGED return refunds the customer but never restocks (<c>CreateReturnHandler</c> posts
+    /// a <c>RETURN_IN</c> stock movement for a SELLABLE line alone, never a DAMAGED one, and no
+    /// write-off movement is posted for it either) - the shop has both given the money back and
+    /// lost the goods. Reversing that line's COGS out of the day's rollup, the same way a SELLABLE
+    /// return's is reversed, would erase that loss and overstate the day's margin.
+    /// </summary>
+    [Fact]
+    public async Task P3_T03_ADamagedReturnRefundsButNeverReversesTheDaysCogs()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync(includeBackup: true);
+        await SeedReturnNumberSequenceAsync(fixture);
+
+        var user = fixture.Resolve<ISession>().CurrentUser!;
+        var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+        var variantId = await SeedTaxedVariantAsync(fixture);
+
+        // Sale: 3 pieces @ 100.00, 10% tax -> subtotal 300.00, tax 30.00, total 330.00, cogs
+        // 3 * 60.00 = 180.00.
+        var sale = await CompleteAsync(fixture, variantId, quantity: 3m);
+        sale.Total.Should().Be(Money.FromDecimal(330.00m));
+
+        // Return 1 of the 3 pieces, DAMAGED: refunded (100.00 + 10.00 tax = 110.00) but never
+        // restocked, so the day's cogs stays the full 180.00 - none of it is recovered.
+        var saleLineId = await fixture.CountAsync("SELECT id FROM sale_line WHERE sale_id = " + sale.SaleId + ";");
+        var returned = await fixture.Resolve<ICreateReturn>().CreateAsync(new CreateReturnCommand(
+            sale.SaleId,
+            user.Id,
+            shiftId,
+            ReturnedAt,
+            [new ReturnLineRequest(
+                saleLineId, Quantity.FromDecimal(1m, saleLineId), ReturnDisposition.Damaged,
+                "Dropped and cracked")],
+            RefundMethod.Cash));
+        returned.TotalRefund.Should().Be(Money.FromDecimal(110.00m));
+
+        await fixture.Resolve<ICloseShift>().CloseAsync(
+            new CloseShiftCommand(shiftId, user.Id, Money.Zero, ClosedAt));
+
+        var businessDate = DateOnly.FromDateTime(SoldAt.Date);
+        var check = await fixture.Resolve<IRollupConsistencyCheck>().CheckAsync(businessDate);
+
+        check.RowExists.Should().BeTrue();
+        check.Matches.Should().BeTrue("the stored rollup must equal a fresh recomputation from raw data");
+        check.ProductMismatches.Should().BeEmpty();
+
+        var summaryRow = await fixture.ScalarAsync(
+            "SELECT net || '|' || cogs || '|' || return_count || '|' || return_value FROM daily_sales_summary WHERE business_date = '"
+            + businessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "';");
+
+        summaryRow.Should().Be(string.Join(
+            '|',
+            Money.FromDecimal(200.00m).ToScaled(),
+            Money.FromDecimal(180.00m).ToScaled(),
+            1,
+            Money.FromDecimal(110.00m).ToScaled()),
+            "net is still reduced by the refund (300.00 - 100.00 subtotal), but cogs stays the full "
+            + "180.00 the sale recorded - none of it is recovered by a return that never restocks");
+
+        var productRow = await fixture.ScalarAsync(
+            "SELECT qty_base || '|' || net || '|' || cogs FROM daily_product_summary WHERE business_date = '"
+            + businessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            + "' AND product_variant_id = " + variantId.ToString(CultureInfo.InvariantCulture) + ";");
+
+        productRow.Should().Be(string.Join(
+            '|',
+            Quantity.FromDecimal(2m, variantId).ToScaled(),
+            Money.FromDecimal(200.00m).ToScaled(),
+            Money.FromDecimal(180.00m).ToScaled()),
+            "the product row's own cogs must not be reduced by the damaged line either");
+    }
+
+    /// <summary>
     /// The rollup test above proves the day-header row and drives one product through
     /// <see cref="IRollupConsistencyCheck"/>. This test sells two different products, each with its
     /// own price and cost, in the same bill, and hand-verifies directly against the stored rows

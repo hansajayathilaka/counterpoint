@@ -163,8 +163,9 @@ internal sealed class SqliteReturnableSaleLookup : IReturnableSaleLookup
 
     /// <summary>
     /// Every line, each with its share of the bill discount split exactly as the sale split it
-    /// (BillDiscountSplit over the stored snapshot columns). An exchange's replacement sale carries
-    /// its return credit in bill_discount - settlement, not a discount - so it splits nothing.
+    /// (BillDiscountSplit over the stored snapshot columns). An exchange's replacement sale keeps
+    /// bill_discount at zero unconditionally (ExchangeTenderType0010 - its credit settles as an
+    /// EXCHANGE payment, never a discount), so IsExchangeSale is defensive here, not load-bearing.
     /// </summary>
     private static IReadOnlyList<ReturnableSaleLine> ToReturnableSaleLines(SaleRow sale, IReadOnlyList<LineRow> lines)
     {

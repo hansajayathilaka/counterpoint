@@ -658,7 +658,7 @@ CREATE TABLE payment (                    -- APPEND ONLY
   sale_id        INTEGER REFERENCES sale(id),
   sale_return_id INTEGER REFERENCES sale_return(id),
   tender_type    TEXT NOT NULL CHECK (tender_type IN
-                   ('CASH','CARD','BANK_TRANSFER','CREDIT_NOTE','ON_ACCOUNT','CHEQUE')),
+                   ('CASH','CARD','BANK_TRANSFER','CREDIT_NOTE','ON_ACCOUNT','CHEQUE','EXCHANGE')),
   amount         INTEGER NOT NULL,        -- negative for a refund out
   reference      TEXT,                    -- max 20 chars, PAN-rejecting (NFR-S7)
   paid_at        TEXT NOT NULL,
@@ -681,7 +681,7 @@ CREATE TABLE held_bill (
 **How the money columns relate, in both pricing modes (`tax.prices_include_tax`, FR-10.3):**
 
 - A line is *charged* `round(unit_price × qty − discount)` — rounding point one. That is the receipt's "Amount" column: gross of tax in an inclusive shop, net in an exclusive one.
-- The bill discount is split across the lines by `BillDiscountSplit`, weighted by `unit_price × qty − discount` (unrounded), so a return, a reprint or a report recomputes the same split from these columns without anything extra stored. An exchange's replacement sale is the exception: its `bill_discount` holds the exchange credit, which is settlement rather than a discount and is never split.
+- The bill discount is split across the lines by `BillDiscountSplit`, weighted by `unit_price × qty − discount` (unrounded), so a return, a reprint or a report recomputes the same split from these columns without anything extra stored. An exchange's replacement sale keeps `bill_discount` at zero unconditionally (`ExchangeTenderType0010`): its credit settles as an `'EXCHANGE'` `payment` row, never a discount, so there is nothing exchange-specific for this split to special-case.
 - `tax` is taken on *charged − share of bill discount* — the bill discount reduces the tax base (SRS §10.1: "Taxable value" is sub total less discount). Added on top in an exclusive shop; carved out in an inclusive one.
 - `line_total` is the charged amount, less `tax` in an inclusive shop. So `sum(line_total) = subtotal`, `subtotal − bill_discount + tax + rounding = total` holds in both modes, and `subtotal − bill_discount` is the bill's revenue net of tax.
 - A linked return refunds `(line_total − share) × fraction + tax × fraction`, priced cumulatively against `qty_returned` so a line returned in several steps never refunds more than it was paid.
@@ -1127,6 +1127,41 @@ on the same connection and the same transaction. The single-writer gate already 
 impossible; reading the head inside the transaction means the chain does not depend on the gate
 being correct. `VerifyChainCommand`, which walks a chain and reports the first break, is P3-T08's.
 
+**What the chain does not cover, on purpose, and the residual gap that leaves.** `sale_line`,
+`payment`, `sale_return`, `sale_return_line`, `stock_movement`, `shift` and `cash_movement` are
+all append-only (the triggers enforce that regardless), but only `sale` and `audit_log` carry a
+hash chain — the scope CLAUDE.md invariant 6 states and P3-T08's own task doc repeats for
+`VerifyChainCommand`. This is a deliberate boundary, not an oversight: chaining every append-only
+table would multiply the "which columns does a legitimate mutation change" analysis above (already
+delicate for `sale` alone) across seven more tables, several of which — `sale_return_line`,
+`stock_movement` — have no mutable column to reason about at all, so chaining them buys nothing a
+plain append-only trigger does not already give.
+
+It does leave one real gap. `sale.row_hash` commits to the bill's own header columns —
+`subtotal`, `tax`, `total` and the rest — but not to the *content* of its lines or payments. A
+`sqlite3` session that bypassed the append-only triggers (the documented residual limit two
+sections up: `PRAGMA recursive_triggers` is set by every application connection, never by a bare
+`sqlite3` repair session) could rewrite `sale_line.unit_price` or `payment.tender_type` for a
+settled bill without moving `sale.row_hash` at all — the header would still verify, because
+nothing about it depends on what the lines actually say. The append-only triggers are the primary
+defence against that; the hash chain adds nothing further here.
+
+**If this is ever worth closing**, the shape that fits the constraints above (no new columns, no
+second chain, the sale row still has to exist before its lines do) is to fold a `lines_hash` and
+a `payments_hash` into `sale`'s own `canonical_json` alongside the fields already listed — each a
+`SHA256` over the bill's lines/payments in `line_no`/insertion order, computed from the same
+in-memory `PricedBill`/`tenderPlan.Applied` data `CompleteSaleHandler` and `CreateExchangeHandler`
+already hold *before* the sale row is inserted (so no chicken-and-egg with the foreign key), and
+excluding `sale_line.qty_returned` for the same reason `sale`'s own hash excludes `status` -
+`cancelled_by` - `cancelled_at`: a later, legitimate return must not break a bill's own
+verification. `VerifyChainCommand` would then recompute both digests from the *current*
+`sale_line`/`payment` rows (again excluding `qty_returned`) as part of verifying `sale.row_hash`
+itself, rather than walking a chain of their own. This was assessed, not built, in the 2026-09-25
+review pass: `VerifyChainCommand` does not exist yet (P3-T08 is still `todo`), so there is nothing
+yet to consume the new fields, and the two handlers that would need to change are the highest-
+stakes hot path in the system - closing this gap belongs with building `VerifyChainCommand`
+itself, as one piece of work, not landed piecemeal ahead of it.
+
 ### Append-only triggers
 
 The complete set, as created by migrations `Skeleton0001` and `FullSchema0002`. These are the
@@ -1554,7 +1589,7 @@ Mirror these exactly as C# enums in `Domain/Enums/`. The `CHECK` constraints abo
 | `Role` | `CASHIER`, `OWNER` |
 | `ProductType` | `STANDARD`, `DECIMAL`, `SERVICE`, `NON_INVENTORY` |
 | `MovementType` | `GRN`, `SALE`, `RETURN_IN`, `ADJUSTMENT`, `DAMAGE`, `STOCK_TAKE`, `BULK_BREAK_OUT`, `BULK_BREAK_IN`, `OPENING`, `TRANSFER_OUT`, `TRANSFER_IN` |
-| `TenderType` | `CASH`, `CARD`, `BANK_TRANSFER`, `CREDIT_NOTE`, `ON_ACCOUNT`, `CHEQUE` |
+| `TenderType` | `CASH`, `CARD`, `BANK_TRANSFER`, `CREDIT_NOTE`, `ON_ACCOUNT`, `CHEQUE`, `EXCHANGE` (`ExchangeTenderType0010`; never user-offered - `CreateExchangeHandler` alone writes it) |
 | `SaleStatus` | `COMPLETED`, `CANCELLED` |
 | `RefundMethod` | `CASH`, `CARD`, `CREDIT_NOTE`, `EXCHANGE`, `ON_ACCOUNT` |
 | `Disposition` | `SELLABLE`, `DAMAGED` |
@@ -1792,6 +1827,7 @@ Run `ANALYZE` after bulk import and `PRAGMA optimize` on clean shutdown.
 | `CreditNoteConstraints0008` | P2-T05 | `ix_credit_note_customer` (no rebuild) and `ix_redemption_credit_note` (no rebuild); `ck_credit_note_amount_remaining_bounds` on `credit_note` (`0 <= amount_remaining <= amount_issued`), which does rebuild `credit_note` — written as literal SQL, in docs/01_DATA_MODEL.md §6's declared column order, because `credit_note` carries no triggers to re-create but EF's SQLite generator would otherwise have reordered its columns alphabetically the same way it did to `product` in `ProductForeignKeys0003` |
 | `BulkBreak0009` | P2-T09 | The `bulk_break` table — a pure `CREATE TABLE`, so no existing table is touched and there is nothing to rebuild or re-create. It exists to hand the `BULK_BREAK_OUT`, `BULK_BREAK_IN` and wastage `DAMAGE` `stock_movement` rows a `ref_doc_id` all three can share, the same role `sale.id`, `goods_receipt.id` and `stock_take.id` already play for their own documents — not on CLAUDE.md invariant 5's append-only list, the same as those three |
 | `StockTakeNumber0008` | P2-T10 | `stock_take.stock_take_no TEXT NOT NULL` and the unique index `ux_stock_take_no` — the count sheet's own document number, the same `number_sequence`-allocated treatment as `goods_receipt.grn_no` and `purchase_order.po_no`, needed to print it (FR-7.10) alongside the GRN and the PO. A plain `ADD COLUMN`, since `stock_take` carries no triggers to lose |
+| `ExchangeTenderType0010` | 2026-09-25 review pass | Widens `ck_payment_tender_type` to accept `'EXCHANGE'`, retiring the interim `sale.bill_discount` use `CreateExchangeHandler`'s own remarks documented — rebuilding `payment` a second time and re-creating its two append-only triggers, written as literal SQL in §5's declared column order for the same reason `PaymentSaleReturnForeignKey0007` was |
 
 Forty tables, forty-four indexes, thirty-one triggers, laid down across `Skeleton0001` through
 `ProductSearch0004`. Three migrations rather than one for that part, and the split is not
@@ -1808,7 +1844,9 @@ neither the index nor the trigger count: it is a plain `CREATE TABLE`, carries n
 its own primary key (§12), and is not append-only, so there is no trigger to add. `StockTakeNumber0008`
 adds one column and one unique index to `stock_take` — forty-eight indexes from here on, tables
 and triggers unchanged — again a plain `ADD COLUMN`, since `stock_take` is not append-only and
-carries no triggers to lose.
+carries no triggers to lose. `ExchangeTenderType0010` widens one CHECK constraint and rebuilds
+`payment` a second time — no change in table, index or trigger count, its two triggers re-created
+exactly as `PaymentSaleReturnForeignKey0007`'s own were.
 
 ### The skeleton subset, and the foreign keys that existed at `Skeleton0001`
 

@@ -205,7 +205,7 @@ Full shift and cash management, X and Z reports, the complete report suite from 
 **Do this.**
 1. Audit log viewer: filter by date, user, action, entity. Read-only, with no delete or edit affordance anywhere.
 2. Exceptions report gathering: bill cancellations, over-limit discounts, unlinked returns, non-returnable overrides, no-sale drawer opens, negative-stock sales, adjustments above threshold, price changes, cash variances beyond threshold, open-item sales.
-3. `VerifyChainCommand` exposed in the UI: verifies the `sale` and `audit_log` hash chains and reports the first break with its row id.
+3. `VerifyChainCommand` exposed in the UI: verifies the `sale` and `audit_log` hash chains and reports the first break with its row id. `docs/01_DATA_MODEL.md`'s hash chain section (added 2026-09-25) has a design note on a `lines_hash`/`payments_hash` addition worth building alongside this, closing the one gap the header-only chain leaves: `sale_line`/`payment` content can be rewritten without moving `sale.row_hash` at all. Read it before starting this step.
 4. Exception counts on the owner dashboard.
 
 **Deliverables.** Audit viewer, exceptions report, chain verification UI.

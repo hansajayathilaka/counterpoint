@@ -63,54 +63,68 @@ namespace Counterpoint.Application.Exchanges;
 /// exchange already claimed - not the catalogue's raw on-hand figure independently per line.
 /// </para>
 /// <para>
-/// <b>The credit is <c>sale.bill_discount</c>, not a promotional discount.</b> <c>sale</c> has no
-/// column for "value settled by a paired return" and none is added here (no migration is needed
-/// for this task) - <c>bill_discount</c> is the one column whose entire purpose is "the difference
-/// between subtotal+tax and total that is not tax or rounding", so
-/// <see cref="Domain.Returns.ExchangeSettlementResult.CreditApplied"/> is written there directly,
-/// bypassing <see cref="IDiscountAuthorisationService.AuthoriseBillDiscount"/> and its cashier
-/// discount cap entirely - this is not a discount a cashier is granting, it is the value of goods
-/// already handed back. Two consequences are accepted, deliberately, as an interim design: a
-/// Phase 3 report that totals "discounts given" would need to exclude exchange-linked sales (found
-/// via <c>sale_return.exchange_sale_id</c>) to avoid overstating discounting; and reprinting this
-/// sale's receipt in isolation later, through the ordinary <c>ISaleReceiptRenderer</c>/
-/// <c>IReprintReceipt</c> path, shows the credit as an undifferentiated "Discount" line rather than
-/// "Applied from return" - only the <see cref="ExchangeReceipt"/> printed at the time of the
-/// exchange, through <see cref="IExchangeReceiptRenderer"/>, labels it correctly. Both are
-/// documented follow-ups for whichever task first needs the distinction (a dedicated
-/// <c>sale.exchange_credit</c> column would resolve both, but that is a schema change this task's
-/// brief does not call for).
+/// <b>The credit is an <c>'EXCHANGE'</c> <c>payment</c> row, on both documents.</b>
+/// (<c>ExchangeTenderType0010</c>, 2026-09-25, retiring an earlier interim design that spent one
+/// review pass as a documented follow-up before this task closed it.) A positive
+/// <c>'EXCHANGE'</c> tender on the replacement sale, for exactly
+/// <see cref="Domain.Returns.ExchangeSettlementResult.CreditApplied"/>, settles it the same way
+/// any other tender does - never <see cref="IDiscountAuthorisationService.AuthoriseBillDiscount"/>'s
+/// concern, because this is not a discount a cashier is granting, it is the value of goods already
+/// handed back. <c>sale.bill_discount</c> stays zero and <c>sale.total</c> is the replacement's
+/// full merchandise value, exactly the way a sale paid partly by <c>CREDIT_NOTE</c> already never
+/// nets the note out of its own total - the credit is <em>how the bill is paid</em>, not a
+/// reduction of what it is worth. The same amount, negative, is written as a matching
+/// <c>'EXCHANGE'</c> payment on the <em>return</em>: the return's own <c>total_refund</c> is the
+/// full value of what came back regardless of how it was settled, exactly as
+/// <c>sale_return.refund_method</c> already reads <c>'EXCHANGE'</c> whether or not any of it comes
+/// back as cash, so this is what makes <c>sum(payment.amount) == total_refund</c> (negated) hold
+/// for that document too, the identical <c>sum(payment) == total</c> invariant every other document
+/// in this system keeps.
 /// </para>
 /// <para>
-/// <b>Why not a <c>payment</c> row for the credit instead.</b> <c>payment.tender_type</c>'s CHECK
-/// constraint has no <c>'EXCHANGE'</c> token (only <c>sale_return.refund_method</c> does), and
-/// every token it does have already means something else a report depends on:
-/// <c>CREDIT_NOTE</c> implies a redeemable <c>credit_note</c> row (P2-T05, which does not exist),
-/// <c>ON_ACCOUNT</c> implies a credit-customer balance (P5-T02, which does not exist), and misusing
-/// <c>CASH</c>/<c>CARD</c> for a movement that never happened at the drawer or the terminal would
-/// corrupt a future till-reconciliation report. <c>bill_discount</c>, despite the labelling
-/// consequence above, pollutes nothing that does not already know to expect it.
+/// <b>This also fixes what the interim design cost a Phase 3 report.</b> With <c>bill_discount</c>
+/// non-zero, <c>DailyRollupCalculator</c>'s <c>Net = Gross - Discount - ReturnSubtotal</c> counted
+/// the credited value twice - once as a discount, once as the return's own subtotal - understating
+/// a day's net sales by the credited amount. With the credit moved to a payment row and
+/// <c>bill_discount</c> at zero, that formula is correct by construction, with nothing for a
+/// report to special-case: <c>sale.subtotal</c> still shows the full replacement merchandise value
+/// for a stock/COGS view, <c>sale.total</c> now matches it (there is no discount left to net out
+/// of either), and <c>ReturnSubtotal</c> is subtracted exactly once. Reprinting this sale's receipt
+/// in isolation, through the ordinary <c>ISaleReceiptRenderer</c>/<c>IReprintReceipt</c> path, now
+/// shows the credit as a correctly-labelled <c>'EXCHANGE'</c> payment line rather than an
+/// undifferentiated "Discount" - the other cost the interim design accepted, also closed.
 /// </para>
 /// <para>
-/// <b>Only one side ever collects or refunds anything.</b>
-/// <see cref="Domain.Returns.ExchangeSettlement.Calculate"/> guarantees
-/// <see cref="Domain.Returns.ExchangeSettlementResult.AmountOwed"/> and
-/// <see cref="Domain.Returns.ExchangeSettlementResult.LeftoverRefund"/> are never both positive, so
-/// this handler never writes both a sale payment and a return refund payment for the same
-/// exchange - AC-04's "higher-priced replacement collects the correct difference" and "a
-/// lower-priced replacement refunds... correctly" are two branches of one settlement, not two
-/// independent amounts that could drift apart.
+/// <b>Never offered, only minted.</b> <c>TenderTypes.Exchange</c> is deliberately outside
+/// <c>TenderTypes.RequireAccepted</c>'s whitelist - a cashier cannot ask for this tender the way
+/// they ask for cash or a credit note; only this handler ever computes and writes it, from an
+/// actual paired return's own value. The tenders <see cref="CreateExchangeCommand.DifferenceTenders"/>
+/// offers are validated against that same whitelist before anything is written, exactly as
+/// <c>CompleteSaleHandler</c> validates <c>CompleteSaleCommand.Tenders</c>.
+/// </para>
+/// <para>
+/// <b>Only one side ever collects or refunds real money.</b> The <c>'EXCHANGE'</c> payment pair is
+/// not that - it settles nothing new, it is the credit itself, written twice so each document's
+/// own <c>sum(payment) == total</c> holds. Real cash, card or credit-note movement is exactly
+/// <see cref="Domain.Returns.ExchangeSettlementResult.AmountOwed"/> (collected on the sale, beside
+/// its <c>'EXCHANGE'</c> tender) or <see cref="Domain.Returns.ExchangeSettlementResult.LeftoverRefund"/>
+/// (refunded on the return, beside its own) - <see cref="Domain.Returns.ExchangeSettlement.Calculate"/>
+/// guarantees these two are never both positive, so this handler never both collects a difference
+/// and pays one out for the same exchange. AC-04's "higher-priced replacement collects the correct
+/// difference" and "a lower-priced replacement refunds... correctly" are two branches of one
+/// settlement, not two independent amounts that could drift apart.
 /// </para>
 /// <para>
 /// <b>Daily totals reconcile without a report knowing anything special.</b> <c>sale.total</c> for
-/// the replacement is already net of the credit, so summing <c>sale.total</c> across a day already
-/// counts an exchange's net cash impact, not its full merchandise value twice; <c>sale.subtotal</c>
-/// still shows the full merchandise value, which is what a stock/COGS view wants. The return posts
-/// a refund <c>payment</c> row only for a real <see cref="Domain.Returns.ExchangeSettlementResult.LeftoverRefund"/> -
-/// never for the credited portion - so summing refund payments never double-counts the part that
-/// went into the paired sale instead. <c>exchange_sale_id</c> itself is what lets a future report
-/// (Phase 3) explicitly net the pair, per the phase doc's own risk note, without needing any of
-/// this arithmetic explained to it first.
+/// the replacement is its full merchandise value - summing it across a day counts every exchange's
+/// full ticket size, exactly like an ordinary sale, never silently netted by a credit a total-only
+/// report would not otherwise see. Summing <c>payment.amount</c> for a day's <c>'EXCHANGE'</c>
+/// tenders nets to zero by construction (the same <see cref="Domain.Returns.ExchangeSettlementResult.CreditApplied"/>,
+/// positive on the sale and negative on the return), so it never inflates a tender-total report
+/// either; a real cash/card/credit-note difference still shows up under its own tender type, on
+/// whichever side actually moved it. <c>exchange_sale_id</c> is what lets a future report
+/// (Phase 3) explicitly pair sale and return when it wants to, per the phase doc's own risk note,
+/// without needing any of this arithmetic explained to it first.
 /// </para>
 /// </remarks>
 public sealed class CreateExchangeHandler : ICreateExchange
@@ -232,8 +246,19 @@ public sealed class CreateExchangeHandler : ICreateExchange
         var pricedReplacement = await PriceReplacementAsync(command.ReplacementLines, warnings, cancellationToken)
             .ConfigureAwait(false);
 
-        var replacementPreDiscountTotal = pricedReplacement.Subtotal + pricedReplacement.Tax;
-        var settlement = ExchangeSettlement.Calculate(pricedReturn.TotalRefund, replacementPreDiscountTotal);
+        // Rounding point two, for the replacement sale (CLAUDE.md invariant 2) - the full
+        // merchandise value, nothing netted out of it yet. See the class remarks: the credit
+        // settles as a tender below, not a reduction of what the replacement is worth.
+        var total = _rounding.Round(pricedReplacement.Subtotal + pricedReplacement.Tax);
+        var billRounding = Money.FromScaled(
+            total.ToScaled() - pricedReplacement.Subtotal.ToScaled() - pricedReplacement.Tax.ToScaled());
+
+        RequireReplacementLinesBalance(pricedReplacement, total, billRounding);
+
+        // See ExchangeSettlement's own remarks: this rounded total, not the pre-rounding figure,
+        // is what guarantees CreditApplied never exceeds it - the bound TenderCalculator relies on
+        // below for the EXCHANGE tender it becomes.
+        var settlement = ExchangeSettlement.Calculate(pricedReturn.TotalRefund, total);
 
         if (settlement.LeftoverRefund.IsPositive)
         {
@@ -241,36 +266,37 @@ public sealed class CreateExchangeHandler : ICreateExchange
             _returnPolicy.AuthoriseCashRefundLimit(isCashRefund, settlement.LeftoverRefund, command.CashRefundLimitOverride);
         }
 
-        // Rounding point two, for the replacement sale - the credit is applied before rounding,
-        // exactly where CompleteSaleHandler.PriceAsync applies a bill discount before its own
-        // rounding call (CLAUDE.md invariant 2).
-        var total = _rounding.Round(pricedReplacement.Subtotal - settlement.CreditApplied + pricedReplacement.Tax);
-        var billRounding = Money.FromScaled(
-            total.ToScaled() - pricedReplacement.Subtotal.ToScaled()
-            + settlement.CreditApplied.ToScaled() - pricedReplacement.Tax.ToScaled());
-
-        RequireReplacementLinesBalance(pricedReplacement, total, settlement.CreditApplied, billRounding);
-
-        if (!total.IsZero && (command.DifferenceTenders is null || command.DifferenceTenders.Count == 0))
+        if (settlement.AmountOwed.IsPositive && (command.DifferenceTenders is null || command.DifferenceTenders.Count == 0))
         {
             throw new InvalidOperationException(string.Create(
                 CultureInfo.InvariantCulture,
-                $"{total} is still owed on this exchange. Offer a tender for the difference."));
+                $"{settlement.AmountOwed} is still owed on this exchange. Offer a tender for the difference."));
         }
 
-        if (total.IsZero && command.DifferenceTenders is { Count: > 0 })
+        if (!settlement.AmountOwed.IsPositive && command.DifferenceTenders is { Count: > 0 })
         {
             throw new InvalidOperationException(
                 "Nothing is owed on this exchange - the return covers it - so no tender should be offered.");
         }
 
-        var tenderPlan = total.IsPositive
-            ? TenderCalculator.Calculate(
-                total,
-                [.. command.DifferenceTenders.Select(t => new TenderLine(t.TenderType, t.Amount, t.Reference))])
-            : new TenderPlan([], Money.Zero);
+        // Only what the customer actually offers is checked against the whitelist - EXCHANGE is
+        // never offered, only minted below, from the settlement itself (see the class remarks).
+        TenderTypes.RequireAccepted((command.DifferenceTenders ?? []).Select(t => t.TenderType));
 
-        TenderTypes.RequireAccepted(tenderPlan.Applied.Select(tender => tender.TenderType));
+        var tenders = new List<TenderLine>();
+        if (settlement.CreditApplied.IsPositive)
+        {
+            tenders.Add(new TenderLine(TenderTypes.Exchange, settlement.CreditApplied));
+        }
+
+        if (command.DifferenceTenders is { Count: > 0 })
+        {
+            tenders.AddRange(command.DifferenceTenders.Select(t => new TenderLine(t.TenderType, t.Amount, t.Reference)));
+        }
+
+        var tenderPlan = total.IsPositive
+            ? TenderCalculator.Calculate(total, tenders)
+            : new TenderPlan([], Money.Zero);
 
         var policyText = await ReturnPolicyTextBuilder.BuildAsync(_settings, _categories, cancellationToken)
             .ConfigureAwait(false);
@@ -294,7 +320,7 @@ public sealed class CreateExchangeHandler : ICreateExchange
                         sale.CustomerId,
                         pricedReplacement.Subtotal,
                         Money.Zero,
-                        settlement.CreditApplied,
+                        Money.Zero,
                         pricedReplacement.Tax,
                         billRounding,
                         total,
@@ -411,6 +437,16 @@ public sealed class CreateExchangeHandler : ICreateExchange
                     }
                 }
 
+                if (settlement.CreditApplied.IsPositive)
+                {
+                    // The return's own half of the double entry the class remarks describe: the
+                    // exact negative of the EXCHANGE tender the replacement sale collected above.
+                    await _returns.InsertRefundPaymentAsync(
+                        saleReturnId,
+                        new NewTender(TenderTypes.Exchange, settlement.CreditApplied.Negate(), null, command.ExchangedAt),
+                        token).ConfigureAwait(false);
+                }
+
                 if (settlement.LeftoverRefund.IsPositive)
                 {
                     await _returns.InsertRefundPaymentAsync(
@@ -445,6 +481,13 @@ public sealed class CreateExchangeHandler : ICreateExchange
                         Reason: command.Reason),
                     token).ConfigureAwait(false);
 
+                // EXCHANGE never appears in the customer-facing tender list - the receipt's own
+                // dedicated "Applied from return" line (fed by settlement.CreditApplied) already
+                // shows it; listing it again under Tenders would show the same amount twice.
+                var collectedTenders = tenderPlan.Applied
+                    .Where(tender => !string.Equals(tender.TenderType, TenderTypes.Exchange, StringComparison.Ordinal))
+                    .ToList();
+
                 var payload = _receipts.Render(new ExchangeReceipt(
                     returnNo,
                     sale.BillNo,
@@ -454,10 +497,10 @@ public sealed class CreateExchangeHandler : ICreateExchange
                     pricedReturn.TotalRefund,
                     pricedReturn.RestockingFee,
                     [.. pricedReplacement.Lines.Select(line => line.ToReceiptLine())],
-                    replacementPreDiscountTotal,
-                    settlement.CreditApplied,
                     total,
-                    tenderPlan.Applied.Select(t => new SaleReceiptTender(t.TenderType, t.Amount)).ToList(),
+                    settlement.CreditApplied,
+                    settlement.AmountOwed,
+                    collectedTenders.Select(t => new SaleReceiptTender(t.TenderType, t.Amount)).ToList(),
                     tenderPlan.Change,
                     settlement.LeftoverRefund,
                     settlement.LeftoverRefund.IsPositive ? RefundMethodMapping.ToAuditToken(command.ExcessRefundMethod) : null,
@@ -477,9 +520,9 @@ public sealed class CreateExchangeHandler : ICreateExchange
                     saleId,
                     billNo,
                     pricedReturn.TotalRefund,
-                    replacementPreDiscountTotal,
+                    total,
                     settlement.CreditApplied,
-                    Money.FromDecimal(tenderPlan.Applied.Sum(t => t.Amount.Amount)),
+                    Money.FromDecimal(collectedTenders.Sum(t => t.Amount.Amount)),
                     tenderPlan.Change,
                     settlement.LeftoverRefund,
                     printJobId);
@@ -669,8 +712,7 @@ public sealed class CreateExchangeHandler : ICreateExchange
         }
     }
 
-    private static void RequireReplacementLinesBalance(
-        PricedReplacement replacement, Money total, Money creditApplied, Money rounding)
+    private static void RequireReplacementLinesBalance(PricedReplacement replacement, Money total, Money rounding)
     {
         var subtotal = replacement.Subtotal.ToScaled();
         var lineTotals = replacement.Lines.Aggregate(0L, (running, line) => running + line.LineTotal.ToScaled());
@@ -682,13 +724,13 @@ public sealed class CreateExchangeHandler : ICreateExchange
                 $"The replacement lines come to {Money.FromScaled(lineTotals)} but the subtotal is {Money.FromScaled(subtotal)}. They must match exactly before the exchange can be completed."));
         }
 
-        var parts = subtotal - creditApplied.ToScaled() + replacement.Tax.ToScaled() + rounding.ToScaled();
+        var parts = subtotal + replacement.Tax.ToScaled() + rounding.ToScaled();
 
         if (parts != total.ToScaled())
         {
             throw new InvalidOperationException(string.Create(
                 CultureInfo.InvariantCulture,
-                $"The subtotal, credit, tax and rounding come to {Money.FromScaled(parts)} but the amount due is {total}. They must match exactly before the exchange can be completed."));
+                $"The subtotal, tax and rounding come to {Money.FromScaled(parts)} but the replacement total is {total}. They must match exactly before the exchange can be completed."));
         }
     }
 

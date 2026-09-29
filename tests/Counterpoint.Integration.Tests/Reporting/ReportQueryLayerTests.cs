@@ -109,6 +109,53 @@ public sealed class ReportQueryLayerTests
         profit.MarginRate.Should().Be(0.4m, "80.00 / 200.00");
     }
 
+    /// <summary>
+    /// The raw-segment twin of <c>CloseShiftHandlerTests.P3_T03_ADamagedReturnRefundsButNeverReversesTheDaysCogs</c>:
+    /// the same DAMAGED-never-recovers-cost rule, but read through the open shift's own raw path
+    /// (<c>PeriodFiguresReader.RawReturnCogsSql</c>) rather than a closed day's rollup. The two
+    /// implementations are deliberately duplicated (this class's own remarks) so a fix to one and
+    /// not the other would otherwise go unnoticed.
+    /// </summary>
+    [Fact]
+    public async Task ADamagedReturnRefundsButNeverReversesCogsOnTheOpenShiftsOwnRawDate()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync(includeBackup: true);
+        await SeedReturnNumberSequenceAsync(fixture);
+        await DisableBackupOnShiftCloseAsync(fixture);
+
+        var user = fixture.Resolve<ISession>().CurrentUser!;
+        var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+        var variantId = await SeedTaxedVariantAsync(fixture);
+
+        // Sale: 3 pieces @ 100.00, 10% tax -> subtotal 300.00, tax 30.00, cogs 180.00. Shift stays
+        // open, so this day is read from raw, never from a rollup.
+        var sale = await CompleteAsync(fixture, variantId, quantity: 3m, DayOneSoldAt);
+        sale.Total.Should().Be(Money.FromDecimal(330.00m));
+
+        var saleLineId = await fixture.CountAsync(
+            "SELECT id FROM sale_line WHERE sale_id = " + sale.SaleId.ToString(CultureInfo.InvariantCulture) + ";");
+        var returned = await fixture.Resolve<ICreateReturn>().CreateAsync(new CreateReturnCommand(
+            sale.SaleId,
+            user.Id,
+            shiftId,
+            DayOneReturnedAt,
+            [new ReturnLineRequest(
+                saleLineId, Quantity.FromDecimal(1m, saleLineId), ReturnDisposition.Damaged,
+                "Dropped and cracked")],
+            RefundMethod.Cash));
+        returned.TotalRefund.Should().Be(Money.FromDecimal(110.00m));
+
+        var range = ReportDateRange.Custom(DayOne, DayOne);
+        var summary = await fixture.Resolve<ISalesPeriodSummaryQuery>().GetSalesSummaryAsync(range);
+        summary.NetSales.Should().Be(Money.FromDecimal(200.00m), "the refund still nets against sales - only cogs is unaffected");
+
+        var profit = await fixture.Resolve<IProfitPeriodSummaryQuery>().GetProfitSummaryAsync(range);
+        profit.Cogs.Should().Be(
+            Money.FromDecimal(180.00m),
+            "the full 3 x 60.00 sold, none of it recovered - a damaged return never restocks");
+        profit.GrossProfit.Should().Be(Money.FromDecimal(20.00m), "200.00 net - 180.00 cogs");
+    }
+
     // ---- Routing: a range spanning a closed date and the open shift ----------------------------
 
     [Fact]
@@ -472,6 +519,91 @@ public sealed class ReportQueryLayerTests
         routedProfit.Cogs.Should().Be(Money.FromDecimal(240.00m), "120.00 discounted day + 120.00 keeper");
         routedProfit.GrossProfit.Should().Be(Money.FromDecimal(120.00m), "360.00 net - 240.00 cogs");
         routedProfit.MarginRate.Should().Be(120m / 360m);
+    }
+
+    /// <summary>
+    /// The exact scenario that blocked task P3-T04 (PROGRESS.md): a bill sold on a day that is
+    /// then closed and rolled up, returned days later against a fresh shift. Before the return's
+    /// business date was corrected to its own day (rather than inherited from the original sale,
+    /// CLAUDE.md invariant 4's cousin), this return corrupted the closed day's already-written
+    /// <c>daily_sales_summary</c> row with no rebuild ever reaching it - the money defect the
+    /// P3-T04 review measured as routed NetSales 300.00 / ReturnsValue 0 vs raw 200.00 / 110.00.
+    /// With the return dated by its own day, the closed day's rollup is never touched at all, and
+    /// the routed and raw readings of both days agree without a rebuild.
+    /// </summary>
+    [Fact]
+    public async Task AReturnAgainstAnAlreadyRolledUpDateNeverCorruptsThatDatesRollup()
+    {
+        await using var fixture = await SaleFixture.CreateSignedInAsync(includeBackup: true);
+        await SeedReturnNumberSequenceAsync(fixture);
+        await DisableBackupOnShiftCloseAsync(fixture);
+
+        var user = fixture.Resolve<ISession>().CurrentUser!;
+        var shiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+        var variantId = await SeedTaxedVariantAsync(fixture);
+
+        // Day one: 3 @ 100.00 -> subtotal 300.00, tax 30.00, total 330.00. Close -> a rollup for
+        // 2026-09-06 that reflects only this sale - nothing has been returned yet.
+        var sale = await CompleteAsync(fixture, variantId, quantity: 3m, DayOneSoldAt);
+        sale.Total.Should().Be(Money.FromDecimal(330.00m), "the hand-worked figures below depend on it");
+
+        await fixture.Resolve<ICloseShift>().CloseAsync(
+            new CloseShiftCommand(shiftId, user.Id, sale.Total, DayOneClosedAt));
+
+        (await fixture.CountAsync(
+            "SELECT COUNT(*) FROM daily_sales_summary WHERE business_date = '2026-09-06';"))
+            .Should().Be(1, "the close wrote a rollup for the sale alone");
+
+        // Days later, a new shift and a return against the day-one bill: 1 piece -> refund 110.00.
+        // The old bug filed this under the SALE's business_date (2026-09-06, already closed and
+        // rolled up); the fix files it under the RETURN's own date instead.
+        await fixture.Resolve<IOpenShift>().OpenAsync(new OpenShiftCommand(user.Id, Money.Zero, DayBetweenSoldAt));
+        var returnShiftId = fixture.Resolve<ISession>().ShiftId!.Value;
+
+        var saleLineId = await fixture.CountAsync(
+            "SELECT id FROM sale_line WHERE sale_id = " + sale.SaleId.ToString(CultureInfo.InvariantCulture) + ";");
+        var returned = await fixture.Resolve<ICreateReturn>().CreateAsync(new CreateReturnCommand(
+            sale.SaleId,
+            user.Id,
+            returnShiftId,
+            DayBetweenSoldAt.AddHours(1),
+            [new ReturnLineRequest(
+                saleLineId, Quantity.FromDecimal(1m, saleLineId), ReturnDisposition.Sellable,
+                "Changed mind")],
+            RefundMethod.Cash));
+        returned.TotalRefund.Should().Be(Money.FromDecimal(110.00m));
+
+        (await fixture.ScalarAsync(
+            "SELECT business_date FROM sale_return WHERE id = " + returned.SaleReturnId + ";"))
+            .Should().Be("2026-09-08", "the return is filed under its own day, never the sale's");
+
+        // Day one's already-written rollup must be untouched: the whole premise of the fix is that
+        // there is nothing here left for a rebuild to reach.
+        (await fixture.ScalarAsync(
+            "SELECT bill_count FROM daily_sales_summary WHERE business_date = '2026-09-06';"))
+            .Should().Be("1", "the rollup for the sale's own day is exactly what the close wrote - untouched by the later return");
+
+        var query = fixture.Resolve<ISalesPeriodSummaryQuery>();
+
+        // Day one alone, read from its rollup: the return must not appear here.
+        var dayOneRouted = await query.GetSalesSummaryAsync(ReportDateRange.Custom(DayOne, DayOne));
+        var dayOneRaw = await query.GetSalesSummaryAsync(ReportDateRange.Custom(DayOne, DayOne), ReportSourcePolicy.RawTablesRequired);
+
+        dayOneRouted.Should().Be(dayOneRaw, "a rollup a later return could have corrupted must still agree with raw");
+        dayOneRouted.ReturnsValue.Should().Be(
+            Money.Zero, "the return belongs to 2026-09-08, not to the day of the sale it returns against");
+        dayOneRouted.NetSales.Should().Be(Money.FromDecimal(300.00m), "day one's own sale, un-netted by a return that is not its own");
+
+        // The full range, spanning the closed rolled-up day and the open return day: routed and
+        // raw must agree here too, and the return must land on its own day.
+        var rangeRouted = await query.GetSalesSummaryAsync(ReportDateRange.Custom(DayOne, DayBetween));
+        var rangeRaw = await query.GetSalesSummaryAsync(ReportDateRange.Custom(DayOne, DayBetween), ReportSourcePolicy.RawTablesRequired);
+
+        rangeRouted.Should().Be(rangeRaw, "routing a rolled-up day alongside an open one must never disagree with raw");
+        rangeRouted.ReturnsValue.Should().Be(Money.FromDecimal(110.00m));
+        rangeRouted.NetSales.Should().Be(
+            Money.FromDecimal(200.00m),
+            "300.00 gross - 100.00 return subtotal (NetSales nets the pre-tax return value, not the 110.00 total refund)");
     }
 
     // ---- Owner-only projection (AC-17, CLAUDE.md invariant 8) ----------------------------------

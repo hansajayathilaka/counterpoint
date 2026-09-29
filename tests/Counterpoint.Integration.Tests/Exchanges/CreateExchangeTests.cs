@@ -51,22 +51,22 @@ public sealed class CreateExchangeTests
         created.ReturnValue.Should().Be(Money.FromDecimal(12.50m));
         created.ReplacementTotal.Should().Be(Money.FromDecimal(37.50m));
         created.CreditApplied.Should().Be(Money.FromDecimal(12.50m));
-        created.AmountCollected.Should().Be(Money.FromDecimal(25.00m), "37.50 - 12.50 = 25.00, exactly the difference");
+        created.AmountCollected.Should().Be(Money.FromDecimal(25.00m), "37.50 - 12.50 = 25.00, exactly the difference collected as a real tender");
         created.Change.Should().Be(Money.Zero);
         created.RefundPaid.Should().Be(Money.Zero);
 
-        // sale.total is the net amount actually owed, not the full replacement value - that is
-        // what makes "collect tender for the difference" and "sum(payments) == sale.total" both
-        // true at once (CreateExchangeHandler's own remarks).
+        // sale.total is the full replacement value - the 12.50 credit settles as its own
+        // EXCHANGE tender alongside the 25.00 cash, never a discount netted out of the total
+        // (CreateExchangeHandler's own remarks, ExchangeTenderType0010).
         (await fixture.ScalarAsync("SELECT total FROM sale WHERE id = " + created.SaleId + ";"))
-            .Should().Be("250000", "25.00, scaled x10 000 - the difference, not the full 37.50");
+            .Should().Be("375000", "37.50, scaled x10 000 - the full replacement value");
         (await fixture.ScalarAsync("SELECT bill_discount FROM sale WHERE id = " + created.SaleId + ";"))
-            .Should().Be("125000", "12.50 credited from the return, scaled x10 000");
+            .Should().Be("0", "the credit is a tender now, never a discount");
         (await fixture.ScalarAsync("SELECT subtotal FROM sale WHERE id = " + created.SaleId + ";"))
             .Should().Be("375000", "the full replacement merchandise value still shows in subtotal");
 
         (await fixture.ScalarAsync("SELECT SUM(amount) FROM payment WHERE sale_id = " + created.SaleId + ";"))
-            .Should().Be("250000", "sum(payments) == sale.total exactly");
+            .Should().Be("375000", "sum(payments) == sale.total exactly: 12.50 EXCHANGE + 25.00 CASH");
 
         // Cross-linked, both ways queryable.
         (await fixture.ScalarAsync("SELECT exchange_sale_id FROM sale_return WHERE id = " + created.SaleReturnId + ";"))
@@ -74,9 +74,12 @@ public sealed class CreateExchangeTests
         (await fixture.ScalarAsync("SELECT refund_method FROM sale_return WHERE id = " + created.SaleReturnId + ";"))
             .Should().Be("EXCHANGE");
 
-        // No refund payment on the return - the whole return value went into the sale's credit.
+        // The return's own half of the EXCHANGE double entry - the exact negative of the sale's
+        // credit, never a real refund (nothing was paid out here).
         (await fixture.CountAsync("SELECT COUNT(*) FROM payment WHERE sale_return_id = " + created.SaleReturnId + ";"))
-            .Should().Be(0);
+            .Should().Be(1);
+        (await fixture.ScalarAsync("SELECT SUM(amount) FROM payment WHERE sale_return_id = " + created.SaleReturnId + ";"))
+            .Should().Be("-125000", "12.50 credit, negative, matching the sale's own EXCHANGE tender exactly");
 
         // Stock: +1 (returned back in) -3 (sold out) = net -2 on top of what stood after the sale.
         var qtyOnHandAfter = await fixture.CountAsync("SELECT qty_base FROM stock_balance WHERE product_variant_id = " + variantId + ";");
@@ -128,12 +131,14 @@ public sealed class CreateExchangeTests
         created.RefundPaid.Should().Be(Money.FromDecimal(25.00m));
 
         (await fixture.ScalarAsync("SELECT total FROM sale WHERE id = " + created.SaleId + ";"))
-            .Should().Be("0", "fully covered by the return's own credit - nothing owed");
+            .Should().Be("125000", "12.50, the full replacement value - fully settled by an EXCHANGE tender, nothing else owed");
         (await fixture.CountAsync("SELECT COUNT(*) FROM payment WHERE sale_id = " + created.SaleId + ";"))
-            .Should().Be(0, "nothing was tendered for a sale that owes nothing");
+            .Should().Be(1, "one EXCHANGE tender for the full 12.50 - no cash/card tender was needed");
 
+        // The return carries both halves of the surplus: the 12.50 EXCHANGE credit (the sale's own
+        // exact negative) and the real 25.00 cash refund - together the return's full 37.50 value.
         (await fixture.ScalarAsync("SELECT SUM(amount) FROM payment WHERE sale_return_id = " + created.SaleReturnId + ";"))
-            .Should().Be("-250000", "the 25.00 surplus refunded for real, negative as every refund payment is");
+            .Should().Be("-375000", "-12.50 EXCHANGE credit + -25.00 real refund = -37.50, the return's full value negated");
 
         (await fixture.ScalarAsync("SELECT refund_method FROM sale_return WHERE id = " + created.SaleReturnId + ";"))
             .Should().Be("EXCHANGE", "still an exchange even though part of it was paid back in cash");
@@ -165,9 +170,12 @@ public sealed class CreateExchangeTests
         created.RefundPaid.Should().Be(Money.Zero);
         created.CreditApplied.Should().Be(Money.FromDecimal(25.00m));
 
-        (await fixture.ScalarAsync("SELECT total FROM sale WHERE id = " + created.SaleId + ";")).Should().Be("0");
-        (await fixture.CountAsync("SELECT COUNT(*) FROM payment WHERE sale_id = " + created.SaleId + ";")).Should().Be(0);
-        (await fixture.CountAsync("SELECT COUNT(*) FROM payment WHERE sale_return_id = " + created.SaleReturnId + ";")).Should().Be(0);
+        // The full replacement value (25.00) shows as sale.total; it is entirely settled by one
+        // EXCHANGE tender on the sale and its exact negative on the return - even though nothing
+        // real changes hands, both documents still keep their own sum(payment) == total identity.
+        (await fixture.ScalarAsync("SELECT total FROM sale WHERE id = " + created.SaleId + ";")).Should().Be("250000");
+        (await fixture.CountAsync("SELECT COUNT(*) FROM payment WHERE sale_id = " + created.SaleId + ";")).Should().Be(1);
+        (await fixture.CountAsync("SELECT COUNT(*) FROM payment WHERE sale_return_id = " + created.SaleReturnId + ";")).Should().Be(1);
     }
 
     /// <summary>
@@ -197,19 +205,25 @@ public sealed class CreateExchangeTests
             [new SaleLineRequest(variantId, 3m)],
             [new TenderRequest(TenderTypes.Cash, Money.FromDecimal(25.00m))]));
 
-        // Net cash the till actually took today from both documents together: the original
-        // sale's 62.50, plus the exchange sale's own net 25.00 - never the exchange's full 37.50
-        // replacement value counted as if it were an unrelated fresh sale.
+        // Both sale rows carry their full merchandise value now: the original sale's 62.50, and
+        // the exchange sale's full 37.50 replacement value (not just the 25.00 difference) - a
+        // "total sales" report counts every ticket's real size, exactly like an ordinary sale.
         var netSalesTotal = await fixture.ScalarAsync("SELECT SUM(total) FROM sale WHERE status = 'COMPLETED';");
-        netSalesTotal.Should().Be("875000", "62.50 (original) + 25.00 (exchange difference) = 87.50, scaled x10 000");
+        netSalesTotal.Should().Be("1000000", "62.50 (original) + 37.50 (exchange's full replacement value) = 100.00, scaled x10 000");
 
+        // The only payment on the return side is the 12.50 EXCHANGE credit, negative - the sale's
+        // own tender mirrored, never a real refund. A refund-only report still has to exclude
+        // tender_type = 'EXCHANGE' explicitly; this is what it would see if it did not.
         var totalRefundPayments = await fixture.ScalarAsync(
             "SELECT COALESCE(SUM(amount), 0) FROM payment WHERE sale_return_id IS NOT NULL;");
-        totalRefundPayments.Should().Be("0", "the exchange's return value was credited, not paid out - no refund payment exists to double count");
+        totalRefundPayments.Should().Be("-125000", "the return's own half of the EXCHANGE double entry, not a real refund");
 
+        // Real cash only: the original sale's 62.50 plus the exchange's own 25.00 difference. The
+        // EXCHANGE tender that settles the credit is never tender_type = 'CASH', so it never
+        // inflates what the till actually took in today.
         var totalTenderedCash = await fixture.ScalarAsync(
             "SELECT SUM(amount) FROM payment WHERE sale_id IS NOT NULL AND tender_type = 'CASH';");
-        totalTenderedCash.Should().Be("875000", "sum(payment) across both sale rows equals sum(sale.total) exactly");
+        totalTenderedCash.Should().Be("875000", "62.50 (original) + 25.00 (exchange difference) = 87.50, real cash only");
     }
 
     private static async Task<CompletedSale> CompleteAsync(

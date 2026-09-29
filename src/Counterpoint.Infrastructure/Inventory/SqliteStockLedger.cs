@@ -29,6 +29,28 @@ namespace Counterpoint.Infrastructure.Inventory;
 /// <c>RebuildStockBalanceCommand</c> replays, so posting one movement here and replaying it
 /// later land on the same number (P1-T07).
 /// </para>
+/// <para>
+/// <b>An inbound movement also updates <c>product.cost_avg</c></b> - the column the catalogue's
+/// below-cost pricing guard reads (<c>ProductMaintenanceService.RequireAboveCostOrConfirmed</c>,
+/// SRS FR-2.18), which its own remarks document as meant to be "built up by stock receipts". This
+/// is the one and only place that happens: every GRN, sale return, positive adjustment, stock
+/// take and bulk-break destination posts through here, so the guard's cost figure moves the same
+/// moment the projection's own average does, rather than staying frozen wherever the product was
+/// created. Gated on <c>posting.QuantityBase.IsPositive</c> - the same condition under which
+/// <see cref="StockLedgerMath.Apply"/> itself recomputes the average - so an outbound sale line,
+/// the hottest path through here, never pays for the extra lookup.
+/// </para>
+/// <para>
+/// <b>One column, potentially several variants.</b> <c>product.cost_avg</c> lives on the product,
+/// but the moving average it is copied from is computed per variant
+/// (<see cref="StockLedgerMath.Apply"/> against that variant's own projection). For a product with
+/// more than one variant, this column ends up holding whichever variant posted an inbound movement
+/// most recently - never a true blended figure across them. That is acceptable for what it is
+/// used for: a rough starting guide for a brand-new variant that has no stock history of its own
+/// yet, and FR-2.18 makes the check it feeds a warning, not a block. It is never read on the sale
+/// path - <c>sale_line.unit_cost</c> always snapshots the posting variant's own average, from the
+/// projection this class maintains (<c>SqliteProductLookup</c>'s own P1-T10 remarks).
+/// </para>
 /// </remarks>
 internal sealed class SqliteStockLedger : IStockLedger
 {
@@ -92,6 +114,26 @@ internal sealed class SqliteStockLedger : IStockLedger
                     projection.QtyBase = balanceAfter;
                     projection.CostAvg = step.CostAvgAfter;
                     projection.UpdatedAt = posting.OccurredAt;
+                }
+
+                // See the class remarks: only an inbound movement recomputed the average, so only
+                // an inbound movement has anything new to tell the below-cost guard.
+                if (posting.QuantityBase.IsPositive)
+                {
+                    var productId = await context.Set<ProductVariant>()
+                        .Where(variant => variant.Id == posting.ProductVariantId)
+                        .Select(variant => variant.ProductId)
+                        .FirstOrDefaultAsync(token)
+                        .ConfigureAwait(false);
+
+                    var product = await context.Set<Product>()
+                        .FirstOrDefaultAsync(row => row.Id == productId, token)
+                        .ConfigureAwait(false);
+
+                    if (product is not null)
+                    {
+                        product.CostAvg = step.CostAvgAfter;
+                    }
                 }
 
                 await context.SaveChangesAsync(token).ConfigureAwait(false);
