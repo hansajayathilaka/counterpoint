@@ -1,0 +1,189 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Reports"
+             xmlns:views="using:Counterpoint.Ui.Views.Reports"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Reports.ReturnsReportView"
+             x:DataType="vm:ReturnsReportViewModel">
+
+  <!--
+    Task P3-T05, returns report (SRS RPT-14): returns by reason, item, disposition, linked versus
+    unlinked and refund method, with the return rate against sales. Owner-only: the query refuses a
+    cashier session in the Application layer and the refusal shows as the status line. Values are
+    the pre-tax refund - the figure net sales subtracts. No cost figure. Tokens only, no hex.
+  -->
+  <UserControl.Styles>
+    <Style Selector="TextBlock.Head">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+    <Style Selector="TextBlock.Cell">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.Num">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="TextBlock.SectionTitle">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="Margin" Value="0,8,0,4" />
+    </Style>
+    <Style Selector="Border.KpiCard">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+    <Style Selector="Border.KpiCard TextBlock.KpiLabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+    <Style Selector="Border.KpiCard TextBlock.KpiValue">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+      <TextBlock Text="Returns" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <views:ReportRangeBar DataContext="{Binding Range}" />
+        <Button Content="_Run" Command="{Binding RunCommand}" IsEnabled="{Binding !Busy}" Margin="0,26,0,0" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" Foreground="{DynamicResource WarningBrush}" IsVisible="{Binding HasStatus}" />
+    </StackPanel>
+
+    <ScrollViewer>
+      <StackPanel Spacing="8">
+
+        <UniformGrid Columns="5" Rows="1">
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Returns" /><TextBlock Classes="KpiValue" Text="{Binding ReturnCountText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Value returned" /><TextBlock Classes="KpiValue" Text="{Binding ReturnsSubtotalText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Cash refunded" /><TextBlock Classes="KpiValue" Text="{Binding TotalRefundedText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Return rate (value)" /><TextBlock Classes="KpiValue" Text="{Binding ValueRateText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Return rate (bills)" /><TextBlock Classes="KpiValue" Text="{Binding CountRateText}" /></StackPanel></Border>
+        </UniformGrid>
+
+        <TextBlock Classes="SectionTitle" Text="By reason" />
+        <Grid ColumnDefinitions="*,80,110,120,70">
+          <TextBlock Grid.Column="0" Classes="Head" Text="Reason" />
+          <TextBlock Grid.Column="1" Classes="Head Num" Text="Count" />
+          <TextBlock Grid.Column="2" Classes="Head Num" Text="Quantity" />
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Value" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Share" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding ByReason}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ReturnsGroupRowViewModel">
+              <Grid ColumnDefinitions="*,80,110,120,70" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding Key}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding CountText}" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding QuantityText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding ValueText}" FontWeight="Bold" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding ShareText}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="SectionTitle" Text="By item" />
+        <Grid ColumnDefinitions="*,80,110,120,70">
+          <TextBlock Grid.Column="0" Classes="Head" Text="Item" />
+          <TextBlock Grid.Column="1" Classes="Head Num" Text="Count" />
+          <TextBlock Grid.Column="2" Classes="Head Num" Text="Quantity" />
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Value" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Share" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding ByItem}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ReturnsGroupRowViewModel">
+              <Grid ColumnDefinitions="*,80,110,120,70" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding Key}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding CountText}" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding QuantityText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding ValueText}" FontWeight="Bold" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding ShareText}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="SectionTitle" Text="By disposition" />
+        <Grid ColumnDefinitions="*,80,110,120,70">
+          <TextBlock Grid.Column="0" Classes="Head" Text="Disposition" />
+          <TextBlock Grid.Column="1" Classes="Head Num" Text="Count" />
+          <TextBlock Grid.Column="2" Classes="Head Num" Text="Quantity" />
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Value" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Share" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding ByDisposition}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ReturnsGroupRowViewModel">
+              <Grid ColumnDefinitions="*,80,110,120,70" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding Key}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding CountText}" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding QuantityText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding ValueText}" FontWeight="Bold" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding ShareText}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="SectionTitle" Text="Linked to a bill versus unlinked" />
+        <Grid ColumnDefinitions="*,80,110,120,70">
+          <TextBlock Grid.Column="0" Classes="Head" Text="Kind" />
+          <TextBlock Grid.Column="1" Classes="Head Num" Text="Count" />
+          
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Value" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Share" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding ByLinkage}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ReturnsGroupRowViewModel">
+              <Grid ColumnDefinitions="*,80,110,120,70" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding Key}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding CountText}" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding QuantityText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding ValueText}" FontWeight="Bold" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding ShareText}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="SectionTitle" Text="By refund method" />
+        <Grid ColumnDefinitions="*,80,110,120,70">
+          <TextBlock Grid.Column="0" Classes="Head" Text="Method" />
+          <TextBlock Grid.Column="1" Classes="Head Num" Text="Count" />
+          
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Value" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Share" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding ByRefundMethod}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ReturnsGroupRowViewModel">
+              <Grid ColumnDefinitions="*,80,110,120,70" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding Key}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding CountText}" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding QuantityText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding ValueText}" FontWeight="Bold" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding ShareText}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </DockPanel>
+
+</UserControl>

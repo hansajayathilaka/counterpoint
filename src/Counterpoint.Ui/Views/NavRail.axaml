@@ -72,6 +72,38 @@
                   Foreground="{DynamicResource RailTextBrush}" />
         </StackPanel>
 
+        <!--
+          Reports (task P3-T05, SRS FR-9.1, FR-9.4, RPT-01, RPT-02, RPT-03, RPT-14): four screens that
+          swap the content pane in place, like System's ToggleButtons (and, like them, deliberately not
+          a second ListBox - NavRailKeyboardNavigationTests looks up exactly one). The sales summary
+          and sales by item are cashier-safe; Profit and Returns are owner-only and hidden from a
+          cashier as a courtesy - their Application-layer queries refuse a cashier session regardless.
+        -->
+        <StackPanel Spacing="4" IsVisible="{Binding CanViewReports}">
+          <TextBlock Text="REPORTS" Margin="16,0" FontSize="11" FontWeight="Bold"
+                     Foreground="{DynamicResource RailMutedTextBrush}" />
+          <ToggleButton Content="Sales summary" Command="{Binding SelectReportSectionCommand}" CommandParameter="Sales summary"
+                        IsChecked="{Binding SelectedReportSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Sales summary'}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Sales by item" Command="{Binding SelectReportSectionCommand}" CommandParameter="Sales by item"
+                        IsChecked="{Binding SelectedReportSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Sales by item'}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Profit" Command="{Binding SelectReportSectionCommand}" CommandParameter="Profit" IsVisible="{Binding CanViewOwnerReports}"
+                        IsChecked="{Binding SelectedReportSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Profit'}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+          <ToggleButton Content="Returns" Command="{Binding SelectReportSectionCommand}" CommandParameter="Returns" IsVisible="{Binding CanViewOwnerReports}"
+                        IsChecked="{Binding SelectedReportSection, Mode=OneWay, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Returns'}"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="16,10" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource RailTextBrush}" />
+        </StackPanel>
+
         <!-- People: unchanged from task P3-T13, still opening UserAdminWindow outright -->
         <StackPanel Spacing="4" IsVisible="{Binding CanManageUsers}">
           <TextBlock Text="PEOPLE" Margin="16,0" FontSize="11" FontWeight="Bold"

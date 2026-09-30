@@ -34,6 +34,7 @@ using Counterpoint.Ui.ViewModels.Dashboard;
 using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Labels;
 using Counterpoint.Ui.ViewModels.Purchasing;
+using Counterpoint.Ui.ViewModels.Reports;
 using Counterpoint.Ui.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -229,6 +230,17 @@ internal static class CounterpointHostBuilderExtensions
         // shell the same way CatalogueViewModel is, immediately below.
         builder.Services.AddSingleton<DashboardViewModel>();
 
+        // Task P3-T05: the four report screens (RPT-01, RPT-02, RPT-03 and the returns report) and
+        // the container the shell's Reports nav group hosts. Each screen is a pass-through of one
+        // Application-layer query registered by AddCounterpointReporting; the owner-only queries
+        // (IProfitReportQuery, IReturnsReportQuery) are role-decorated there, so nothing in Ui can
+        // resolve them undecorated.
+        builder.Services.AddSingleton<SalesSummaryReportViewModel>();
+        builder.Services.AddSingleton<SalesByItemReportViewModel>();
+        builder.Services.AddSingleton<ProfitReportViewModel>();
+        builder.Services.AddSingleton<ReturnsReportViewModel>();
+        builder.Services.AddSingleton<ReportsViewModel>();
+
         // P3-T13: the back office's own navigation shell (SRS UI-11, NFR-S2, AC-17, AC-24) -
         // the same single ISession singleton the sales screen reads, not a second session or a
         // second connection of any kind (see BackOfficeShellViewModel's own remarks). A factory,
@@ -245,6 +257,7 @@ internal static class CounterpointHostBuilderExtensions
             shell.AttachCatalogue(p.GetRequiredService<CatalogueViewModel>());
             shell.AttachSettings(p.GetRequiredService<SettingsViewModel>(), p.GetRequiredService<IDialogService>());
             shell.AttachDashboard(p.GetRequiredService<DashboardViewModel>());
+            shell.AttachReports(p.GetRequiredService<ReportsViewModel>());
             return shell;
         });
 

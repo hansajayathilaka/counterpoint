@@ -132,3 +132,37 @@ raw truth.
   `ReadWithCogsAsync` returns COGS with no role check of its own — is not registered in the container
   either: each query builds its own from `IReportConnectionFactory`, so no container path resolves a
   COGS-bearing object.
+
+## 5. The P3-T05 sales, profit and returns reports
+
+No new headline definition is introduced: every screen below projects the canonical figures of section 2.
+The formulas' arithmetic lives in `CanonicalFigures` (`src/Counterpoint.Reporting/Queries/CanonicalFigures.cs`),
+which `PeriodFiguresReader` (whole period), `DailyFiguresReader` (by day, hour, tender) and `ItemFiguresReader`
+(by item, category, brand) all call, so slicing a figure never re-derives it.
+
+| Report | Query | Role | Reads |
+|---|---|---|---|
+| RPT-01 sales summary (by day, hour, tender, bill) | `ISalesSummaryReportQuery`, `ISalesBillQuery` | any signed-in user | totals routed (rollup + raw); breakdowns raw |
+| RPT-02 sales by item / category / brand | `ISalesBreakdownQuery` | any signed-in user, **no cost field** | raw `sale_line`, `sale_return_line` |
+| RPT-03 profit (day, month, category, brand, item) and the COGS/margin columns of RPT-02 | `IProfitReportQuery` | **owner only** (`[RequiresRole]`) | headline = `ProfitPeriodSummaryQuery`; rows raw |
+| Returns report (SRS RPT-14) | `IReturnsReportQuery` | **owner only** (SRS section 9) | raw `sale_return`, `sale_return_line` |
+
+Decisions the screens rest on:
+
+- **Average bill value** = `(gross - discounts) / bill count` - discounted, tax-exclusive, before returns; zero with no bills.
+  Returns are separate documents, not bills, so they do not enter it.
+- **By hour** uses the wall-clock hour recorded in `sold_at` (bills) and `returned_at` (returns), which carry the shop's offset at the
+  time. Net for an hour subtracts the returns taken in that hour, so the hours add up to the period net.
+- **Per-row net (item/category/brand)** = `sum(line_total - bill discount share)` less the `line_refund` of return lines dated in the range.
+  The share is `BillDiscountSplit` over the stored snapshot columns (the split a receipt and a return use). Rows add up to canonical net sales
+  exactly (lines sum to `sale.subtotal`, shares to `sale.bill_discount`, refunds to `sale_return.subtotal`).
+- **Per-row COGS** = `sale_line.unit_cost x qty_base` less SELLABLE return lines' `unit_cost x qty_base`, multiplied in C#. It is the same
+  snapshot as `sale.cogs`; the sum of rows can differ from the headline by less than 0.0001 per sale (the header is quantised per sale, the
+  lines are not). Day and month rows use `sale.cogs` and so match the headline exactly. No report reads `product.cost_avg`.
+- **Category and brand** are the product's *current* filing - `sale_line` snapshots neither. Open-item lines and unfiled products share a
+  "(No category)" / "(No brand)" bucket; on the item dimension open items are one "(Open items)" row.
+- **Returns report**: value = pre-tax `line_refund` (the figure net sales subtracts); the cash figure `total_refund` is shown separately.
+  Value return rate = `returns subtotal / (net sales + returns subtotal)`; count return rate = `returns / bills`. Returns are dated by
+  their own business date.
+- **Bill lists** show completed bills only, oldest first, capped (default 2 000) with a "cut short" flag. Bill net there is before returns
+  (`subtotal - bill_discount`); returns against the bill are listed on the bill.

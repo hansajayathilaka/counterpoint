@@ -1,0 +1,165 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Reports"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="560"
+             x:Class="Counterpoint.Ui.Views.Reports.BillDrillDownView"
+             x:DataType="vm:BillDrillDownViewModel">
+
+  <!--
+    Task P3-T05 "Do this" #5: summary row -> bill list -> one bill. Shown in place of a report
+    screen's own content while BillDrillDownViewModel.Level is not None; Back steps one level up.
+    Every figure is a pass-through of ISalesBillQuery's cost-free DTOs. Tokens only, no hex.
+  -->
+  <UserControl.Styles>
+    <Style Selector="TextBlock.Head">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+    <Style Selector="TextBlock.Cell">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.Num">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+      <Button Grid.Column="0" Content="_Back" Command="{Binding BackCommand}" />
+      <TextBlock Grid.Column="1" Margin="12,0,0,0" Text="{Binding Title}" FontSize="18" FontWeight="Bold"
+                 Foreground="{DynamicResource PrimaryTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+    </Grid>
+
+    <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding Note}"
+               Foreground="{DynamicResource SecondaryTextBrush}" IsVisible="{Binding HasNote}" />
+
+    <!-- Level 2: the bill list -->
+    <DockPanel IsVisible="{Binding IsBillList}">
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="110,140,*,120,90,90,80,90,90,Auto" Margin="0,0,0,4">
+        <TextBlock Grid.Column="0" Classes="Head" Text="Bill" />
+        <TextBlock Grid.Column="1" Classes="Head" Text="Sold" />
+        <TextBlock Grid.Column="2" Classes="Head" Text="Customer" />
+        <TextBlock Grid.Column="3" Classes="Head" Text="Cashier" />
+        <TextBlock Grid.Column="4" Classes="Head Num" Text="Gross" />
+        <TextBlock Grid.Column="5" Classes="Head Num" Text="Discounts" />
+        <TextBlock Grid.Column="6" Classes="Head Num" Text="Tax" />
+        <TextBlock Grid.Column="7" Classes="Head Num" Text="Net" />
+        <TextBlock Grid.Column="8" Classes="Head Num" Text="Returned" />
+      </Grid>
+      <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding Bills}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:BillRowViewModel">
+              <Grid ColumnDefinitions="110,140,*,120,90,90,80,90,90,Auto" Margin="0,3">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding BillNo}" FontWeight="Bold" />
+                <TextBlock Grid.Column="1" Classes="Cell" Text="{Binding SoldAtText}" />
+                <TextBlock Grid.Column="2" Classes="Cell" Text="{Binding CustomerName}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="3" Classes="Cell" Text="{Binding CashierName}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding GrossText}" />
+                <TextBlock Grid.Column="5" Classes="Cell Num" Text="{Binding DiscountsText}" />
+                <TextBlock Grid.Column="6" Classes="Cell Num" Text="{Binding TaxText}" />
+                <TextBlock Grid.Column="7" Classes="Cell Num" Text="{Binding NetText}" />
+                <TextBlock Grid.Column="8" Classes="Cell Num" Text="{Binding ReturnedText}" />
+                <Button Grid.Column="9" Margin="8,0,0,0" Content="Open" Command="{Binding OpenCommand}"
+                        CommandParameter="{Binding OpenParameter}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+
+    <!-- Level 3: one bill -->
+    <ScrollViewer IsVisible="{Binding IsBill}">
+      <StackPanel Spacing="12" DataContext="{Binding Bill}" x:DataType="vm:BillDetailViewModel">
+        <StackPanel Orientation="Horizontal" Spacing="24">
+          <TextBlock Classes="Cell" Text="{Binding HeadingText}" FontSize="16" FontWeight="Bold" />
+          <TextBlock Classes="Cell" Text="{Binding SoldAtText}" />
+          <TextBlock Classes="Cell" Text="{Binding CashierText}" />
+          <TextBlock Classes="Cell" Text="{Binding CustomerText}" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="40,*,110,90,80,80,90,Auto">
+          <TextBlock Grid.Column="0" Classes="Head" Text="#" />
+          <TextBlock Grid.Column="1" Classes="Head" Text="Item as sold" />
+          <TextBlock Grid.Column="2" Classes="Head Num" Text="Qty" />
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Unit price" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Discount" />
+          <TextBlock Grid.Column="5" Classes="Head Num" Text="Tax" />
+          <TextBlock Grid.Column="6" Classes="Head Num" Text="Line total" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Lines}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:BillLineRow">
+              <Grid ColumnDefinitions="40,*,110,90,80,80,90,Auto" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding LineNoText}" />
+                <TextBlock Grid.Column="1" Classes="Cell" Text="{Binding Description}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding QuantityText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding UnitPriceText}" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding DiscountText}" />
+                <TextBlock Grid.Column="5" Classes="Cell Num" Text="{Binding TaxText}" />
+                <TextBlock Grid.Column="6" Classes="Cell Num" Text="{Binding LineTotalText}" />
+                <TextBlock Grid.Column="7" Margin="8,0,0,0" Classes="Cell" Text="{Binding ReturnedText}"
+                           Foreground="{DynamicResource WarningBrush}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Border Background="{DynamicResource PanelBackgroundBrush}" BorderBrush="{DynamicResource PanelBorderBrush}"
+                BorderThickness="1" CornerRadius="8" Padding="12" HorizontalAlignment="Left">
+          <Grid ColumnDefinitions="160,110" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+            <TextBlock Grid.Row="0" Classes="Cell" Text="Subtotal" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Classes="Cell Num" Text="{Binding SubtotalText}" />
+            <TextBlock Grid.Row="1" Classes="Cell" Text="Line discounts" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Classes="Cell Num" Text="{Binding LineDiscountText}" />
+            <TextBlock Grid.Row="2" Classes="Cell" Text="Bill discount" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Classes="Cell Num" Text="{Binding BillDiscountText}" />
+            <TextBlock Grid.Row="3" Classes="Cell" Text="Tax" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Classes="Cell Num" Text="{Binding TaxText}" />
+            <TextBlock Grid.Row="4" Classes="Cell" Text="Rounding" />
+            <TextBlock Grid.Row="4" Grid.Column="1" Classes="Cell Num" Text="{Binding RoundingText}" />
+            <TextBlock Grid.Row="5" Classes="Cell" Text="Total" FontWeight="Bold" />
+            <TextBlock Grid.Row="5" Grid.Column="1" Classes="Cell Num" Text="{Binding TotalText}" FontWeight="Bold" />
+          </Grid>
+        </Border>
+
+        <TextBlock Classes="Head" Text="Paid by" />
+        <ItemsControl ItemsSource="{Binding Payments}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:BillPaymentRow">
+              <Grid ColumnDefinitions="160,110" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding TenderType}" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding AmountText}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Spacing="4" IsVisible="{Binding HasReturns}">
+          <TextBlock Classes="Head" Text="Returns against this bill" />
+          <ItemsControl ItemsSource="{Binding Returns}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:BillReturnRow">
+                <Grid ColumnDefinitions="140,110,140,110" Margin="0,2">
+                  <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding ReturnNo}" />
+                  <TextBlock Grid.Column="1" Classes="Cell" Text="{Binding DateText}" />
+                  <TextBlock Grid.Column="2" Classes="Cell" Text="{Binding MethodText}" />
+                  <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding RefundText}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <TextBlock Classes="Cell" Text="{Binding NoteText}" TextWrapping="Wrap" />
+      </StackPanel>
+    </ScrollViewer>
+
+  </DockPanel>
+
+</UserControl>

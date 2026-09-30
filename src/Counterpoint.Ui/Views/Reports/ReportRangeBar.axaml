@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Reports"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="90"
+             x:Class="Counterpoint.Ui.Views.Reports.ReportRangeBar"
+             x:DataType="vm:ReportRangeViewModel">
+
+  <!--
+    Task P3-T05 (SRS FR-9.1, UI-14). The date-range picker every report screen shares: the six
+    presets plus a custom range. Its DataContext is the ReportRangeViewModel, which resolves a
+    preset through the one Application-layer ReportDateRange implementation. Every field is a
+    persistent-label P3-T12 LabeledField (AC-22).
+  -->
+  <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Top">
+    <controls:LabeledComboField Width="200"
+                                Label="Period"
+                                ItemsSource="{Binding PresetLabels}"
+                                SelectedItem="{Binding SelectedPresetLabel}" />
+    <controls:LabeledTextField Width="150" IsVisible="{Binding IsCustom}"
+                               Label="From (year-month-day)"
+                               Text="{Binding FromText}" />
+    <controls:LabeledTextField Width="150" IsVisible="{Binding IsCustom}"
+                               Label="To (year-month-day)"
+                               Text="{Binding ToText}"
+                               ValidationMessage="{Binding ValidationMessage}" />
+  </StackPanel>
+
+</UserControl>

@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:Counterpoint.Ui.Views.Reports"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Reports.ReportSectionContent"
+             x:Name="Root">
+
+  <!--
+    Task P3-T05. The four report screens, one visible at a time, chosen by the nav rail's
+    BackOfficeShellViewModel.SelectedReportSection mirrored here by SelectedSection - the same shape
+    CatalogueSectionContent (P3-T18) and SettingsSectionContent (P3-T19) use. Every binding is
+    "#Root."-qualified so each screen's own DataContext cannot shadow it.
+  -->
+  <Grid>
+    <views:SalesSummaryReportView DataContext="{Binding #Root.Reports.SalesSummary}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Sales summary'}" />
+    <views:SalesByItemReportView DataContext="{Binding #Root.Reports.SalesByItem}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Sales by item'}" />
+    <views:ProfitReportView DataContext="{Binding #Root.Reports.Profit}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Profit}" />
+    <views:ReturnsReportView DataContext="{Binding #Root.Reports.Returns}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Returns}" />
+  </Grid>
+
+</UserControl>

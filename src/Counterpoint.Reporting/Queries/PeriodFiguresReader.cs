@@ -262,24 +262,27 @@ internal sealed class PeriodFiguresReader
         var tenderTotalScaled = await connection.ExecuteScalarAsync<long>(
             new CommandDefinition(RawTenderSql, parameters, cancellationToken: cancellationToken)).ConfigureAwait(false);
 
+        // The formulas themselves live in CanonicalFigures, shared with every breakdown reader.
         // gross = subtotal + line_discount; the rollup's own gross already includes its sale's
         // line discount, so the two segments simply add.
-        var gross = Money.FromScaled(rollup.GrossScaled + sales.SubtotalScaled + sales.LineDiscountScaled);
+        var gross = Money.FromScaled(rollup.GrossScaled)
+            + CanonicalFigures.Gross(sales.SubtotalScaled, sales.LineDiscountScaled);
 
         // discount = line_discount + bill_discount.
-        var discounts = Money.FromScaled(rollup.DiscountScaled + sales.LineDiscountScaled + sales.BillDiscountScaled);
+        var discounts = Money.FromScaled(rollup.DiscountScaled)
+            + CanonicalFigures.Discounts(sales.LineDiscountScaled, sales.BillDiscountScaled);
 
         var tax = Money.FromScaled(rollup.TaxScaled + sales.TaxScaled);
 
         // net = gross - discounts - returns, per segment. For the raw segment this reduces to
         // subtotal - bill_discount - return_subtotal, the identical algebra DailyRollupCalculator
         // stores in daily_sales_summary.net.
-        var rawGross = Money.FromScaled(sales.SubtotalScaled) + Money.FromScaled(sales.LineDiscountScaled);
-        var rawDiscounts = Money.FromScaled(sales.LineDiscountScaled) + Money.FromScaled(sales.BillDiscountScaled);
         var net = Money.FromScaled(rollup.NetScaled)
-            + rawGross
-            - rawDiscounts
-            - Money.FromScaled(returns.SubtotalScaled);
+            + CanonicalFigures.Net(
+                sales.SubtotalScaled,
+                sales.LineDiscountScaled,
+                sales.BillDiscountScaled,
+                returns.SubtotalScaled);
 
         var returnsValue = Money.FromScaled(rollup.ReturnsValueScaled + returns.TotalRefundScaled);
 
@@ -324,8 +327,7 @@ internal sealed class PeriodFiguresReader
         var returnCogs = Money.Zero;
         foreach (var line in returnLines)
         {
-            returnCogs += Money.FromScaled(line.UnitCostScaled)
-                * Quantity.FromScaled(line.QtyBaseScaled, uomId: 0).Value;
+            returnCogs += CanonicalFigures.LineCogs(line.UnitCostScaled, line.QtyBaseScaled);
         }
 
         return Money.FromScaled(rollupCogsScaled + rawSales.CogsScaled) - returnCogs;

@@ -9,6 +9,7 @@ using Counterpoint.Domain.Security;
 using Counterpoint.Ui.Services;
 using Counterpoint.Ui.ViewModels.Catalogue;
 using Counterpoint.Ui.ViewModels.Dashboard;
+using Counterpoint.Ui.ViewModels.Reports;
 using Counterpoint.Ui.ViewModels.Settings;
 
 namespace Counterpoint.Ui.ViewModels;
@@ -97,6 +98,20 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
         "Backup",
         "Receipt",
         "Display",
+    ];
+
+    /// <summary>
+    /// The four Reports destinations (task P3-T05): RPT-01 sales summary, RPT-02 sales by item,
+    /// RPT-03 profit and the returns report. Each name doubles as the value
+    /// <see cref="SelectedReportSection"/> carries and as the section key
+    /// <c>ReportSectionContent</c> compares against to decide which screen to show.
+    /// </summary>
+    public static readonly IReadOnlyList<string> ReportSectionNames =
+    [
+        ReportsViewModel.SalesSummarySection,
+        ReportsViewModel.SalesByItemSection,
+        ReportsViewModel.ProfitSection,
+        ReportsViewModel.ReturnsSection,
     ];
 
     private readonly ISession _session;
@@ -243,6 +258,11 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
             SelectedSettingsSection = null;
         }
 
+        if (newValue is not null && SelectedReportSection is not null)
+        {
+            SelectedReportSection = null;
+        }
+
         if (newValue is not null && oldValue is null && Catalogue is not null)
         {
             Catalogue.LoadCommand.Execute(null);
@@ -275,6 +295,7 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
             {
                 SelectedCatalogueSection = null;
                 SelectedSettingsSection = null;
+                SelectedReportSection = null;
                 Dashboard?.LoadCommand.Execute(null);
             }))
         {
@@ -283,6 +304,7 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
 
         SelectedCatalogueSection = null;
         SelectedSettingsSection = null;
+        SelectedReportSection = null;
         Dashboard?.LoadCommand.Execute(null);
     }
 
@@ -301,6 +323,8 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     {
         SelectedCatalogueSection = null;
         SelectedSettingsSection = null;
+        SelectedReportSection = null;
+        Reports?.CloseDrillDowns();
     }
 
     /// <summary>
@@ -398,8 +422,8 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     /// <summary>True once a settings group is showing in the content pane, false otherwise.</summary>
     public bool IsSettingsSectionActive => SelectedSettingsSection is not null;
 
-    /// <summary>True only while the content pane shows Overview - neither Catalogue nor System.</summary>
-    public bool IsOverviewActive => !IsCatalogueSectionActive && !IsSettingsSectionActive;
+    /// <summary>True only while the content pane shows Overview - none of Catalogue, System or Reports.</summary>
+    public bool IsOverviewActive => !IsCatalogueSectionActive && !IsSettingsSectionActive && !IsReportSectionActive;
 
     /// <summary>
     /// The settings screen's own viewmodel, attached once by the composition root after
@@ -446,6 +470,11 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
             SelectedCatalogueSection = null;
         }
 
+        if (newValue is not null && SelectedReportSection is not null)
+        {
+            SelectedReportSection = null;
+        }
+
         if (newValue is not null && oldValue is null && Settings is not null)
         {
             Settings.LoadCommand.Execute(null);
@@ -476,6 +505,87 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
         {
             Settings?.RevertCommand.Execute(null);
         }
+    }
+
+    // ---- Reports folded into the content pane (task P3-T05) ----------------------------------------
+
+    /// <summary>The four Reports nav-rail items, for the rail's own buttons.</summary>
+    public IReadOnlyList<string> ReportSections { get; } = ReportSectionNames;
+
+    /// <summary>
+    /// Which report screen the content pane shows, or null when it shows something else (Overview,
+    /// Catalogue or System). Set through <see cref="SelectReportSectionCommand"/> by the rail's
+    /// Reports buttons.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReportSectionActive))]
+    [NotifyPropertyChangedFor(nameof(IsOverviewActive))]
+    private string? _selectedReportSection;
+
+    /// <summary>True once a report screen is showing in the content pane, false otherwise.</summary>
+    public bool IsReportSectionActive => SelectedReportSection is not null;
+
+    /// <summary>
+    /// The four report screens' container, attached once by the composition root after construction
+    /// (see <see cref="AttachReports"/>), the same pattern <see cref="Catalogue"/> and
+    /// <see cref="Settings"/> use and for the same reason: every test that builds this viewmodel
+    /// directly from just an <see cref="ISession"/> keeps working unmodified.
+    /// </summary>
+    public ReportsViewModel? Reports { get; private set; }
+
+    /// <summary>Wired once by the composition root, immediately after both singletons resolve.</summary>
+    public void AttachReports(ReportsViewModel reports)
+    {
+        ArgumentNullException.ThrowIfNull(reports);
+        Reports = reports;
+    }
+
+    /// <summary>
+    /// Selects one of the four Reports items (task P3-T05), asking first if that means leaving System
+    /// with something unsaved - the same navigate-away guard (<see cref="TryLeaveSystem"/>) the other
+    /// leave-System paths use, so a report can never silently discard a settings edit.
+    /// </summary>
+    [RelayCommand]
+    public void SelectReportSection(string section)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+
+        if (TryLeaveSystem(
+            revertNow: () =>
+            {
+                // Nothing has changed yet - this runs as a command, before any property is touched.
+            },
+            reapply: () => ApplyReportSection(section)))
+        {
+            return;
+        }
+
+        ApplyReportSection(section);
+    }
+
+    private void ApplyReportSection(string section)
+    {
+        SelectedSettingsSection = null;
+        SelectedCatalogueSection = null;
+        SelectedReportSection = section;
+    }
+
+    /// <summary>
+    /// Re-reads the chosen report every time one is selected (the same "re-read on every real visit"
+    /// rule Catalogue and System follow). A report never cached between visits: a sale made since must
+    /// show. Hiding the nav item from a cashier is a courtesy; the owner-only reports' own
+    /// Application-layer queries refuse a cashier session regardless (SRS FR-9.4, AC-17).
+    /// </summary>
+    partial void OnSelectedReportSectionChanged(string? oldValue, string? newValue)
+    {
+        if (newValue is null)
+        {
+            return;
+        }
+
+        // A section left open on a drill-down would reopen on it; a fresh visit starts at the report.
+        Reports?.CloseDrillDowns();
+        Reports?.Load(newValue);
     }
 
     // ---- Status bar (SRS UI-09, UI-11: its own, distinct from the sales screen's) --------------
@@ -509,6 +619,19 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     public bool CanPrintLabels => _session.CurrentUser?.Role == Role.Owner;
 
     public bool CanManagePurchasing => _session.CurrentUser?.Role == Role.Owner;
+
+    /// <summary>
+    /// Whether the Reports nav group is offered at all (task P3-T05): any signed-in user, because the
+    /// sales summary and sales-by-item reports are cashier-safe (no cost or margin field).
+    /// </summary>
+    public bool CanViewReports => _session.IsAuthenticated;
+
+    /// <summary>
+    /// Whether the profit and returns items are offered - the owner-only ones (SRS FR-9.4, RPT-03,
+    /// RPT-14). A courtesy only: <c>IProfitReportQuery</c> and <c>IReturnsReportQuery</c> refuse a
+    /// cashier session in the Application layer whatever this says.
+    /// </summary>
+    public bool CanViewOwnerReports => _session.CurrentUser?.Role == Role.Owner;
 
     /// <summary>
     /// Whether the rail's Trading group header has anything under it to show. Not a new

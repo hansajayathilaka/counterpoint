@@ -28,7 +28,7 @@ public static class ReportingServiceCollectionExtensions
     /// Registers every report query this assembly implements: the reorder alert list, the stock
     /// valuation report and the slow-moving/non-moving stock report (task P2-T11); the X report's
     /// figures (P3-T02); and the canonical period query layer - the cashier-safe sales summary and
-    /// the owner-only profit summary (P3-T04).
+    /// the owner-only profit summary (P3-T04); the sales, returns and profit reports (P3-T05).
     /// </summary>
     public static IServiceCollection AddCounterpointReporting(this IServiceCollection services)
     {
@@ -71,6 +71,31 @@ public static class ReportingServiceCollectionExtensions
         services.AddSingleton<IProfitPeriodSummaryQuery>(provider =>
             RoleAuthorisation.Decorate<IProfitPeriodSummaryQuery>(
                 ActivatorUtilities.CreateInstance<ProfitPeriodSummaryQuery>(provider),
+                provider.GetRequiredService<ISession>()));
+
+        // P3-T05: the sales, returns and profit reports. The three cashier-safe queries carry no
+        // cost or margin field at all and never select a cost column, so they are registered plain
+        // (CLAUDE.md invariant 8, SRS AC-17); each builds its own readers through
+        // ActivatorUtilities, the same discipline as the period queries above.
+        services.AddSingleton<ISalesSummaryReportQuery>(provider =>
+            ActivatorUtilities.CreateInstance<SalesSummaryReportQuery>(provider));
+        services.AddSingleton<ISalesBillQuery>(provider =>
+            ActivatorUtilities.CreateInstance<SalesBillQuery>(provider));
+        services.AddSingleton<ISalesBreakdownQuery>(provider =>
+            ActivatorUtilities.CreateInstance<SalesBreakdownQuery>(provider));
+
+        // Owner-only: RPT-03 reads cost (snapshot COGS) and returns margin (SRS FR-9.4). Decorated
+        // here for the same reason IProfitPeriodSummaryQuery is - the concrete query is internal, so
+        // only this extension can build and wrap one; there is no bare registration.
+        services.AddSingleton<IProfitReportQuery>(provider =>
+            RoleAuthorisation.Decorate<IProfitReportQuery>(
+                ActivatorUtilities.CreateInstance<ProfitReportQuery>(provider),
+                provider.GetRequiredService<ISession>()));
+
+        // Owner-only: SRS section 9 lists RPT-14 (returns analysis) for the owner role.
+        services.AddSingleton<IReturnsReportQuery>(provider =>
+            RoleAuthorisation.Decorate<IReturnsReportQuery>(
+                ActivatorUtilities.CreateInstance<ReturnsReportQuery>(provider),
                 provider.GetRequiredService<ISession>()));
 
         // Owner-only: every figure is cost-derived. The concrete service is built inside the
