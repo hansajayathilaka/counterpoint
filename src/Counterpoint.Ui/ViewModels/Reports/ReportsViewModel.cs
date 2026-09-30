@@ -4,8 +4,9 @@ using System.Collections.Generic;
 namespace Counterpoint.Ui.ViewModels.Reports;
 
 /// <summary>
-/// The four report screens the back office's Reports nav group hosts (task P3-T05), and which one a
-/// section name selects. A thin container: each screen owns its own state and its own query.
+/// The report screens the back office's Reports nav group hosts - task P3-T05's four sales screens and, through
+/// <see cref="StockAndCash"/>, task P3-T06's eleven - and which one a section name selects. A thin container: each
+/// screen owns its own state and its own query.
 /// </summary>
 public sealed class ReportsViewModel : ViewModelBase
 {
@@ -25,7 +26,8 @@ public sealed class ReportsViewModel : ViewModelBase
         SalesSummaryReportViewModel salesSummary,
         SalesByItemReportViewModel salesByItem,
         ProfitReportViewModel profit,
-        ReturnsReportViewModel returns)
+        ReturnsReportViewModel returns,
+        StockAndCashReportsViewModel? stockAndCash = null)
     {
         ArgumentNullException.ThrowIfNull(salesSummary);
         ArgumentNullException.ThrowIfNull(salesByItem);
@@ -36,6 +38,7 @@ public sealed class ReportsViewModel : ViewModelBase
         SalesByItem = salesByItem;
         Profit = profit;
         Returns = returns;
+        StockAndCash = stockAndCash;
     }
 
     public SalesSummaryReportViewModel SalesSummary { get; }
@@ -45,6 +48,12 @@ public sealed class ReportsViewModel : ViewModelBase
     public ProfitReportViewModel Profit { get; }
 
     public ReturnsReportViewModel Returns { get; }
+
+    /// <summary>
+    /// The eleven Stock, Tax and Cash screens (task P3-T06). Null when the container was built without them - the
+    /// sales screens then work as before and the new sections simply have nothing to show.
+    /// </summary>
+    public StockAndCashReportsViewModel? StockAndCash { get; }
 
     /// <summary>
     /// Runs the screen <paramref name="section"/> names over its current range, so a section opens
@@ -68,6 +77,9 @@ public sealed class ReportsViewModel : ViewModelBase
                 break;
             case ReturnsSection:
                 Returns.RunCommand.Execute(null);
+                break;
+            default:
+                StockAndCash?.Load(section);
                 break;
         }
     }

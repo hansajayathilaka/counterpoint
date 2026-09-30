@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Reports"
+             xmlns:views="using:Counterpoint.Ui.Views.Reports"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Reports.TenderReconciliationView"
+             x:DataType="vm:TenderReconciliationViewModel">
+
+  <!--
+    Task P3-T06, tender reconciliation (owner-only; not SRS RPT-05, which is the Z report). Markup and nothing else: every figure is bound to
+    the matching report viewmodel, itself a pass-through of one Application-layer query, and every
+    table is a shared ReportTableView. A refusal or a failed read shows as the status sentence.
+    Tokens only, no hex. Every field is a persistent-label P3-T12 LabeledField (AC-22).
+  -->
+  <UserControl.Styles>
+    <StyleInclude Source="avares://Counterpoint.Ui/Views/Reports/ReportStyles.axaml" />
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+      <TextBlock Text="Tender reconciliation" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+      <TextBlock Classes="Note" TextWrapping="Wrap" Text="The closed shifts' Z-report tenders against the period's payments, tender by tender. The difference must be zero. Open shifts and trading not yet on a Z report are listed, not hidden." />
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <views:ReportRangeBar DataContext="{Binding Range}" />
+        <Button Content="_Run" Command="{Binding RunCommand}" IsEnabled="{Binding !Busy}" Margin="0,26,0,0" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding HasStatus}" />
+    </StackPanel>
+
+    <ScrollViewer>
+      <StackPanel Spacing="8">
+
+        <UniformGrid Columns="3" Rows="1">
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Z reports, net" /><TextBlock Classes="KpiValue" Text="{Binding ZNetTotalText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Payments, net" /><TextBlock Classes="KpiValue" Text="{Binding RangeNetTotalText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Difference" /><TextBlock Classes="KpiValue" Text="{Binding DifferenceText}" /></StackPanel></Border>
+        </UniformGrid>
+      <TextBlock Classes="Cell" Classes.Warn="{Binding TieOutWarning}" Text="{Binding TieOutText}" TextWrapping="Wrap" />
+        <views:ReportTableView DataContext="{Binding ByTender}" />
+        <views:ReportTableView DataContext="{Binding NotZd}" />
+        <views:ReportTableView DataContext="{Binding Shifts}" />
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </DockPanel>
+
+</UserControl>

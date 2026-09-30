@@ -31,8 +31,14 @@ namespace Counterpoint.Reporting.Inventory;
 /// </para>
 /// <para>
 /// Requires <c>stock_balance.qty_base &gt; 0</c>, which is also what guarantees the inner
-/// <c>last_movement</c> join always finds a row: a positive balance cannot exist without at least
+/// <c>movement_span</c> join always finds a row: a positive balance cannot exist without at least
 /// one posted movement (CLAUDE.md invariant 3).
+/// </para>
+/// <para>
+/// <b>"No sale in N days" (task P3-T06, decided).</b> A variant's idle time starts at its most recent
+/// <c>SALE</c> movement - ignoring a bill that was later cancelled - or, when it has never sold, at its first
+/// ledger movement (the day the stock first arrived). Receipts, returns, counts and adjustments never reset
+/// it. Owner-only: the value tied up is <c>qty x cost_avg</c>, multiplied here in C# and never in SQL.
 /// </para>
 /// </remarks>
 internal sealed class SlowMovingStockQuery : ISlowMovingStockQuery
@@ -43,6 +49,8 @@ internal sealed class SlowMovingStockQuery : ISlowMovingStockQuery
     /// </summary>
     private const string Iso8601Format = "yyyy-MM-ddTHH:mm:ss.fffzzz";
 
+    // A SALE movement whose bill was later cancelled is not a sale; a SALE movement with no resolvable
+    // bill (ref_doc_id NULL) still counts. "Idle since" is the last counted sale, else the first movement.
     private const string Sql =
         """
         SELECT sb.product_variant_id AS ProductVariantId,
@@ -51,19 +59,36 @@ internal sealed class SlowMovingStockQuery : ISlowMovingStockQuery
                u.symbol AS BaseUomSymbol,
                p.base_uom_id AS BaseUomId,
                sb.qty_base AS QtyOnHandScaled,
-               lm.LastMovementAt AS LastMovementAtText
+               sb.cost_avg AS CostAvgScaled,
+               COALESCE(c.name, '') AS CategoryName,
+               ms.LastMovementAt AS LastMovementAtText,
+               ms.FirstMovementAt AS FirstMovementAtText,
+               ls.LastSaleAt AS LastSaleAtText
           FROM stock_balance sb
           JOIN product_variant pv ON pv.id = sb.product_variant_id AND pv.active = 1
           JOIN product p ON p.id = pv.product_id AND p.active = 1
           JOIN uom u ON u.id = p.base_uom_id
+          LEFT JOIN category c ON c.id = p.category_id
           JOIN (
-                SELECT product_variant_id, MAX(occurred_at) AS LastMovementAt
+                SELECT product_variant_id,
+                       MAX(occurred_at) AS LastMovementAt,
+                       MIN(occurred_at) AS FirstMovementAt
                   FROM stock_movement
                  GROUP BY product_variant_id
-               ) lm ON lm.product_variant_id = sb.product_variant_id
+               ) ms ON ms.product_variant_id = sb.product_variant_id
+          LEFT JOIN (
+                SELECT sm.product_variant_id, MAX(sm.occurred_at) AS LastSaleAt
+                  FROM stock_movement sm
+                  LEFT JOIN sale sa ON sm.ref_doc_type = 'SALE' AND sa.id = sm.ref_doc_id
+                 WHERE sm.movement_type = 'SALE'
+                   AND (sa.id IS NULL OR sa.status = 'COMPLETED')
+                 GROUP BY sm.product_variant_id
+               ) ls ON ls.product_variant_id = sb.product_variant_id
          WHERE sb.qty_base > 0
-           AND lm.LastMovementAt <= @OlderThan
-         ORDER BY lm.LastMovementAt ASC, p.code;
+           AND COALESCE(ls.LastSaleAt, ms.FirstMovementAt) <= @OlderThan
+           AND (@CategoryId IS NULL OR p.category_id = @CategoryId
+                OR p.category_id IN (SELECT id FROM category WHERE parent_id = @CategoryId))
+         ORDER BY COALESCE(ls.LastSaleAt, ms.FirstMovementAt) ASC, p.code;
         """;
 
     private readonly IReportConnectionFactory _connectionFactory;
@@ -75,16 +100,28 @@ internal sealed class SlowMovingStockQuery : ISlowMovingStockQuery
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<SlowMovingStockLine>> FindAsync(
+    public Task<IReadOnlyList<SlowMovingStockLine>> FindAsync(
         DateTimeOffset olderThan,
+        CancellationToken cancellationToken = default) =>
+        FindAsync(new SlowMovingFilter(olderThan), cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SlowMovingStockLine>> FindAsync(
+        SlowMovingFilter filter,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(filter);
+
         var connection = await _connectionFactory.OpenReadConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using (connection.ConfigureAwait(false))
         {
             var command = new CommandDefinition(
                 Sql,
-                new { OlderThan = olderThan.ToString(Iso8601Format, CultureInfo.InvariantCulture) },
+                new
+                {
+                    OlderThan = filter.OlderThan.ToString(Iso8601Format, CultureInfo.InvariantCulture),
+                    filter.CategoryId,
+                },
                 cancellationToken: cancellationToken);
 
             var rows = await connection.QueryAsync<Row>(command).ConfigureAwait(false);
@@ -94,14 +131,28 @@ internal sealed class SlowMovingStockQuery : ISlowMovingStockQuery
         }
     }
 
-    private static SlowMovingStockLine ToLine(Row row) => new(
-        row.ProductVariantId,
-        row.ProductDescription,
-        row.Sku,
-        row.BaseUomSymbol,
-        Quantity.FromScaled(row.QtyOnHandScaled, row.BaseUomId),
-        DateTimeOffset.ParseExact(
-            row.LastMovementAtText, Iso8601Format, CultureInfo.InvariantCulture, DateTimeStyles.None));
+    private static SlowMovingStockLine ToLine(Row row)
+    {
+        var qty = Quantity.FromScaled(row.QtyOnHandScaled, row.BaseUomId);
+        var cost = Money.FromScaled(row.CostAvgScaled);
+        var lastSale = row.LastSaleAtText is null ? (DateTimeOffset?)null : Parse(row.LastSaleAtText);
+
+        return new SlowMovingStockLine(
+            row.ProductVariantId,
+            row.ProductDescription,
+            row.Sku,
+            row.BaseUomSymbol,
+            qty,
+            Parse(row.LastMovementAtText),
+            lastSale,
+            lastSale ?? Parse(row.FirstMovementAtText),
+            row.CategoryName,
+            cost,
+            cost * qty.Value);
+    }
+
+    private static DateTimeOffset Parse(string text) =>
+        DateTimeOffset.ParseExact(text, Iso8601Format, CultureInfo.InvariantCulture, DateTimeStyles.None);
 
     /// <summary>The flat shape Dapper maps a row of <see cref="Sql"/> onto.</summary>
     private sealed class Row
@@ -118,6 +169,14 @@ internal sealed class SlowMovingStockQuery : ISlowMovingStockQuery
 
         public long QtyOnHandScaled { get; set; }
 
+        public long CostAvgScaled { get; set; }
+
+        public string CategoryName { get; set; } = string.Empty;
+
         public string LastMovementAtText { get; set; } = string.Empty;
+
+        public string FirstMovementAtText { get; set; } = string.Empty;
+
+        public string? LastSaleAtText { get; set; }
     }
 }

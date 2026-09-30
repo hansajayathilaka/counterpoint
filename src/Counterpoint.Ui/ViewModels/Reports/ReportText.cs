@@ -28,4 +28,29 @@ internal static class ReportText
         hour.ToString("00", CultureInfo.InvariantCulture) + ":00-" + hour.ToString("00", CultureInfo.InvariantCulture) + ":59";
 
     internal static string Count(int count) => count.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>A timestamp as the shop reads it: date and minute, in the offset it was recorded with.</summary>
+    internal static string Stamp(System.DateTimeOffset moment) =>
+        moment.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>A tax rate as a percentage without trailing zeros: 15%, 7.5%.</summary>
+    internal static string Rate(TaxRate rate) =>
+        rate.AsPercent.ToString("0.####", CultureInfo.InvariantCulture) + "%";
+
+    /// <summary>A plain decimal, four places at most and no grouping: 12.5, 0.0833.</summary>
+    internal static string Decimal(decimal value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A stored token (<c>BANK_TRANSFER</c>, <c>SALE</c>, <c>RETURN_IN</c>) as words: "Bank transfer", "Sale", "Return in".
+    /// </summary>
+    internal static string Token(string token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return string.Empty;
+        }
+
+        var words = token.Replace('_', ' ').ToLowerInvariant();
+        return char.ToUpperInvariant(words[0]) + words[1..];
+    }
 }

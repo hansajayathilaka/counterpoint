@@ -101,9 +101,9 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
     ];
 
     /// <summary>
-    /// The four Reports destinations (task P3-T05): RPT-01 sales summary, RPT-02 sales by item,
-    /// RPT-03 profit and the returns report. Each name doubles as the value
-    /// <see cref="SelectedReportSection"/> carries and as the section key
+    /// Every Reports destination: task P3-T05's four (RPT-01 sales summary, RPT-02 sales by item, RPT-03
+    /// profit and the returns report) and task P3-T06's eleven Stock, Tax and Cash screens. Each name doubles
+    /// as the value <see cref="SelectedReportSection"/> carries and as the section key
     /// <c>ReportSectionContent</c> compares against to decide which screen to show.
     /// </summary>
     public static readonly IReadOnlyList<string> ReportSectionNames =
@@ -112,6 +112,17 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
         ReportsViewModel.SalesByItemSection,
         ReportsViewModel.ProfitSection,
         ReportsViewModel.ReturnsSection,
+        StockAndCashReportsViewModel.StockOnHandSection,
+        StockAndCashReportsViewModel.ReorderSection,
+        StockAndCashReportsViewModel.StockValuationSection,
+        StockAndCashReportsViewModel.StockCardSection,
+        StockAndCashReportsViewModel.SlowMovingSection,
+        StockAndCashReportsViewModel.FastMovingSection,
+        StockAndCashReportsViewModel.DamageSection,
+        StockAndCashReportsViewModel.SupplierPurchasesSection,
+        StockAndCashReportsViewModel.TaxSection,
+        StockAndCashReportsViewModel.TenderReconciliationSection,
+        StockAndCashReportsViewModel.ShiftVarianceSection,
     ];
 
     private readonly ISession _session;
@@ -509,7 +520,7 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
 
     // ---- Reports folded into the content pane (task P3-T05) ----------------------------------------
 
-    /// <summary>The four Reports nav-rail items, for the rail's own buttons.</summary>
+    /// <summary>Every Reports nav-rail item, for the rail's own buttons.</summary>
     public IReadOnlyList<string> ReportSections { get; } = ReportSectionNames;
 
     /// <summary>
@@ -622,14 +633,16 @@ public sealed partial class BackOfficeShellViewModel : ViewModelBase
 
     /// <summary>
     /// Whether the Reports nav group is offered at all (task P3-T05): any signed-in user, because the
-    /// sales summary and sales-by-item reports are cashier-safe (no cost or margin field).
+    /// sales summary and sales-by-item reports are cashier-safe (no cost or margin field), and so are
+    /// stock on hand and the reorder list (task P3-T06; SRS section 9 lists both for both roles).
     /// </summary>
     public bool CanViewReports => _session.IsAuthenticated;
 
     /// <summary>
-    /// Whether the profit and returns items are offered - the owner-only ones (SRS FR-9.4, RPT-03,
-    /// RPT-14). A courtesy only: <c>IProfitReportQuery</c> and <c>IReturnsReportQuery</c> refuse a
-    /// cashier session in the Application layer whatever this says.
+    /// Whether the owner-only report items are offered: profit and returns (SRS FR-9.4, RPT-03, RPT-14) and
+    /// every Stock, Tax and Cash report other than stock on hand and the reorder list (task P3-T06). A
+    /// courtesy only: each of those queries refuses a cashier session in the Application layer whatever this
+    /// says.
     /// </summary>
     public bool CanViewOwnerReports => _session.CurrentUser?.Role == Role.Owner;
 

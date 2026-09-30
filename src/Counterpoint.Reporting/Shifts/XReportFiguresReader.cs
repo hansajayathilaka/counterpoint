@@ -4,8 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
-using Counterpoint.Domain.Pricing;
 using Counterpoint.Domain.ValueObjects;
+using Counterpoint.Reporting.Queries;
 using Dapper;
 
 namespace Counterpoint.Reporting.Shifts;
@@ -57,48 +57,19 @@ internal sealed class XReportFiguresReader : IXReportFiguresReader
          WHERE shift_id = @ShiftId;
         """;
 
-    // Line level, not a GROUP BY: a line's taxable amount is line_total less its share of the
-    // bill discount (SaleReceiptFigures, BillDiscountSplit), and that share is a per-bill
-    // allocation SQL cannot reproduce exactly. line_total is already net of tax in both pricing
-    // modes, so it is never reduced by sl.tax. An exchange's replacement sale keeps
-    // bill_discount at zero unconditionally (ExchangeTenderType0010) - its credit settles as an
-    // EXCHANGE payment, never a discount - so the CASE below is defensive, not load-bearing; the
-    // derived table finds those sales in one pass over sale_return rather than once per row.
+    // Line level, not a GROUP BY: a line's taxable amount is line_total less its share of the bill
+    // discount, and that share is a per-bill allocation SQL cannot reproduce exactly. The select, the
+    // order and the allocation are TaxableLines', shared with the tax report (RPT-19).
     private const string TaxLinesSql =
-        """
-        SELECT sa.id AS SaleId,
-               CASE WHEN ex.exchange_sale_id IS NULL THEN sa.bill_discount ELSE 0 END AS BillDiscountScaled,
-               sl.qty AS QtyScaled, sl.uom_id AS UomId, sl.unit_price AS UnitPriceScaled, sl.discount AS DiscountScaled,
-               sl.tax_rate AS TaxRateScaled, sl.line_total AS LineTotalScaled, sl.tax AS TaxScaled
-          FROM sale_line sl
-          JOIN sale sa ON sa.id = sl.sale_id
-          LEFT JOIN (SELECT DISTINCT exchange_sale_id FROM sale_return WHERE exchange_sale_id IS NOT NULL) ex
-            ON ex.exchange_sale_id = sa.id
+        TaxableLines.SelectSql
+        + """
          WHERE sa.shift_id = @ShiftId
            AND sa.status = 'COMPLETED'
-         ORDER BY sa.id, sl.line_no;
-        """;
-
-    private const string TenderBreakdownSql =
         """
-        SELECT tender_type AS TenderType,
-               COALESCE(SUM(CASE WHEN source = 'SALE' THEN amount ELSE 0 END), 0) AS SalesAmountScaled,
-               COALESCE(SUM(CASE WHEN source = 'RETURN' THEN -amount ELSE 0 END), 0) AS RefundsAmountScaled
-          FROM (
-                SELECT p.tender_type AS tender_type, p.amount AS amount, 'SALE' AS source
-                  FROM payment p
-                  JOIN sale sa ON sa.id = p.sale_id
-                 WHERE sa.shift_id = @ShiftId
-                   AND sa.status = 'COMPLETED'
-                UNION ALL
-                SELECT p.tender_type AS tender_type, p.amount AS amount, 'RETURN' AS source
-                  FROM payment p
-                  JOIN sale_return sr ON sr.id = p.sale_return_id
-                 WHERE sr.shift_id = @ShiftId
-               ) combined
-         GROUP BY tender_type
-         ORDER BY tender_type;
-        """;
+        + TaxableLines.OrderSql;
+
+    // The tender-by-type SQL is ShiftTenderBreakdown's, shared with the tender reconciliation report.
+    private const string TenderBreakdownSql = ShiftTenderBreakdown.Sql;
 
     private readonly IReportConnectionFactory _connectionFactory;
 
@@ -122,11 +93,11 @@ internal sealed class XReportFiguresReader : IXReportFiguresReader
                 new CommandDefinition(ReturnsTotalsSql, new { ShiftId = shiftId }, cancellationToken: cancellationToken))
                 .ConfigureAwait(false);
 
-            var taxLines = await connection.QueryAsync<TaxLineRow>(
+            var taxLines = await connection.QueryAsync<TaxableLines.TaxLineRow>(
                 new CommandDefinition(TaxLinesSql, new { ShiftId = shiftId }, cancellationToken: cancellationToken))
                 .ConfigureAwait(false);
 
-            var tenderRows = await connection.QueryAsync<TenderRow>(
+            var tenderRows = await connection.QueryAsync<ShiftTenderBreakdown.TenderRow>(
                 new CommandDefinition(TenderBreakdownSql, new { ShiftId = shiftId }, cancellationToken: cancellationToken))
                 .ConfigureAwait(false);
 
@@ -139,44 +110,18 @@ internal sealed class XReportFiguresReader : IXReportFiguresReader
                 Money.FromScaled(returns.ReturnsValueScaled),
                 Money.FromScaled(returns.ReturnsTaxTotalScaled),
                 TaxBreakdown([.. taxLines]),
-                [.. tenderRows.Select(ToTenderLine)]);
+                [.. tenderRows.Select(ShiftTenderBreakdown.ToTenderLine)]);
         }
     }
 
-    private static IReadOnlyList<XReportTaxBreakdownLine> TaxBreakdown(IReadOnlyList<TaxLineRow> rows)
-    {
-        var taxable = new List<(long Rate, long Taxable, long Tax)>(rows.Count);
-
-        foreach (var bill in rows.GroupBy(row => row.SaleId))
-        {
-            var lines = bill.ToList();
-            var shares = BillDiscountSplit.Allocate(
-                Money.FromScaled(lines[0].BillDiscountScaled),
-                [.. lines.Select(line => BillDiscountSplit.Weight(
-                    Money.FromScaled(line.UnitPriceScaled),
-                    Quantity.FromScaled(line.QtyScaled, line.UomId),
-                    Money.FromScaled(line.DiscountScaled)))]);
-
-            for (var i = 0; i < lines.Count; i++)
-            {
-                taxable.Add((lines[i].TaxRateScaled, lines[i].LineTotalScaled - shares[i].ToScaled(), lines[i].TaxScaled));
-            }
-        }
-
-        return [.. taxable
-            .GroupBy(line => line.Rate)
+    private static IReadOnlyList<XReportTaxBreakdownLine> TaxBreakdown(IReadOnlyList<TaxableLines.TaxLineRow> rows) =>
+        [.. TaxableLines.Allocate(rows)
+            .GroupBy(line => line.RateScaled)
             .OrderBy(group => group.Key)
             .Select(group => new XReportTaxBreakdownLine(
                 TaxRate.FromScaled(group.Key),
-                Money.FromScaled(group.Sum(line => line.Taxable)),
-                Money.FromScaled(group.Sum(line => line.Tax))))];
-    }
-
-    private static XReportTenderLine ToTenderLine(TenderRow row) => new(
-        row.TenderType,
-        Money.FromScaled(row.SalesAmountScaled),
-        Money.FromScaled(row.RefundsAmountScaled),
-        Money.FromScaled(row.SalesAmountScaled - row.RefundsAmountScaled));
+                Money.FromScaled(group.Sum(line => line.TaxableScaled)),
+                Money.FromScaled(group.Sum(line => line.TaxScaled))))];
 
     /// <summary>The flat shape Dapper maps a row of <see cref="SalesTotalsSql"/> onto.</summary>
     private sealed class SalesRow
@@ -198,37 +143,5 @@ internal sealed class XReportFiguresReader : IXReportFiguresReader
         public long ReturnsValueScaled { get; set; }
 
         public long ReturnsTaxTotalScaled { get; set; }
-    }
-
-    /// <summary>The flat shape Dapper maps a row of <see cref="TaxLinesSql"/> onto.</summary>
-    private sealed class TaxLineRow
-    {
-        public long SaleId { get; set; }
-
-        public long BillDiscountScaled { get; set; }
-
-        public long QtyScaled { get; set; }
-
-        public long UomId { get; set; }
-
-        public long UnitPriceScaled { get; set; }
-
-        public long DiscountScaled { get; set; }
-
-        public long TaxRateScaled { get; set; }
-
-        public long LineTotalScaled { get; set; }
-
-        public long TaxScaled { get; set; }
-    }
-
-    /// <summary>The flat shape Dapper maps a row of <see cref="TenderBreakdownSql"/> onto.</summary>
-    private sealed class TenderRow
-    {
-        public string TenderType { get; set; } = string.Empty;
-
-        public long SalesAmountScaled { get; set; }
-
-        public long RefundsAmountScaled { get; set; }
     }
 }

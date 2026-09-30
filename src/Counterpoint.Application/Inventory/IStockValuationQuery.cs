@@ -33,14 +33,37 @@ public interface IStockValuationQuery
     /// sum(stock_balance.qty_base × cost_avg) exactly").
     /// </summary>
     public Task<StockValuationReport> GetValuationAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The same valuation narrowed by <paramref name="filter"/> (task P3-T06 "Do this" #7, SRS §9 RPT-09):
+    /// the lines and both totals cover only the matching stock, and each line also carries the retail
+    /// selling price and the value at that price.
+    /// </summary>
+    /// <remarks>
+    /// <b>"As at" is now.</b> A valuation reads the current <c>stock_balance</c> and current
+    /// <c>cost_avg</c>; a past date cannot be reconstructed from them, and the ledger is never summed to
+    /// fake one. The screen and docs/report-definitions.md say so.
+    /// </remarks>
+    public Task<StockValuationReport> GetValuationAsync(
+        StockValuationFilter filter,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>What <see cref="IStockValuationQuery.GetValuationAsync(StockValuationFilter, CancellationToken)"/> narrows to.</summary>
+/// <param name="CategoryId">
+/// Only products filed under this category, or under any child of it (categories are two levels).
+/// Null is every category, including unfiled products.
+/// </param>
+public sealed record StockValuationFilter(long? CategoryId = null);
 
 /// <summary>The stock valuation report's result (task P2-T11 "Do this" #2).</summary>
 /// <param name="Lines">Every variant currently in <c>stock_balance</c>, highest value first.</param>
-/// <param name="TotalValue">The grand total - see <see cref="IStockValuationQuery.GetValuationAsync"/>.</param>
+/// <param name="TotalValue">The grand total - see <see cref="IStockValuationQuery.GetValuationAsync(System.Threading.CancellationToken)"/>.</param>
+/// <param name="TotalValueAtSellingPrice">The same stock valued at each variant's current retail price, exact, no rounding.</param>
 public sealed record StockValuationReport(
     IReadOnlyList<StockValuationLine> Lines,
-    Money TotalValue);
+    Money TotalValue,
+    Money TotalValueAtSellingPrice = default);
 
 /// <summary>One variant's current stock valued at its own moving-average cost.</summary>
 /// <param name="ProductVariantId">The variant.</param>
@@ -54,6 +77,9 @@ public sealed record StockValuationReport(
 /// interface's own remarks on <see cref="Money"/> not being quantised until it is stored). The
 /// lines therefore sum to <see cref="StockValuationReport.TotalValue"/> exactly too.
 /// </param>
+/// <param name="CategoryName">The product's category as filed now; empty when unfiled.</param>
+/// <param name="SellingPrice">The variant's current retail price per base unit.</param>
+/// <param name="ValueAtSellingPrice"><see cref="QtyOnHandBase"/> times <see cref="SellingPrice"/>, exact.</param>
 public sealed record StockValuationLine(
     long ProductVariantId,
     string ProductDescription,
@@ -61,4 +87,7 @@ public sealed record StockValuationLine(
     string BaseUomSymbol,
     Quantity QtyOnHandBase,
     Money CostAvg,
-    Money Value);
+    Money Value,
+    string CategoryName = "",
+    Money SellingPrice = default,
+    Money ValueAtSellingPrice = default);

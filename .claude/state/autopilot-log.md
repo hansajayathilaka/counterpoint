@@ -430,3 +430,6 @@ it stopped.
 - budget: 2 task(s)
 
 - `2026-09-30T17:17:49Z` **P3-T05** start — Sales, returns and profit reports
+- `2026-09-30T18:51:10Z` **P3-T05** done — 68 files, ~120 new tests, verify green, review 0 must-fix
+- `2026-09-30T18:51:30Z` **P3-T06** start — Stock, tax and cash reports
+- `2026-09-30T21:40:09Z` **P3-T06** fix-attempt — 1: tender reconciliation midnight-crossing shift explanation (M1, both reviewers); stock card false 'chain broken' on non-contiguous range (reproduce first)

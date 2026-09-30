@@ -43,7 +43,15 @@ public interface IAdjustmentHistoryQuery
 /// </param>
 /// <param name="From">The earliest <c>occurred_at</c> to include, inclusive. Null is unbounded.</param>
 /// <param name="To">The latest <c>occurred_at</c> to include, inclusive. Null is unbounded.</param>
+/// <param name="FromDate">
+/// The first calendar day to include (task P3-T06, the damage and shrinkage report), inclusive: the
+/// wall-clock date recorded in <c>occurred_at</c>, so it does not depend on the UTC offset a movement
+/// happened to be stamped with. Null is unbounded. Combines with <paramref name="From"/> (both apply).
+/// </param>
+/// <param name="ToDate">The last calendar day to include, inclusive, on the same wall-clock basis. Null is unbounded.</param>
 public sealed record AdjustmentHistoryFilter(
     AdjustmentType? Type = null,
     DateTimeOffset? From = null,
-    DateTimeOffset? To = null);
+    DateTimeOffset? To = null,
+    DateOnly? FromDate = null,
+    DateOnly? ToDate = null);

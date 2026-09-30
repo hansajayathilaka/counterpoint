@@ -48,6 +48,8 @@ internal sealed class SqliteAdjustmentHistoryQuery : IAdjustmentHistoryQuery
            AND (@Type IS NULL OR sm.movement_type = @Type)
            AND (@From IS NULL OR sm.occurred_at >= @From)
            AND (@To IS NULL OR sm.occurred_at <= @To)
+           AND (@FromDate IS NULL OR sm.occurred_at >= @FromDate)
+           AND (@ToDateExclusive IS NULL OR sm.occurred_at < @ToDateExclusive)
          ORDER BY sm.occurred_at DESC, sm.id DESC;
         """;
 
@@ -75,6 +77,11 @@ internal sealed class SqliteAdjustmentHistoryQuery : IAdjustmentHistoryQuery
                     Type = filter.Type is { } type ? AdjustmentTypes.ToToken(type) : null,
                     From = filter.From?.ToString(Iso8601TimestampConverter.Format, CultureInfo.InvariantCulture),
                     To = filter.To?.ToString(Iso8601TimestampConverter.Format, CultureInfo.InvariantCulture),
+
+                    // occurred_at is "yyyy-MM-ddTHH:mm:ss.fff+hh:mm": a bare "yyyy-MM-dd" sorts before
+                    // every stamp on that day and the next day's bare date after every stamp on this one.
+                    FromDate = filter.FromDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    ToDateExclusive = filter.ToDate?.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 },
                 cancellationToken: cancellationToken);
 
