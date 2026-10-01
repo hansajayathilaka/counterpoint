@@ -34,6 +34,7 @@ using Counterpoint.Ui.ViewModels.Dashboard;
 using Counterpoint.Ui.ViewModels.FirstRun;
 using Counterpoint.Ui.ViewModels.Labels;
 using Counterpoint.Ui.ViewModels.Purchasing;
+using Counterpoint.Ui.ViewModels.Reports;
 using Counterpoint.Ui.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -229,6 +230,36 @@ internal static class CounterpointHostBuilderExtensions
         // shell the same way CatalogueViewModel is, immediately below.
         builder.Services.AddSingleton<DashboardViewModel>();
 
+        // Task P3-T05: the four sales report screens (RPT-01, RPT-02, RPT-03 and the returns report) and
+        // the container the shell's Reports nav group hosts. Each screen is a pass-through of one
+        // Application-layer query registered by AddCounterpointReporting; the owner-only queries
+        // (IProfitReportQuery, IReturnsReportQuery) are role-decorated there, so nothing in Ui can
+        // resolve them undecorated.
+        builder.Services.AddSingleton<SalesSummaryReportViewModel>();
+        builder.Services.AddSingleton<SalesByItemReportViewModel>();
+        builder.Services.AddSingleton<ProfitReportViewModel>();
+        builder.Services.AddSingleton<ReturnsReportViewModel>();
+
+        // Task P3-T06: the eleven Stock, Tax and Cash screens and their container, which ReportsViewModel takes
+        // as its optional fifth argument. Each is a pass-through of one Application-layer query registered by
+        // AddCounterpointReporting; every owner-only one (tax, tender reconciliation, shift variance, stock
+        // card, valuation, slow-moving, fast-moving, damage, supplier purchases) is role-decorated there, and
+        // stock on hand and the reorder list are the two cost-free, both-role reads. ILogger<T> arrives from the
+        // host's logging (Serilog); a screen logs a failed read and shows the owner a plain sentence.
+        builder.Services.AddSingleton<StockOnHandViewModel>();
+        builder.Services.AddSingleton<ReorderListViewModel>();
+        builder.Services.AddSingleton<StockValuationViewModel>();
+        builder.Services.AddSingleton<StockCardViewModel>();
+        builder.Services.AddSingleton<SlowMovingStockViewModel>();
+        builder.Services.AddSingleton<FastMovingViewModel>();
+        builder.Services.AddSingleton<DamageAdjustmentViewModel>();
+        builder.Services.AddSingleton<SupplierPurchasesViewModel>();
+        builder.Services.AddSingleton<TaxReportViewModel>();
+        builder.Services.AddSingleton<TenderReconciliationViewModel>();
+        builder.Services.AddSingleton<ShiftVarianceViewModel>();
+        builder.Services.AddSingleton<StockAndCashReportsViewModel>();
+        builder.Services.AddSingleton<ReportsViewModel>();
+
         // P3-T13: the back office's own navigation shell (SRS UI-11, NFR-S2, AC-17, AC-24) -
         // the same single ISession singleton the sales screen reads, not a second session or a
         // second connection of any kind (see BackOfficeShellViewModel's own remarks). A factory,
@@ -245,6 +276,7 @@ internal static class CounterpointHostBuilderExtensions
             shell.AttachCatalogue(p.GetRequiredService<CatalogueViewModel>());
             shell.AttachSettings(p.GetRequiredService<SettingsViewModel>(), p.GetRequiredService<IDialogService>());
             shell.AttachDashboard(p.GetRequiredService<DashboardViewModel>());
+            shell.AttachReports(p.GetRequiredService<ReportsViewModel>());
             return shell;
         });
 

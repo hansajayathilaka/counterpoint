@@ -422,3 +422,17 @@ it stopped.
 - `2026-09-24T13:35:27Z` **P3-T20** done — 7 files (feat) + 3 files (test), 14 new tests, review clean (0 must-fix/should-fix), PR #52
 
 **Run ended 2026-09-24T13:35:43Z** — 2 completed, 0 halted
+
+## Run 2026-09-30T17:17:48Z
+
+- branch: `ccr-804782d7-l05834`
+- head: `737ab6b`
+- budget: 2 task(s)
+
+- `2026-09-30T17:17:49Z` **P3-T05** start — Sales, returns and profit reports
+- `2026-09-30T18:51:10Z` **P3-T05** done — 68 files, ~120 new tests, verify green, review 0 must-fix
+- `2026-09-30T18:51:30Z` **P3-T06** start — Stock, tax and cash reports
+- `2026-09-30T21:40:09Z` **P3-T06** fix-attempt — 1: tender reconciliation midnight-crossing shift explanation (M1, both reviewers); stock card false 'chain broken' on non-contiguous range (reproduce first)
+- `2026-09-30T22:02:00Z` **P3-T06** partial — afbb1b8: 3 of 4 Done-when proven; 'every SRS s9 report exists' NOT satisfied (RPT-17/18/20/22/23/24/25 owned elsewhere or no data model) - left in-progress, draft PR
+
+**Run ended 2026-10-01T00:53:55Z** — 1 completed (P3-T05), 1 partial (P3-T06 in-progress: Done-when #1 unsatisfiable by this task), 0 halted

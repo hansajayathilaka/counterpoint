@@ -1,0 +1,162 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Reports"
+             xmlns:views="using:Counterpoint.Ui.Views.Reports"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Reports.SalesSummaryReportView"
+             x:DataType="vm:SalesSummaryReportViewModel">
+
+  <!--
+    Task P3-T05, RPT-01: the sales summary - bill count, average bill value, gross, discounts, tax
+    and net for the range, then by day, by hour of day and by tender type. A day row, an hour row or
+    the "All bills" button drills to the bill list, and a bill row to the bill. Every figure is a
+    pass-through of ISalesSummaryReportQuery; nothing here is cost or margin. Tokens only, no hex.
+  -->
+  <UserControl.Styles>
+    <Style Selector="TextBlock.Head">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+    <Style Selector="TextBlock.Cell">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.Num">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="TextBlock.SectionTitle">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="Margin" Value="0,8,0,4" />
+    </Style>
+    <Style Selector="Border.KpiCard">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+    <Style Selector="Border.KpiCard TextBlock.KpiLabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+    <Style Selector="Border.KpiCard TextBlock.KpiValue">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12" IsVisible="{Binding !Drill.IsActive}">
+      <TextBlock Text="Sales summary" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <views:ReportRangeBar DataContext="{Binding Range}" />
+        <Button Content="_Run" Command="{Binding RunCommand}" IsEnabled="{Binding !Busy}" Margin="0,26,0,0" />
+        <Button Content="All _bills" Command="{Binding ShowAllBillsCommand}" IsEnabled="{Binding !Busy}" Margin="0,26,0,0" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" Foreground="{DynamicResource WarningBrush}" IsVisible="{Binding HasStatus}" />
+    </StackPanel>
+
+    <ScrollViewer IsVisible="{Binding !Drill.IsActive}">
+      <StackPanel Spacing="8">
+
+        <UniformGrid Columns="7" Rows="1">
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Bills" /><TextBlock Classes="KpiValue" Text="{Binding BillCountText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Average bill" /><TextBlock Classes="KpiValue" Text="{Binding AverageBillText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Gross" /><TextBlock Classes="KpiValue" Text="{Binding GrossText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Discounts" /><TextBlock Classes="KpiValue" Text="{Binding DiscountsText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Tax" /><TextBlock Classes="KpiValue" Text="{Binding TaxText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Returns refunded" /><TextBlock Classes="KpiValue" Text="{Binding ReturnsText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Net sales" /><TextBlock Classes="KpiValue" Text="{Binding NetText}" /></StackPanel></Border>
+        </UniformGrid>
+
+        <TextBlock Classes="SectionTitle" Text="By day" />
+        <Grid ColumnDefinitions="100,60,100,100,90,100,110,100,Auto">
+          <TextBlock Grid.Column="0" Classes="Head" Text="Date" />
+          <TextBlock Grid.Column="1" Classes="Head Num" Text="Bills" />
+          <TextBlock Grid.Column="2" Classes="Head Num" Text="Gross" />
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Discounts" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Tax" />
+          <TextBlock Grid.Column="5" Classes="Head Num" Text="Returns" />
+          <TextBlock Grid.Column="6" Classes="Head Num" Text="Net" />
+          <TextBlock Grid.Column="7" Classes="Head Num" Text="Avg bill" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding ByDay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SalesDayRowViewModel">
+              <Grid ColumnDefinitions="100,60,100,100,90,100,110,100,Auto" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding DateText}" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding BillCountText}" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding GrossText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding DiscountsText}" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding TaxText}" />
+                <TextBlock Grid.Column="5" Classes="Cell Num" Text="{Binding ReturnsText}" />
+                <TextBlock Grid.Column="6" Classes="Cell Num" Text="{Binding NetText}" FontWeight="Bold" />
+                <TextBlock Grid.Column="7" Classes="Cell Num" Text="{Binding AverageText}" />
+                <Button Grid.Column="8" Margin="8,0,0,0" Content="Bills" Command="{Binding DrillCommand}"
+                        CommandParameter="{Binding DrillParameter}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="SectionTitle" Text="By hour of day" />
+        <Grid ColumnDefinitions="120,60,100,100,90,110,100,Auto">
+          <TextBlock Grid.Column="0" Classes="Head" Text="Hour" />
+          <TextBlock Grid.Column="1" Classes="Head Num" Text="Bills" />
+          <TextBlock Grid.Column="2" Classes="Head Num" Text="Gross" />
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Discounts" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Tax" />
+          <TextBlock Grid.Column="5" Classes="Head Num" Text="Net" />
+          <TextBlock Grid.Column="6" Classes="Head Num" Text="Avg bill" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding ByHour}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SalesHourRowViewModel">
+              <Grid ColumnDefinitions="120,60,100,100,90,110,100,Auto" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding HourText}" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding BillCountText}" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding GrossText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding DiscountsText}" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding TaxText}" />
+                <TextBlock Grid.Column="5" Classes="Cell Num" Text="{Binding NetText}" FontWeight="Bold" />
+                <TextBlock Grid.Column="6" Classes="Cell Num" Text="{Binding AverageText}" />
+                <Button Grid.Column="7" Margin="8,0,0,0" Content="Bills" Command="{Binding DrillCommand}"
+                        CommandParameter="{Binding DrillParameter}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Classes="SectionTitle" Text="By tender type" />
+        <Grid ColumnDefinitions="160,110,110,110">
+          <TextBlock Grid.Column="0" Classes="Head" Text="Tender" />
+          <TextBlock Grid.Column="1" Classes="Head Num" Text="Sales" />
+          <TextBlock Grid.Column="2" Classes="Head Num" Text="Refunds" />
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Net" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding ByTender}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SalesTenderRowViewModel">
+              <Grid ColumnDefinitions="160,110,110,110" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding TenderType}" />
+                <TextBlock Grid.Column="1" Classes="Cell Num" Text="{Binding SalesText}" />
+                <TextBlock Grid.Column="2" Classes="Cell Num" Text="{Binding RefundsText}" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding NetText}" FontWeight="Bold" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <views:BillDrillDownView DataContext="{Binding Drill}" IsVisible="{Binding IsActive}" />
+
+  </DockPanel>
+
+</UserControl>

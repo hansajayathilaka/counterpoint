@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:Counterpoint.Ui.Views.Reports"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Reports.ReportSectionContent"
+             x:Name="Root">
+
+  <!--
+    Task P3-T05 (four sales screens) and P3-T06 (eleven stock, tax and cash screens). The report screens, one visible at a time, chosen by the nav rail's
+    BackOfficeShellViewModel.SelectedReportSection mirrored here by SelectedSection - the same shape
+    CatalogueSectionContent (P3-T18) and SettingsSectionContent (P3-T19) use. Every binding is
+    "#Root."-qualified so each screen's own DataContext cannot shadow it.
+  -->
+  <Grid>
+    <views:SalesSummaryReportView DataContext="{Binding #Root.Reports.SalesSummary}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Sales summary'}" />
+    <views:SalesByItemReportView DataContext="{Binding #Root.Reports.SalesByItem}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Sales by item'}" />
+    <views:ProfitReportView DataContext="{Binding #Root.Reports.Profit}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Profit}" />
+    <views:ReturnsReportView DataContext="{Binding #Root.Reports.Returns}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter=Returns}" />
+
+    <!-- Task P3-T06: the eleven Stock, Tax and Cash screens (StockAndCashReportsViewModel). -->
+    <views:StockOnHandView DataContext="{Binding #Root.Reports.StockAndCash.StockOnHand}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Stock on hand'}" />
+    <views:ReorderListView DataContext="{Binding #Root.Reports.StockAndCash.Reorder}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Reorder list'}" />
+    <views:StockValuationView DataContext="{Binding #Root.Reports.StockAndCash.StockValuation}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Stock valuation'}" />
+    <views:StockCardView DataContext="{Binding #Root.Reports.StockAndCash.StockCard}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Stock card'}" />
+    <views:SlowMovingStockView DataContext="{Binding #Root.Reports.StockAndCash.SlowMoving}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Slow-moving stock'}" />
+    <views:FastMovingView DataContext="{Binding #Root.Reports.StockAndCash.FastMoving}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Fast-moving items'}" />
+    <views:DamageAdjustmentView DataContext="{Binding #Root.Reports.StockAndCash.Damage}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Damage and adjustments'}" />
+    <views:SupplierPurchasesView DataContext="{Binding #Root.Reports.StockAndCash.SupplierPurchases}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Supplier purchases'}" />
+    <views:TaxReportView DataContext="{Binding #Root.Reports.StockAndCash.Tax}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Tax'}" />
+    <views:TenderReconciliationView DataContext="{Binding #Root.Reports.StockAndCash.TenderReconciliation}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Tender reconciliation'}" />
+    <views:ShiftVarianceView DataContext="{Binding #Root.Reports.StockAndCash.ShiftVariance}"
+        IsVisible="{Binding #Root.SelectedSection, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter='Shift variance'}" />
+  </Grid>
+
+</UserControl>

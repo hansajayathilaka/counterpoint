@@ -48,7 +48,22 @@ namespace Counterpoint.Integration.Tests.Sales;
 public sealed class AC15_ProcessKillMidTransactionTests
 {
     private const int KillCount = 100;
-    private const int SalesPerRun = 400;
+
+    // An upper bound, not a target: the sell loop must never be able to finish its sales before
+    // the random kill lands, or that iteration would exit cleanly (exit 0, DONE) instead of
+    // being killed mid-trade and would silently stop testing AC-15. 400 sales took only
+    // seconds (~6 s measured on a 4-core dev VM, less on fast disks), so a test process
+    // stalled for that long under CPU load (CI runs the five test assemblies in parallel)
+    // could see its kill delay elapse after the loop had finished. At ~1 ms per fsync'd sale,
+    // 50,000 takes at least ~50 s - unreachable within a <=120 ms delay however badly the test
+    // process is starved - while still bounding an orphaned child if the test host itself is
+    // aborted (~15 min at the 16 ms per sale measured here).
+    private const int SalesPerRun = 50_000;
+
+    // Generous ceilings for the child's own startup (migrations, Argon2 sign-in) and for a
+    // killed process's streams to drain; hitting either is a genuine hang, reported as such.
+    private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan ExitTimeout = TimeSpan.FromSeconds(60);
 
     [Fact]
     public async Task AC_15_AHundredProcessKillsAtRandomPointsLeaveTheDatabaseIntactEveryTime()
@@ -72,11 +87,19 @@ public sealed class AC15_ProcessKillMidTransactionTests
 
                 var run = await RunSellLoopAsync(root, SalesPerRun, killAfterMs);
 
-                // The process must actually have been killed (or, rarely, have raced past
-                // SalesPerRun sales before the delay elapsed) - never have crashed on its own for
-                // some other reason, which would not be testing AC-15 at all.
+                // Every iteration must have ended by OUR kill while the process was still trading.
+                // A process that exited on its own - crashed (non-zero exit / ERROR) or finished
+                // its sales (DONE) - is not a power-cut test and must fail, never be tolerated.
+                // The output check also catches a process that died on its own in the instant
+                // before our Kill() reached it (Kill on an already-exited process is a no-op).
                 run.WasKilled.Should().BeTrue(
                     $"iteration {iteration}: the process should have been killed, not exited on its own (exit {run.ExitCode}): {run.Output}");
+                run.Output.Should().NotContain(
+                    "DONE",
+                    $"iteration {iteration}: the sell loop finished all {SalesPerRun} sales before the kill landed, so nothing was killed mid-trade");
+                run.Output.Should().NotContain(
+                    "ERROR",
+                    $"iteration {iteration}: the process crashed on its own (exit {run.ExitCode}) rather than being killed");
 
                 await AssertDatabaseIsIntactAsync(root, iteration);
             }
@@ -198,11 +221,19 @@ public sealed class AC15_ProcessKillMidTransactionTests
 
         if (killAfterMs is { } delay)
         {
-            var readyOrExit = await Task.WhenAny(readyTcs.Task, WaitForExitAsync(process), Task.Delay(TimeSpan.FromSeconds(10)));
+            var readyOrExit = await Task.WhenAny(readyTcs.Task, process.WaitForExitAsync(), Task.Delay(ReadyTimeout));
 
             if (readyOrExit == readyTcs.Task)
             {
                 await Task.Delay(delay);
+            }
+            else if (!process.HasExited)
+            {
+                // Neither READY nor an exit: killing it now would be a kill during startup, not
+                // mid-trade, and would pass silently. Clean up and say so.
+                process.Kill(entireProcessTree: true);
+                throw new TimeoutException(
+                    $"the sell loop printed neither READY nor exited within {ReadyTimeout.TotalSeconds:0}s: {SnapshotOutput(output)}");
             }
 
             if (!process.HasExited)
@@ -212,34 +243,26 @@ public sealed class AC15_ProcessKillMidTransactionTests
             }
         }
 
-        await WaitForExitAsync(process);
+        // Process.WaitForExitAsync (not a hand-rolled wait on the Exited event): since .NET 5 it
+        // completes only after the redirected stdout/stderr streams read via BeginOutputReadLine
+        // have reached EOF, so every line the child wrote - including the final "DONE" - has been
+        // delivered to the handlers above. The Exited event alone can fire before the last
+        // OutputDataReceived callbacks run, which truncated the output under CPU load (CI run
+        // 36761566226: "READY" only, exit code 0). A killed process's pipes close with it, so
+        // this still returns promptly after Kill(entireProcessTree: true); the timeout only
+        // guards a genuine hang.
+        using var exitTimeout = new CancellationTokenSource(ExitTimeout);
+        await process.WaitForExitAsync(exitTimeout.Token);
 
-        string capturedOutput;
-        lock (output)
-        {
-            capturedOutput = output.ToString();
-        }
-
-        return new SellLoopRun(process.ExitCode, wasKilled, capturedOutput);
+        return new SellLoopRun(process.ExitCode, wasKilled, SnapshotOutput(output));
     }
 
-    private static Task WaitForExitAsync(Process process)
+    private static string SnapshotOutput(StringBuilder output)
     {
-        if (process.HasExited)
+        lock (output)
         {
-            return Task.CompletedTask;
+            return output.ToString();
         }
-
-        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        process.EnableRaisingEvents = true;
-        process.Exited += (_, _) => tcs.TrySetResult();
-
-        if (process.HasExited)
-        {
-            tcs.TrySetResult();
-        }
-
-        return tcs.Task;
     }
 
     private static void TryDeleteDirectory(string path)

@@ -5,6 +5,7 @@
         xmlns:catalogue="using:Counterpoint.Ui.Views.Catalogue"
         xmlns:dashboard="using:Counterpoint.Ui.Views.Dashboard"
         xmlns:settings="using:Counterpoint.Ui.Views.Settings"
+        xmlns:reports="using:Counterpoint.Ui.Views.Reports"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
@@ -94,6 +95,12 @@
             Catalogue="{Binding Catalogue}"
             SelectedSection="{Binding SelectedCatalogueSection}"
             IsVisible="{Binding IsCatalogueSectionActive}" />
+
+        <!-- Reports: folded into the content pane by task P3-T05 (SRS FR-9.1, RPT-01, RPT-02, RPT-03). -->
+        <reports:ReportSectionContent
+            Reports="{Binding Reports}"
+            SelectedSection="{Binding SelectedReportSection}"
+            IsVisible="{Binding IsReportSectionActive}" />
 
         <!-- System/Settings: folded into the content pane by this task (SRS FR-10.1-10.9, UI-13). -->
         <settings:SettingsSectionContent

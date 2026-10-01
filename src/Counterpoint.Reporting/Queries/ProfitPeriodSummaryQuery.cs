@@ -46,10 +46,8 @@ internal sealed class ProfitPeriodSummaryQuery : IProfitPeriodSummaryQuery
 
         // The canonical gross-profit definition, implemented here and nowhere else: net sales minus
         // COGS. The margin rate is that figure over net sales, guarded against a zero denominator.
-        var grossProfit = totals.NetSales - cogs;
-        var marginRate = totals.NetSales.Amount == 0m
-            ? 0m
-            : grossProfit.Amount / totals.NetSales.Amount;
+        var grossProfit = CanonicalFigures.GrossProfit(totals.NetSales, cogs);
+        var marginRate = CanonicalFigures.MarginRate(totals.NetSales, grossProfit);
 
         return new ProfitPeriodSummary(
             range,

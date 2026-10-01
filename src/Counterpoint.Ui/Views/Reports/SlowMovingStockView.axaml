@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Reports"
+             xmlns:views="using:Counterpoint.Ui.Views.Reports"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Reports.SlowMovingStockView"
+             x:DataType="vm:SlowMovingStockViewModel">
+
+  <!--
+    Task P3-T06, slow-moving and dead stock (SRS RPT-12, owner-only). Markup and nothing else: every figure is bound to
+    the matching report viewmodel, itself a pass-through of one Application-layer query, and every
+    table is a shared ReportTableView. A refusal or a failed read shows as the status sentence.
+    Tokens only, no hex. Every field is a persistent-label P3-T12 LabeledField (AC-22).
+  -->
+  <UserControl.Styles>
+    <StyleInclude Source="avares://Counterpoint.Ui/Views/Reports/ReportStyles.axaml" />
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+      <TextBlock Text="Slow-moving and dead stock" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+      <TextBlock Classes="Note" TextWrapping="Wrap" Text="Items holding stock with no sale in the last N days, and the value tied up in them. Receipts and stock counts do not count as sales; an item that has never sold is measured from the day its stock first arrived." />
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <controls:LabeledTextField Width="130" Label="No sale in (days)" Text="{Binding DaysText}" ValidationMessage="{Binding DaysValidation}" />
+        <controls:LabeledComboField Width="220" Label="Category" ItemsSource="{Binding CategoryLabels}" SelectedItem="{Binding SelectedCategoryLabel}" />
+        <Button Content="_Run" Command="{Binding RunCommand}" IsEnabled="{Binding !Busy}" Margin="0,26,0,0" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" IsVisible="{Binding HasStatus}" />
+    </StackPanel>
+
+    <ScrollViewer>
+      <StackPanel Spacing="8">
+
+        <UniformGrid Columns="2" Rows="1">
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Items" /><TextBlock Classes="KpiValue" Text="{Binding ItemCountText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Value tied up" /><TextBlock Classes="KpiValue" Text="{Binding TotalValueText}" /></StackPanel></Border>
+        </UniformGrid>
+        <views:ReportTableView DataContext="{Binding Lines}" />
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </DockPanel>
+
+</UserControl>

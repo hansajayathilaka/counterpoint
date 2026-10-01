@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Counterpoint.Application.Abstractions.Persistence;
 using Counterpoint.Application.Inventory;
 using Counterpoint.Domain.ValueObjects;
+using Counterpoint.Reporting.Queries;
 using Dapper;
 
 namespace Counterpoint.Reporting.Inventory;
@@ -26,34 +27,32 @@ namespace Counterpoint.Reporting.Inventory;
 /// </para>
 /// <para>
 /// <b>Scale, and why nothing is rounded here at all.</b> <c>qty_base</c> and <c>cost_avg</c> are
-/// each stored scaled ×10 000 (<see cref="Quantity"/>, <see cref="Money"/>). Their raw SQL product
-/// (<c>ValueRaw</c> below) is therefore scaled ×100 000 000 - eight implied decimal places.
+/// each stored scaled ×10 000 (<see cref="Quantity"/>, <see cref="Money"/>). Since P3-T06 the
+/// multiplication happens in C# <see cref="decimal"/> - a cost times a quantity is exact at eight decimal
+/// places - rather than as a scaled-times-scaled product in SQL (which SQL must never do with money).
 /// <see cref="Money"/>'s own remarks are explicit that it is "not quantised on construction":
 /// quantisation to four decimal places is something <see cref="Money.ToScaled"/> does on the way
-/// to the database, and this report never writes one back. <see cref="TotalSql"/> sums the raw
-/// column across the whole table with plain 64-bit integer arithmetic (no floating point), and
-/// <see cref="Money.FromDecimal"/> then holds an exact <see cref="decimal"/> division of that sum
-/// by 100 000 000 with no rounding step at all - decimal division by a power of ten loses nothing
-/// within <see cref="decimal"/>'s own precision. That is what "ties to
-/// <c>sum(stock_balance.qty_base × cost_avg)</c> exactly" (task P2-T11's own "Done when") means
-/// here: exactly, not "exactly up to a rounding step".
+/// to the database, and this report never writes one back. The total is the exact sum of the lines,
+/// so it ties to <c>sum(stock_balance.qty_base × cost_avg)</c> exactly (task P2-T11's own "Done
+/// when"): exactly, not "exactly up to a rounding step". The value at selling price is the same
+/// construction over <c>product_variant.price</c>.
 /// </para>
 /// <para>
 /// Each line's own <see cref="StockValuationLine.Value"/> is computed the same exact way, so the
 /// lines do sum to <see cref="StockValuationReport.TotalValue"/> to the last representable digit -
 /// there is no independent rounding anywhere in this class for them to drift apart over.
+/// <b>"As at" is now:</b> the valuation reads current balances and current costs; a past date
+/// cannot be reconstructed from them and the ledger is never summed to fake one.
 /// </para>
 /// <para>
 /// No filter by <c>product.active</c> or <c>product_variant.active</c>: a valuation is "how much
 /// capital is on the shelf right now", and a discontinued line still occupies it. Every row in
-/// <c>stock_balance</c> - including a negative balance (Q-11) - is included.
+/// <c>stock_balance</c> - including a negative balance (Q-11) - is included. A category filter
+/// matches the category itself and its children (categories are two levels).
 /// </para>
 /// </remarks>
 internal sealed class StockValuationQuery : IStockValuationQuery
 {
-    /// <summary><see cref="Money.MoneyScale"/> × <see cref="Quantity.QtyScale"/> - the scale <c>ValueRaw</c> carries.</summary>
-    private const decimal ValueRawScale = 100_000_000m;
-
     private const string LinesSql =
         """
         SELECT sb.product_variant_id AS ProductVariantId,
@@ -63,16 +62,16 @@ internal sealed class StockValuationQuery : IStockValuationQuery
                p.base_uom_id AS BaseUomId,
                sb.qty_base AS QtyBaseScaled,
                sb.cost_avg AS CostAvgScaled,
-               sb.qty_base * sb.cost_avg AS ValueRaw
+               pv.price AS PriceScaled,
+               COALESCE(c.name, '') AS CategoryName
           FROM stock_balance sb
           JOIN product_variant pv ON pv.id = sb.product_variant_id
           JOIN product p ON p.id = pv.product_id
           JOIN uom u ON u.id = p.base_uom_id
-         ORDER BY ValueRaw DESC;
+          LEFT JOIN category c ON c.id = p.category_id
+         WHERE (@CategoryId IS NULL OR p.category_id = @CategoryId
+                OR p.category_id IN (SELECT id FROM category WHERE parent_id = @CategoryId));
         """;
-
-    private const string TotalSql =
-        "SELECT COALESCE(SUM(qty_base * cost_avg), 0) FROM stock_balance;";
 
     private readonly IReportConnectionFactory _connectionFactory;
 
@@ -83,32 +82,57 @@ internal sealed class StockValuationQuery : IStockValuationQuery
     }
 
     /// <inheritdoc />
-    public async Task<StockValuationReport> GetValuationAsync(CancellationToken cancellationToken = default)
+    public Task<StockValuationReport> GetValuationAsync(CancellationToken cancellationToken = default) =>
+        GetValuationAsync(new StockValuationFilter(), cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<StockValuationReport> GetValuationAsync(
+        StockValuationFilter filter,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(filter);
+
         var connection = await _connectionFactory.OpenReadConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using (connection.ConfigureAwait(false))
         {
-            var linesCommand = new CommandDefinition(LinesSql, cancellationToken: cancellationToken);
-            var rows = await connection.QueryAsync<Row>(linesCommand).ConfigureAwait(false);
+            var command = new CommandDefinition(
+                LinesSql, new { filter.CategoryId }, cancellationToken: cancellationToken);
+            var rows = await connection.QueryAsync<Row>(command).ConfigureAwait(false);
 
-            var totalCommand = new CommandDefinition(TotalSql, cancellationToken: cancellationToken);
-            var totalRaw = await connection.ExecuteScalarAsync<long>(totalCommand).ConfigureAwait(false);
+            IReadOnlyList<StockValuationLine> lines =
+            [
+                .. rows.Select(ToLine)
+                    .OrderByDescending(line => line.Value)
+                    .ThenBy(line => line.Sku, StringComparer.Ordinal),
+            ];
 
-            IReadOnlyList<StockValuationLine> lines = [.. rows.Select(ToLine)];
-            var totalValue = Money.FromDecimal(totalRaw / ValueRawScale);
-
-            return new StockValuationReport(lines, totalValue);
+            return new StockValuationReport(
+                lines,
+                CanonicalFigures.Sum(lines.Select(line => line.Value)),
+                CanonicalFigures.Sum(lines.Select(line => line.ValueAtSellingPrice)));
         }
     }
 
-    private static StockValuationLine ToLine(Row row) => new(
-        row.ProductVariantId,
-        row.ProductDescription,
-        row.Sku,
-        row.BaseUomSymbol,
-        Quantity.FromScaled(row.QtyBaseScaled, row.BaseUomId),
-        Money.FromScaled(row.CostAvgScaled),
-        Money.FromDecimal(row.ValueRaw / ValueRawScale));
+    // Cost and price times quantity, multiplied here in decimal - exact, never rounded, never a scaled
+    // product in SQL.
+    private static StockValuationLine ToLine(Row row)
+    {
+        var qty = Quantity.FromScaled(row.QtyBaseScaled, row.BaseUomId);
+        var cost = Money.FromScaled(row.CostAvgScaled);
+        var price = Money.FromScaled(row.PriceScaled);
+
+        return new StockValuationLine(
+            row.ProductVariantId,
+            row.ProductDescription,
+            row.Sku,
+            row.BaseUomSymbol,
+            qty,
+            cost,
+            cost * qty.Value,
+            row.CategoryName,
+            price,
+            price * qty.Value);
+    }
 
     /// <summary>The flat shape Dapper maps a row of <see cref="LinesSql"/> onto.</summary>
     private sealed class Row
@@ -127,6 +151,8 @@ internal sealed class StockValuationQuery : IStockValuationQuery
 
         public long CostAvgScaled { get; set; }
 
-        public long ValueRaw { get; set; }
+        public long PriceScaled { get; set; }
+
+        public string CategoryName { get; set; } = string.Empty;
     }
 }

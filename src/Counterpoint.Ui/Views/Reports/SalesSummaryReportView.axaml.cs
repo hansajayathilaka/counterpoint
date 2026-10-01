@@ -1,0 +1,15 @@
+using Avalonia.Controls;
+
+namespace Counterpoint.Ui.Views.Reports;
+
+/// <summary>
+/// Task P3-T05: RPT-01, the sales summary screen. Markup and nothing else - every figure is bound to
+/// the matching report viewmodel, itself a pass-through of one Application-layer query.
+/// </summary>
+public partial class SalesSummaryReportView : UserControl
+{
+    public SalesSummaryReportView()
+    {
+        InitializeComponent();
+    }
+}

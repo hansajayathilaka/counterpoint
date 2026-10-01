@@ -1,0 +1,119 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Counterpoint.Ui.ViewModels.Reports"
+             xmlns:views="using:Counterpoint.Ui.Views.Reports"
+             xmlns:controls="using:Counterpoint.Ui.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="640"
+             x:Class="Counterpoint.Ui.Views.Reports.ProfitReportView"
+             x:DataType="vm:ProfitReportViewModel">
+
+  <!--
+    Task P3-T05, RPT-03: the profit report - net sales, COGS (the snapshot cost, never the current
+    one), gross profit and margin by month, day, category, brand or item. Owner-only: the query
+    refuses a cashier session in the Application layer and the refusal shows as the status line; the
+    nav item being hidden from a cashier is a courtesy. A period or item row drills to its bills.
+    Tokens only, no hex.
+  -->
+  <UserControl.Styles>
+    <Style Selector="TextBlock.Head">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+    <Style Selector="TextBlock.Cell">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.Num">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <Style Selector="TextBlock.SectionTitle">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="Margin" Value="0,8,0,4" />
+    </Style>
+    <Style Selector="Border.KpiCard">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="14" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+    <Style Selector="Border.KpiCard TextBlock.KpiLabel">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    </Style>
+    <Style Selector="Border.KpiCard TextBlock.KpiValue">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12" IsVisible="{Binding !Drill.IsActive}">
+      <TextBlock Text="Profit" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <views:ReportRangeBar DataContext="{Binding Range}" />
+        <controls:LabeledComboField Width="170"
+                                    Label="Group by"
+                                    ItemsSource="{Binding GroupingLabels}"
+                                    SelectedItem="{Binding SelectedGroupingLabel}" />
+        <Button Content="_Run" Command="{Binding RunCommand}" IsEnabled="{Binding !Busy}" Margin="0,26,0,0" />
+      </StackPanel>
+      <TextBlock Text="{Binding Status}" Foreground="{DynamicResource WarningBrush}" IsVisible="{Binding HasStatus}" />
+    </StackPanel>
+
+    <ScrollViewer IsVisible="{Binding !Drill.IsActive}">
+      <StackPanel Spacing="8">
+
+        <UniformGrid Columns="6" Rows="1">
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Net sales" /><TextBlock Classes="KpiValue" Text="{Binding NetSalesText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="COGS" /><TextBlock Classes="KpiValue" Text="{Binding CogsText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Gross profit" /><TextBlock Classes="KpiValue" Text="{Binding GrossProfitText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Margin" /><TextBlock Classes="KpiValue" Text="{Binding MarginText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Discounts" /><TextBlock Classes="KpiValue" Text="{Binding DiscountsText}" /></StackPanel></Border>
+          <Border Classes="KpiCard"><StackPanel><TextBlock Classes="KpiLabel" Text="Returns refunded" /><TextBlock Classes="KpiValue" Text="{Binding ReturnsText}" /></StackPanel></Border>
+        </UniformGrid>
+
+        <Grid ColumnDefinitions="40,110,*,110,110,110,110,70,70,Auto" Margin="0,8,0,0">
+          <TextBlock Grid.Column="0" Classes="Head" Text="#" />
+          <TextBlock Grid.Column="1" Classes="Head" Text="SKU" />
+          <TextBlock Grid.Column="2" Classes="Head" Text="Group" />
+          <TextBlock Grid.Column="3" Classes="Head Num" Text="Quantity" />
+          <TextBlock Grid.Column="4" Classes="Head Num" Text="Net sales" />
+          <TextBlock Grid.Column="5" Classes="Head Num" Text="COGS" />
+          <TextBlock Grid.Column="6" Classes="Head Num" Text="Gross profit" />
+          <TextBlock Grid.Column="7" Classes="Head Num" Text="Margin" />
+          <TextBlock Grid.Column="8" Classes="Head Num" Text="Share" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Rows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ProfitRowViewModel">
+              <Grid ColumnDefinitions="40,110,*,110,110,110,110,70,70,Auto" Margin="0,2">
+                <TextBlock Grid.Column="0" Classes="Cell" Text="{Binding RankText}" />
+                <TextBlock Grid.Column="1" Classes="Cell" Text="{Binding Code}" />
+                <TextBlock Grid.Column="2" Classes="Cell" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="3" Classes="Cell Num" Text="{Binding QuantityText}" />
+                <TextBlock Grid.Column="4" Classes="Cell Num" Text="{Binding NetText}" />
+                <TextBlock Grid.Column="5" Classes="Cell Num" Text="{Binding CogsText}" />
+                <TextBlock Grid.Column="6" Classes="Cell Num" Text="{Binding GrossProfitText}" FontWeight="Bold" />
+                <TextBlock Grid.Column="7" Classes="Cell Num" Text="{Binding MarginText}" />
+                <TextBlock Grid.Column="8" Classes="Cell Num" Text="{Binding ShareText}" />
+                <Button Grid.Column="9" Margin="8,0,0,0" Content="Bills" Command="{Binding DrillCommand}"
+                        CommandParameter="{Binding DrillParameter}" IsVisible="{Binding CanDrill}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <views:BillDrillDownView DataContext="{Binding Drill}" IsVisible="{Binding IsActive}" />
+
+  </DockPanel>
+
+</UserControl>

@@ -63,13 +63,14 @@ internal sealed class ReorderListQuery : IReorderListQuery
                    p.reorder_level AS ReorderLevelScaled,
                    p.reorder_qty AS SuggestedQtyScaled,
                    p.base_uom_id AS BaseUomId,
-                   u.symbol AS BaseUomSymbol
+                   u.symbol AS BaseUomSymbol,
+                   p.category_id AS CategoryId
               FROM product p
               JOIN product_variant pv ON pv.product_id = p.id AND pv.active = 1
               JOIN uom u ON u.id = p.base_uom_id
               LEFT JOIN stock_balance sb ON sb.product_variant_id = pv.id
              WHERE p.active = 1 AND p.reorder_level > 0
-             GROUP BY p.id, p.code, p.name, p.reorder_level, p.reorder_qty, p.base_uom_id, u.symbol
+             GROUP BY p.id, p.code, p.name, p.reorder_level, p.reorder_qty, p.base_uom_id, u.symbol, p.category_id
             HAVING COALESCE(SUM(sb.qty_base), 0) <= p.reorder_level
         ),
         supplier_count AS (
@@ -120,10 +121,15 @@ internal sealed class ReorderListQuery : IReorderListQuery
                ls.BaseUomId,
                ls.BaseUomSymbol,
                pr.supplier_id AS PreferredSupplierId,
-               s.name AS PreferredSupplierName
+               s.name AS PreferredSupplierName,
+               COALESCE(c.name, '') AS CategoryName
           FROM low_stock ls
           LEFT JOIN preferred pr ON pr.product_id = ls.ProductId
           LEFT JOIN supplier s ON s.id = pr.supplier_id
+          LEFT JOIN category c ON c.id = ls.CategoryId
+         WHERE (@SupplierId IS NULL OR pr.supplier_id = @SupplierId)
+           AND (@CategoryId IS NULL OR ls.CategoryId = @CategoryId
+                OR ls.CategoryId IN (SELECT id FROM category WHERE parent_id = @CategoryId))
          ORDER BY (ls.ReorderLevelScaled - ls.QtyOnHandScaled) DESC, ls.ProductCode;
         """;
 
@@ -136,18 +142,50 @@ internal sealed class ReorderListQuery : IReorderListQuery
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<ReorderListLine>> GetReorderListAsync(
+        CancellationToken cancellationToken = default) =>
+        GetReorderListAsync(new ReorderListFilter(), cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<ReorderListLine>> GetReorderListAsync(
+        ReorderListFilter filter,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(filter);
+
         var connection = await _connectionFactory.OpenReadConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using (connection.ConfigureAwait(false))
         {
-            var command = new CommandDefinition(Sql, cancellationToken: cancellationToken);
+            var command = new CommandDefinition(
+                Sql, new { filter.SupplierId, filter.CategoryId }, cancellationToken: cancellationToken);
             var rows = await connection.QueryAsync<Row>(command).ConfigureAwait(false);
 
             IReadOnlyList<ReorderListLine> result = [.. rows.Select(ToLine)];
             return result;
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ReorderSupplierGroup>> GetReorderListBySupplierAsync(
+        ReorderListFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        var lines = await GetReorderListAsync(filter, cancellationToken).ConfigureAwait(false);
+
+        // The SQL already orders furthest-under-level first, and GroupBy preserves that order inside a group.
+        IReadOnlyList<ReorderSupplierGroup> groups =
+        [
+            .. lines
+                .GroupBy(line => line.PreferredSupplierId)
+                .Select(group => new ReorderSupplierGroup(
+                    group.Key,
+                    group.First().PreferredSupplierName ?? string.Empty,
+                    [.. group]))
+                .OrderBy(group => group.SupplierId is null ? 1 : 0)
+                .ThenBy(group => group.SupplierName, StringComparer.OrdinalIgnoreCase),
+        ];
+
+        return groups;
     }
 
     private static ReorderListLine ToLine(Row row) => new(
@@ -159,7 +197,8 @@ internal sealed class ReorderListQuery : IReorderListQuery
         Quantity.FromScaled(row.SuggestedQtyScaled, row.BaseUomId),
         row.BaseUomSymbol,
         row.PreferredSupplierId,
-        row.PreferredSupplierName);
+        row.PreferredSupplierName,
+        row.CategoryName);
 
     /// <summary>The flat shape Dapper maps a row of <see cref="Sql"/> onto.</summary>
     private sealed class Row
@@ -183,5 +222,7 @@ internal sealed class ReorderListQuery : IReorderListQuery
         public long? PreferredSupplierId { get; set; }
 
         public string? PreferredSupplierName { get; set; }
+
+        public string CategoryName { get; set; } = string.Empty;
     }
 }

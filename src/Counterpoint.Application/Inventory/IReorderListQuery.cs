@@ -37,7 +37,38 @@ public interface IReorderListQuery
     /// furthest first.
     /// </summary>
     public Task<IReadOnlyList<ReorderListLine>> GetReorderListAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The same list narrowed by <paramref name="filter"/> (task P3-T06 "Do this" #7, SRS §9 RPT-10:
+    /// "Supplier, category" filters). The low-stock predicate is unchanged.
+    /// </summary>
+    public Task<IReadOnlyList<ReorderListLine>> GetReorderListAsync(
+        ReorderListFilter filter,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The same list as purchasing wants to read it - grouped by preferred supplier, suppliers by name
+    /// with "no supplier linked" last, each group's lines furthest under their level first (SRS §9 RPT-10:
+    /// "grouped by supplier").
+    /// </summary>
+    public Task<IReadOnlyList<ReorderSupplierGroup>> GetReorderListBySupplierAsync(
+        ReorderListFilter filter,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>What the reorder list narrows to.</summary>
+/// <param name="SupplierId">Only products whose <i>preferred</i> supplier (as <see cref="ReorderListLine.PreferredSupplierId"/> resolves it) is this one. Null is all.</param>
+/// <param name="CategoryId">Only products filed under this category or one of its children. Null is all.</param>
+public sealed record ReorderListFilter(long? SupplierId = null, long? CategoryId = null);
+
+/// <summary>Reorder lines for one preferred supplier.</summary>
+/// <param name="SupplierId">The supplier, or null for products with no supplier linked.</param>
+/// <param name="SupplierName">Their name; empty when <paramref name="SupplierId"/> is null.</param>
+/// <param name="Lines">The group's products, furthest under their level first.</param>
+public sealed record ReorderSupplierGroup(
+    long? SupplierId,
+    string SupplierName,
+    IReadOnlyList<ReorderListLine> Lines);
 
 /// <summary>One product at or below its reorder level (task P2-T11 "Do this" #1).</summary>
 /// <param name="ProductId">The product below its reorder level.</param>
@@ -59,6 +90,7 @@ public interface IReorderListQuery
 /// later explicit "preferred supplier" flag on <c>product_supplier</c> could replace the heuristic
 /// without changing this shape.
 /// </param>
+/// <param name="CategoryName">The product's category as filed now; empty when unfiled.</param>
 public sealed record ReorderListLine(
     long ProductId,
     string ProductCode,
@@ -68,4 +100,5 @@ public sealed record ReorderListLine(
     Quantity SuggestedQty,
     string BaseUomSymbol,
     long? PreferredSupplierId,
-    string? PreferredSupplierName);
+    string? PreferredSupplierName,
+    string CategoryName = "");
