@@ -223,21 +223,27 @@ public partial class App : Avalonia.Application
 
         var window = new BackOfficeShellWindow { DataContext = _backOfficeShellViewModel };
 
-        // -= before += : BackOfficeShellViewModel is a singleton, so re-opening this window
-        // without unsubscribing first would fire ShowUsers (and the rest) once per window ever
-        // opened, each pointed at whichever window happened to be current at the time.
-        _backOfficeShellViewModel.ManageUsersRequested -= OnManageUsersRequested;
-        _backOfficeShellViewModel.ManageUsersRequested += OnManageUsersRequested;
-        _backOfficeShellViewModel.PurchaseOrdersRequested -= OnPurchaseOrdersRequested;
-        _backOfficeShellViewModel.PurchaseOrdersRequested += OnPurchaseOrdersRequested;
-        _backOfficeShellViewModel.LabelPrintRequested -= OnLabelPrintRequested;
-        _backOfficeShellViewModel.LabelPrintRequested += OnLabelPrintRequested;
+        // BackOfficeShellViewModel is a singleton that outlives this window, and each handler
+        // below closes over this call's own window. A `-=` of a fresh delegate would never match
+        // the one a previous call subscribed (a local function capturing `window` is a new
+        // delegate every call), so the handlers are held in locals and removed in window.Closed
+        // below. Left subscribed, reopening the back office would stack another set of handlers
+        // per open, and the next click would call Show on a closed owner - which Avalonia refuses
+        // with an InvalidOperationException, an unhandled crash on the UI thread.
+        EventHandler onManageUsers = (_, _) => ShowUsers(window);
+        EventHandler onPurchaseOrders = (_, _) => ShowPurchaseOrders(window);
+        EventHandler onLabelPrint = (_, _) => ShowLabelPrint(window);
+        EventHandler onReturnToSales = (_, _) => window.Close();
+        EventHandler onRestoreWizard = (_, _) => ShowRestoreWizard(window);
+
+        _backOfficeShellViewModel.ManageUsersRequested += onManageUsers;
+        _backOfficeShellViewModel.PurchaseOrdersRequested += onPurchaseOrders;
+        _backOfficeShellViewModel.LabelPrintRequested += onLabelPrint;
 
         // Task P3-T20: the Overview's "New sale" and "Open shift" quick actions both just want
         // this window gone, so SalesWindow (already sitting behind it as owner) is back in front
         // with its own F2/"Open shift" already there to press.
-        _backOfficeShellViewModel.ReturnToSalesRequested -= OnReturnToSalesRequested;
-        _backOfficeShellViewModel.ReturnToSalesRequested += OnReturnToSalesRequested;
+        _backOfficeShellViewModel.ReturnToSalesRequested += onReturnToSales;
 
         // Task P3-T19: Settings no longer opens its own window (SettingsWindow is retired), so
         // there is no longer a SettingsRequested event to relay here - only the restore wizard
@@ -245,8 +251,7 @@ public partial class App : Avalonia.Application
         // singleton this window's own content pane now hosts.
         if (_settingsViewModel is not null)
         {
-            _settingsViewModel.RestoreWizardRequested -= OnRestoreWizardRequested;
-            _settingsViewModel.RestoreWizardRequested += OnRestoreWizardRequested;
+            _settingsViewModel.RestoreWizardRequested += onRestoreWizard;
         }
 
         // Bugfix (task P3-T18 review), extended by task P3-T19: BackOfficeShellViewModel is a
@@ -259,7 +264,20 @@ public partial class App : Avalonia.Application
         // deliberately bypasses task P3-T19's navigate-away guard: there is no window left here to
         // show a confirmation dialog against. window is a fresh instance per call, so no -= is
         // needed here the way the singleton VM's own events need it above.
-        window.Closed += (_, _) => _backOfficeShellViewModel.ResetNavigation();
+        window.Closed += (_, _) =>
+        {
+            _backOfficeShellViewModel.ManageUsersRequested -= onManageUsers;
+            _backOfficeShellViewModel.PurchaseOrdersRequested -= onPurchaseOrders;
+            _backOfficeShellViewModel.LabelPrintRequested -= onLabelPrint;
+            _backOfficeShellViewModel.ReturnToSalesRequested -= onReturnToSales;
+
+            if (_settingsViewModel is not null)
+            {
+                _settingsViewModel.RestoreWizardRequested -= onRestoreWizard;
+            }
+
+            _backOfficeShellViewModel.ResetNavigation();
+        };
 
         // Task P3-T20: Overview is the section the shell opens on, so its dashboard is loaded
         // unconditionally on every open - the same "refresh on open" ShowUsers/ShowPurchaseOrders/
@@ -269,12 +287,6 @@ public partial class App : Avalonia.Application
         _backOfficeShellViewModel.Dashboard?.LoadCommand.Execute(null);
 
         window.Show(owner);
-
-        void OnManageUsersRequested(object? sender, EventArgs e) => ShowUsers(window);
-        void OnPurchaseOrdersRequested(object? sender, EventArgs e) => ShowPurchaseOrders(window);
-        void OnLabelPrintRequested(object? sender, EventArgs e) => ShowLabelPrint(window);
-        void OnReturnToSalesRequested(object? sender, EventArgs e) => window.Close();
-        void OnRestoreWizardRequested(object? sender, EventArgs e) => ShowRestoreWizard(window);
     }
 
     private void ShowUsers(Window owner)
