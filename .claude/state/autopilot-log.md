@@ -436,3 +436,12 @@ it stopped.
 - `2026-09-30T22:02:00Z` **P3-T06** partial — afbb1b8: 3 of 4 Done-when proven; 'every SRS s9 report exists' NOT satisfied (RPT-17/18/20/22/23/24/25 owned elsewhere or no data model) - left in-progress, draft PR
 
 **Run ended 2026-10-01T00:53:55Z** — 1 completed (P3-T05), 1 partial (P3-T06 in-progress: Done-when #1 unsatisfiable by this task), 0 halted
+
+## Run 2026-10-08T11:30:11Z
+
+- branch: `claude/stoic-planck-q3ljz9`
+- head: `e15c01b`
+- budget: 2 task(s)
+
+
+**Run ended 2026-10-08T11:30:21Z** — halted before P3-T08: P3-T06 is still in-progress (awaiting owner decisions Q-RPT-17, Q-RPT-FILTERS); ledger allows one in-progress task
